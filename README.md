@@ -276,7 +276,6 @@ Need help or want to connect? Join our community:
 - 💬 **Telegram**: [t.me/winsnip](https://t.me/winsnip)
 - 💻 **GitHub**: [github.com/winsnip-official](https://github.com/winsnip-official)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/winsnip-official/winscan/issues)
-- 💡 **Discussions**: [GitHub Discussions](https://github.com/winsnip-official/winscan/discussions)
 
 ## 🙏 Acknowledgments
 
