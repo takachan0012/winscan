@@ -4,6 +4,15 @@
 
 **WinScan** is a modern, professional multi-chain blockchain explorer built with Next.js 14 and TypeScript. Monitor multiple Cosmos SDK-based blockchains in real-time with an elegant, minimalist interface.
 
+<div align="center">
+
+[![Website](https://img.shields.io/badge/Website-winsnip.xyz-blue?style=for-the-badge&logo=google-chrome)](https://winsnip.xyz)
+[![Twitter](https://img.shields.io/badge/Twitter-@winsnip-1DA1F2?style=for-the-badge&logo=twitter)](https://twitter.com/winsnip)
+[![Telegram](https://img.shields.io/badge/Telegram-WinSnip-26A5E4?style=for-the-badge&logo=telegram)](https://t.me/winsnip)
+[![GitHub](https://img.shields.io/badge/GitHub-winsnip--official-181717?style=for-the-badge&logo=github)](https://github.com/winsnip-official)
+
+</div>
+
 ## ✨ Features
 
 - 🌐 **Multi-Chain Support** - Monitor multiple blockchain networks from one dashboard
@@ -258,11 +267,16 @@ Contributions are welcome! Please follow these guidelines:
 - Update documentation if needed
 - Test your changes before submitting
 
-## 📞 Support
+## 📞 Support & Community
 
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/winscan/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/winscan/discussions)
-- **Documentation**: Check `/backend-api/DEPLOY-GUIDE.md` for deployment help
+Need help or want to connect? Join our community:
+
+- 🌐 **Website**: [winsnip.xyz](https://winsnip.xyz)
+- 🐦 **Twitter**: [@winsnip](https://twitter.com/winsnip)
+- 💬 **Telegram**: [t.me/winsnip](https://t.me/winsnip)
+- 💻 **GitHub**: [github.com/winsnip-official](https://github.com/winsnip-official)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/winsnip-official/winscan/issues)
+- 💡 **Discussions**: [GitHub Discussions](https://github.com/winsnip-official/winscan/discussions)
 
 ## 🙏 Acknowledgments
 
@@ -281,6 +295,14 @@ Contributions are welcome! Please follow these guidelines:
 
 ---
 
-**Made with ❤️ for the Cosmos ecosystem**
+<div align="center">
 
-⭐ Star this repo if you find it useful!
+**Made with ❤️ by [WinSnip](https://winsnip.xyz) for the Cosmos ecosystem**
+
+[![Website](https://img.shields.io/badge/🌐-winsnip.xyz-blue)](https://winsnip.xyz)
+[![Twitter](https://img.shields.io/badge/🐦-@winsnip-1DA1F2)](https://twitter.com/winsnip)
+[![Telegram](https://img.shields.io/badge/💬-WinSnip-26A5E4)](https://t.me/winsnip)
+
+⭐ **Star this repo if you find it useful!**
+
+</div>
