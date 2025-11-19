@@ -9,6 +9,13 @@ import { ChainData } from '@/types/chain';
 import { Settings, Shield, Vote, DollarSign, Users, Clock, Layers } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { 
+  fetchStakingParamsDirectly, 
+  fetchSlashingParamsDirectly, 
+  fetchGovParamsDirectly,
+  fetchDistributionParamsDirectly,
+  fetchMintParamsDirectly
+} from '@/lib/cosmos-client';
 
 interface ChainParameters {
   staking?: {
@@ -91,7 +98,7 @@ export default function ParametersPage() {
     
     const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
     const cacheKey = `parameters_${chainName}`;
-    const cacheTimeout = 300000; // 5 minutes (parameters change rarely)
+    const cacheTimeout = 300000; // 5 minutes
 
     try {
       const cached = sessionStorage.getItem(cacheKey);
@@ -108,26 +115,73 @@ export default function ParametersPage() {
       console.warn('Cache read error:', e);
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    
-    fetch(`/api/parameters?chain=${chainName}`, { signal: controller.signal })
-      .then(res => res.json())
-      .then(data => {
+    const fetchParams = async () => {
+      try {
+        // Strategy: Try direct LCD fetch first
+        const lcdEndpoints = selectedChain.api?.map(api => ({
+          address: api.address,
+          provider: api.provider || 'Unknown'
+        })) || [];
+        
+        if (lcdEndpoints.length > 0) {
+          try {
+            console.log(`[Parameters] Using direct LCD fetch for ${selectedChain.chain_name}`);
+            
+            // Fetch all params in parallel
+            const [staking, slashing, gov, distribution, mint] = await Promise.allSettled([
+              fetchStakingParamsDirectly(lcdEndpoints),
+              fetchSlashingParamsDirectly(lcdEndpoints),
+              fetchGovParamsDirectly(lcdEndpoints),
+              fetchDistributionParamsDirectly(lcdEndpoints),
+              fetchMintParamsDirectly(lcdEndpoints)
+            ]);
+            
+            const paramsData: ChainParameters = {
+              staking: staking.status === 'fulfilled' ? staking.value : undefined,
+              slashing: slashing.status === 'fulfilled' ? slashing.value : undefined,
+              gov: gov.status === 'fulfilled' ? gov.value : undefined,
+              distribution: distribution.status === 'fulfilled' ? distribution.value : undefined,
+              mint: mint.status === 'fulfilled' ? mint.value : undefined,
+            };
+            
+            setParameters(paramsData);
+            setLoading(false);
+            
+            try {
+              sessionStorage.setItem(cacheKey, JSON.stringify({ data: paramsData, timestamp: Date.now() }));
+            } catch (e) {
+              console.warn('Cache write error:', e);
+            }
+            return;
+          } catch (directError) {
+            console.warn('[Parameters] Direct LCD fetch failed, trying server API:', directError);
+          }
+        }
+        
+        // Fallback: Server API
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        const res = await fetch(`/api/parameters?chain=${chainName}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        const data = await res.json();
         console.log('Parameters data:', data);
         setParameters(data);
         setLoading(false);
+        
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
         } catch (e) {
           console.warn('Cache write error:', e);
         }
-      })
-      .catch(err => {
+      } catch (err) {
         console.error('Error loading parameters:', err);
         setLoading(false);
-      })
-      .finally(() => clearTimeout(timeoutId));
+      }
+    };
+    
+    fetchParams();
   }, [selectedChain]);
 
   const chainPath = selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '';

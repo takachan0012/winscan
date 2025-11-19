@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { FileText, Hash, Clock, CheckCircle, XCircle, DollarSign, Code, Zap } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { fetchTxByHashDirectly } from '@/lib/cosmos-client';
 
 interface TxDetail {
   hash: string;
@@ -56,14 +57,54 @@ export default function TransactionDetailPage() {
   useEffect(() => {
     if (selectedChain && params?.hash) {
       setLoading(true);
-      fetch(`/api/transaction?chain=${selectedChain.chain_id || selectedChain.chain_name}&hash=${params.hash}`)
-        .then(res => {
+      
+      const fetchTxData = async () => {
+        try {
+          // Strategy: Try direct LCD fetch first
+          const lcdEndpoints = selectedChain.api?.map(api => ({
+            address: api.address,
+            provider: api.provider || 'Unknown'
+          })) || [];
+          
+          if (lcdEndpoints.length > 0) {
+            try {
+              console.log(`[TxDetail] Using direct LCD fetch for tx ${params.hash}`);
+              const txData = await fetchTxByHashDirectly(lcdEndpoints, params.hash as string);
+              
+              const transformedData: TxDetail = {
+                hash: txData.txhash,
+                height: parseInt(txData.height),
+                time: txData.timestamp,
+                result: txData.code === 0 ? 'Success' : 'Failed',
+                code: txData.code,
+                gasUsed: txData.gas_used || '0',
+                gasWanted: txData.gas_wanted || '0',
+                fee: txData.tx?.auth_info?.fee?.amount?.[0]?.amount || '0',
+                memo: txData.tx?.body?.memo || '',
+                messages: (txData.tx?.body?.messages || []).map((msg: any) => ({
+                  type: msg['@type'],
+                  value: msg
+                })),
+                logs: JSON.stringify(txData.logs || [], null, 2),
+                rawLog: txData.raw_log || ''
+              };
+              
+              setTransaction(transformedData);
+              setLoading(false);
+              return;
+            } catch (directError) {
+              console.warn('[TxDetail] Direct LCD fetch failed, trying server API:', directError);
+            }
+          }
+          
+          // Fallback: Server API
+          const res = await fetch(`/api/transaction?chain=${selectedChain.chain_id || selectedChain.chain_name}&hash=${params.hash}`);
+          
           if (!res.ok) {
             throw new Error('Transaction not found');
           }
-          return res.json();
-        })
-        .then(data => {
+          
+          const data = await res.json();
           const transformedData: TxDetail = {
             hash: data.hash,
             height: data.height,
@@ -83,11 +124,13 @@ export default function TransactionDetailPage() {
           };
           setTransaction(transformedData);
           setLoading(false);
-        })
-        .catch(err => {
+        } catch (err) {
           console.error('Error loading transaction:', err);
           setLoading(false);
-        });
+        }
+      };
+      
+      fetchTxData();
     }
   }, [selectedChain, params]);
 

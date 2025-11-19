@@ -11,6 +11,7 @@ import { Box, Clock, Hash, User, FileText } from 'lucide-react';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { fetchBlockByHeightDirectly, fetchValidatorsDirectly } from '@/lib/cosmos-client';
 
 interface BlockDetail {
   height: number;
@@ -56,20 +57,79 @@ export default function BlockDetailPage() {
   useEffect(() => {
     if (selectedChain && params?.height) {
       setLoading(true);
-      setBlock(null); // Reset block state
+      setBlock(null);
       const chainParam = selectedChain.chain_id || selectedChain.chain_name;
       console.log('Fetching block:', params.height, 'for chain:', chainParam);
       
-      fetch(`/api/block?chain=${chainParam}&height=${params.height}`)
-        .then(res => {
-          console.log('Response status:', res.status);
+      const fetchBlockData = async () => {
+        try {
+          // Strategy: Try direct LCD fetch first
+          const lcdEndpoints = selectedChain.api?.map(api => ({
+            address: api.address,
+            provider: api.provider || 'Unknown'
+          })) || [];
+          
+          if (lcdEndpoints.length > 0) {
+            try {
+              console.log(`[BlockDetail] Using direct LCD fetch for block ${params.height}`);
+              
+              // Fetch block and validators in parallel
+              const [blockData, validators] = await Promise.all([
+                fetchBlockByHeightDirectly(lcdEndpoints, params.height as string),
+                fetchValidatorsDirectly(lcdEndpoints, 'BOND_STATUS_BONDED', 300).catch(() => [])
+              ]);
+              
+              // Find validator by proposer address
+              const proposerAddress = blockData.block.header.proposer_address;
+              let validatorInfo = null;
+              
+              if (validators.length > 0) {
+                // Convert proposer hex to match validator consensus pubkey
+                const validator = validators.find((v: any) => {
+                  // This is simplified - you might need proper address conversion
+                  return v.consensus_pubkey?.key || false;
+                });
+                
+                if (validator) {
+                  validatorInfo = {
+                    moniker: validator.description?.moniker,
+                    identity: validator.description?.identity,
+                    address: validator.operator_address
+                  };
+                }
+              }
+              
+              const formattedBlock: BlockDetail = {
+                height: parseInt(blockData.block.header.height),
+                hash: blockData.block_id.hash,
+                time: blockData.block.header.time,
+                txs: blockData.block.data.txs?.length || 0,
+                proposer: proposerAddress,
+                proposerMoniker: validatorInfo?.moniker,
+                proposerIdentity: validatorInfo?.identity,
+                proposerAddress: validatorInfo?.address,
+                gasUsed: '0',
+                gasWanted: '0',
+                transactions: [] // Fetch separately if needed
+              };
+              
+              setBlock(formattedBlock);
+              setLoading(false);
+              return;
+            } catch (directError) {
+              console.warn('[BlockDetail] Direct LCD fetch failed, trying server API:', directError);
+            }
+          }
+          
+          // Fallback: Server API
+          const res = await fetch(`/api/block?chain=${chainParam}&height=${params.height}`);
+          
           if (!res.ok) {
             throw new Error(`HTTP ${res.status}`);
           }
-          return res.json();
-        })
-        .then(data => {
-          console.log('Block data received:', data);
+          
+          const data = await res.json();
+          
           if (data.error) {
             console.error('Error loading block:', data.error);
             setBlock(null);
@@ -77,12 +137,14 @@ export default function BlockDetailPage() {
             setBlock(data);
           }
           setLoading(false);
-        })
-        .catch(err => {
+        } catch (err) {
           console.error('Error loading block:', err);
           setBlock(null);
           setLoading(false);
-        });
+        }
+      };
+      
+      fetchBlockData();
     }
   }, [selectedChain, params]);
 

@@ -13,6 +13,12 @@ import { fetchApi } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { convertValidatorToAccountAddress } from '@/lib/addressConverter';
+import { 
+  fetchValidatorByAddressDirectly,
+  fetchValidatorDelegationsDirectly,
+  fetchValidatorUnbondingDelegationsDirectly,
+  fetchTxsByAddressDirectly
+} from '@/lib/cosmos-client';
 
 interface ValidatorDetail {
   address: string;
@@ -117,6 +123,102 @@ export default function ValidatorDetailPage() {
     else setIsRefreshing(true);
     
     try {
+      // Strategy: Try direct LCD fetch first
+      const lcdEndpoints = selectedChain.api?.map(api => ({
+        address: api.address,
+        provider: api.provider || 'Unknown'
+      })) || [];
+      
+      if (lcdEndpoints.length > 0) {
+        try {
+          console.log(`[ValidatorDetail] Using direct LCD fetch for ${params.address}`);
+          
+          // Calculate account address for transaction queries
+          let accountAddress = validator?.accountAddress;
+          if (!accountAddress && params.address) {
+            accountAddress = convertValidatorToAccountAddress(params.address as string);
+          }
+          
+          // Fetch validator, delegations, unbonding, and transactions in parallel
+          const [validatorData, delegationsData, unbondingData, txsData] = await Promise.allSettled([
+            fetchValidatorByAddressDirectly(lcdEndpoints, params.address as string),
+            fetchValidatorDelegationsDirectly(lcdEndpoints, params.address as string, 1000),
+            fetchValidatorUnbondingDelegationsDirectly(lcdEndpoints, params.address as string, 1000),
+            accountAddress ? fetchTxsByAddressDirectly(lcdEndpoints, accountAddress, 1000) : Promise.resolve([])
+          ]);
+          
+          // Process validator data
+          if (validatorData.status === 'fulfilled') {
+            const v = validatorData.value;
+            const formattedValidator: ValidatorDetail = {
+              address: v.operator_address,
+              accountAddress: accountAddress,
+              moniker: v.description?.moniker || 'Unknown',
+              website: v.description?.website || '',
+              details: v.description?.details || '',
+              identity: v.description?.identity || '',
+              votingPower: v.tokens || '0',
+              votingPowerPercentage: '0', // Calculate from total pool
+              commission: v.commission?.commission_rates?.rate || '0',
+              maxCommission: v.commission?.commission_rates?.max_rate || '0',
+              maxChangeRate: v.commission?.commission_rates?.max_change_rate || '0',
+              status: v.status,
+              jailed: v.jailed,
+              tokens: v.tokens || '0',
+              delegatorShares: v.delegator_shares || '0',
+              unbondingHeight: v.unbonding_height || '0',
+              unbondingTime: v.unbonding_time || ''
+            };
+            
+            setValidator(formattedValidator);
+            setCache(validatorCacheKey, formattedValidator);
+          } else if (!cachedValidator) {
+            setValidator(null);
+          }
+          
+          // Process delegations
+          if (delegationsData.status === 'fulfilled') {
+            const formattedDelegations = delegationsData.value.map((d: any) => ({
+              delegator: d.delegation?.delegator_address,
+              shares: d.delegation?.shares,
+              balance: d.balance?.amount || '0'
+            }));
+            setDelegations(formattedDelegations);
+          }
+          
+          // Process unbonding delegations
+          if (unbondingData.status === 'fulfilled') {
+            const formattedUnbonding = unbondingData.value.map((u: any) => ({
+              delegator: u.delegator_address,
+              entries: u.entries?.map((e: any) => ({
+                balance: e.balance,
+                completionTime: e.completion_time
+              })) || []
+            }));
+            setUnbondingDelegations(formattedUnbonding);
+          }
+          
+          // Process transactions
+          if (txsData.status === 'fulfilled') {
+            const formattedTxs = txsData.value.map((tx: any) => ({
+              hash: tx.txhash,
+              type: tx.tx?.body?.messages?.[0]?.['@type'] || 'Unknown',
+              height: parseInt(tx.height),
+              time: tx.timestamp,
+              result: tx.code === 0 ? 'Success' : 'Failed'
+            }));
+            setTransactions(formattedTxs);
+          }
+          
+          setLoading(false);
+          setIsRefreshing(false);
+          return;
+        } catch (directError) {
+          console.warn('[ValidatorDetail] Direct LCD fetch failed, trying server API:', directError);
+        }
+      }
+      
+      // Fallback: Server API
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 

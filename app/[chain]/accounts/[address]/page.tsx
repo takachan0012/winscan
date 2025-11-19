@@ -11,6 +11,7 @@ import { Wallet, Copy, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { fetchAccountDirectly, fetchBalanceDirectly } from '@/lib/cosmos-client';
 
 interface AccountDetail {
   address: string;
@@ -99,40 +100,85 @@ export default function AccountPage() {
       }
 
       // Always fetch fresh data (in background if cache exists)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s
-      
-      fetch(`/api/accounts?chain=${selectedChain.chain_id || selectedChain.chain_name}&address=${params.address}`, { signal: controller.signal })
-        .then(r => {
+      const fetchAccountData = async () => {
+        try {
+          // Strategy: Try direct LCD fetch first
+          const lcdEndpoints = selectedChain.api?.map(api => ({
+            address: api.address,
+            provider: api.provider || 'Unknown'
+          })) || [];
+          
+          if (lcdEndpoints.length > 0) {
+            try {
+              console.log(`[Account] Using direct LCD fetch for ${params.address}`);
+              
+              // Fetch account and balance in parallel
+              const [accountData, balances] = await Promise.all([
+                fetchAccountDirectly(lcdEndpoints, params.address as string).catch(() => null),
+                fetchBalanceDirectly(lcdEndpoints, params.address as string).catch(() => [])
+              ]);
+              
+              const formattedAccount: AccountDetail = {
+                address: params.address as string,
+                balances: balances,
+                delegations: [], // Would need separate endpoint
+                rewards: [] // Would need separate endpoint
+              };
+              
+              setAccount(formattedAccount);
+              setLoading(false);
+              setError(null);
+              
+              // Cache the result
+              const cacheKey = `account_${selectedChain.chain_name}_${params.address}`;
+              sessionStorage.setItem(cacheKey, JSON.stringify({
+                accountData: formattedAccount,
+                txData: [],
+                timestamp: Date.now()
+              }));
+              
+              return;
+            } catch (directError) {
+              console.warn('[Account] Direct LCD fetch failed, trying server API:', directError);
+            }
+          }
+          
+          // Fallback: Server API
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
+          
+          const r = await fetch(`/api/accounts?chain=${selectedChain.chain_id || selectedChain.chain_name}&address=${params.address}`, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          
           if (!r.ok) {
             throw new Error(`HTTP ${r.status}: ${r.statusText}`);
           }
-          return r.json();
-        })
-        .then((accountData) => {
+          
+          const accountData = await r.json();
+          
           if (accountData && accountData.error) {
             throw new Error(accountData.error);
           }
           
           if (accountData) {
             setAccount(accountData);
-
+            
             const txs = accountData.transactions || [];
             const sortedTxs = Array.isArray(txs) 
               ? [...txs].sort((a: any, b: any) => (b.height || 0) - (a.height || 0))
               : [];
             setTransactions(sortedTxs);
-            setError(null); // Clear error on success
+            setError(null);
           }
           setLoading(false);
-
+          
+          const cacheKey = `account_${selectedChain.chain_name}_${params.address}`;
           sessionStorage.setItem(cacheKey, JSON.stringify({
             accountData: accountData || null,
             txData: accountData?.transactions || [],
             timestamp: Date.now()
           }));
-        })
-        .catch(err => {
+        } catch (err: any) {
           console.error('Error loading account:', err);
           
           // Only show error if we don't have cached data
@@ -148,8 +194,10 @@ export default function AccountPage() {
             console.warn('Failed to refresh account data, showing cached version:', err);
             setError(`⚠️ Showing cached data. Failed to refresh: ${err.message}`);
           }
-        })
-        .finally(() => clearTimeout(timeoutId));
+        }
+      };
+      
+      fetchAccountData();
     }
   }, [selectedChain, params]);
 

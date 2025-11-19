@@ -11,6 +11,7 @@ import { fetchWithCache, CACHE_CONFIG } from '@/lib/apiCache';
 import { getCacheKey, setCache, getStaleCache } from '@/lib/cacheUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { fetchBlocksDirectly } from '@/lib/cosmos-client';
 
 export default function BlocksPage() {
   const params = useParams();
@@ -68,6 +69,36 @@ export default function BlocksPage() {
     if (!showLoading) setIsRefreshing(true);
     
     try {
+      // Strategy: Try direct LCD fetch first
+      const lcdEndpoints = selectedChain.api?.map(api => ({
+        address: api.address,
+        provider: api.provider || 'Unknown'
+      })) || [];
+      
+      if (lcdEndpoints.length > 0) {
+        try {
+          console.log(`[Blocks] Using direct LCD fetch for ${selectedChain.chain_name}`);
+          const blocksData = await fetchBlocksDirectly(lcdEndpoints, undefined, undefined, blocksPerPage);
+          
+          const formattedBlocks = blocksData.map((b: any) => ({
+            height: parseInt(b.block.header.height),
+            hash: b.block_id.hash,
+            time: b.block.header.time,
+            txs: b.block.data.txs?.length || 0,
+            proposer: b.block.header.proposer_address,
+          }));
+          
+          setBlocks(formattedBlocks);
+          setCache(cacheKey, formattedBlocks);
+          setLoading(false);
+          setIsRefreshing(false);
+          return;
+        } catch (directError) {
+          console.warn('[Blocks] Direct LCD fetch failed, trying server API:', directError);
+        }
+      }
+      
+      // Fallback: Server API
       const data = await fetchWithCache<BlockData[]>(
         `/api/blocks?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=${blocksPerPage}&page=${currentPage}`,
         {},
@@ -77,6 +108,7 @@ export default function BlocksPage() {
       setCache(cacheKey, data);
       setLoading(false);
     } catch (err) {
+      if (cachedData) setBlocks(cachedData);
       setLoading(false);
     } finally {
       setIsRefreshing(false);
