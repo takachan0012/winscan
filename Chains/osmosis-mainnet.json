@@ -1,7 +1,49 @@
 {
   "chain_name": "osmosis-mainnet",
   "chain_id": "osmosis-1",
-  "addr_prefix": "osmo",
+  "pretty_name": "Osmosis",
+  "network_type": "mainnet",
+  "bech32_prefix": "osmo",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uosmo",
+        "fixed_min_gas_price": 0.0025,
+        "low_gas_price": 0.0025,
+        "average_gas_price": 0.025,
+        "high_gas_price": 0.04
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uosmo"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/osmosis-labs/osmosis",
+    "recommended_version": "v25.0.0",
+    "compatible_versions": ["v25.0.0"],
+    "cosmos_sdk_version": "0.47",
+    "tendermint_version": "0.37"
+  },
+  "rpc": [
+    {
+      "address": "https://rpc.osmosis.zone",
+      "provider": "Osmosis Foundation"
+    },
+    {
+      "address": "https://osmosis-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rpc-osmosis.cosmos-spaces.cloud",
+      "provider": "Cosmos Spaces"
+    }
+  ],
   "api": [
     {
       "address": "https://lcd.osmosis.zone",
@@ -16,18 +58,14 @@
       "provider": "Cosmos Spaces"
     }
   ],
-  "rpc": [
+  "explorers": [
     {
-      "address": "https://osmosis-rpc.polkachu.com",
-      "provider": "Polkachu"
+      "kind": "winscan",
+      "url": "https://winscan.winsnip.xyz/osmosis-mainnet"
     },
     {
-      "address": "https://rpc.osmosis.zone",
-      "provider": "Osmosis Foundation"
-    },
-    {
-      "address": "https://rpc-osmosis.cosmos-spaces.cloud",
-      "provider": "Cosmos Spaces"
+      "kind": "mintscan",
+      "url": "https://www.mintscan.io/osmosis"
     }
   ],
   "assets": {

@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "chain:add": "node scripts/add-chain.js",
+    "chain:validate": "node scripts/validate-chains.js",
+    "chain:list": "node -e \"require('fs').readdirSync('Chains').filter(f=>f.endsWith('.json')&&!f.startsWith('_')).forEach(f=>console.log(f.replace('.json','')))\""
   },
   "dependencies": {
     "axios": "^1.7.2",
