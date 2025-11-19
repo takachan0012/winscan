@@ -285,6 +285,86 @@ Need help or want to connect? Join our community:
 - Powered by [Cosmos SDK](https://cosmos.network/)
 - Inspired by [Ping.pub](https://ping.pub/) and [Mintscan](https://www.mintscan.io/)
 
+## 💎 Supported Chains
+
+WinScan currently supports the following blockchain networks:
+
+### Mainnets
+<div align="center">
+
+| Chain | Network | Status |
+|-------|---------|--------|
+| <img src="https://file.winsnip.xyz/file/uploads/paxi.jpg" width="20"/> **Paxi Network** | Mainnet | 🟢 Live |
+| <img src="https://file.winsnip.xyz/file/uploads/axone.jpg" width="20"/> **Axone** | Mainnet | 🟢 Live |
+| <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/bitbadges/images/bitbadgeslogo.png" width="20"/> **BitBadges** | Mainnet | 🟢 Live |
+| <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png" width="20"/> **Gitopia** | Mainnet | 🟢 Live |
+| <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/humans/images/humans.png" width="20"/> **Humans.ai** | Mainnet | 🟢 Live |
+| <img src="https://file.winsnip.xyz/file/uploads/shido.jpg" width="20"/> **Shido** | Mainnet | 🟢 Live |
+
+</div>
+
+### Testnets
+<div align="center">
+
+| Chain | Network | Status |
+|-------|---------|--------|
+| <img src="https://file.winsnip.xyz/file/uploads/emperia.jpg" width="20"/> **Emperia** | Testnet | 🟡 Testing |
+| <img src="https://file.winsnip.xyz/file/uploads/safrochain.jpg" width="20"/> **Safrochain** | Testnet | 🟡 Testing |
+| <img src="https://file.winsnip.xyz/file/uploads/Lumera.jpg" width="20"/> **Lumera** | Testnet | 🟡 Testing |
+| <img src="https://file.winsnip.xyz/file/uploads/chinhodega.jpg" width="20"/> **CNHO-Stables** | Testnet | 🟡 Testing |
+
+</div>
+
+**Want to add your chain?** Create a JSON config in `Chains/` directory and submit a PR!
+
+## 🤝 Sponsors
+
+We are proud to be sponsored by these amazing projects:
+
+<div align="center">
+
+### Blockchain Networks
+
+<table>
+  <tr>
+    <td align="center" width="200">
+      <a href="https://paxi.network" target="_blank">
+        <img src="https://file.winsnip.xyz/file/uploads/paxi.jpg" width="80" height="80" alt="Paxi Network" style="border-radius: 50%;"/>
+        <br />
+        <b>Paxi Network</b>
+      </a>
+      <br />
+      <sub>The Future of DeFi</sub>
+    </td>
+    <td align="center" width="200">
+      <a href="https://axone.xyz" target="_blank">
+        <img src="https://file.winsnip.xyz/file/uploads/axone.jpg" width="80" height="80" alt="Axone" style="border-radius: 50%;"/>
+        <br />
+        <b>Axone</b>
+      </a>
+      <br />
+      <sub>Decentralized Knowledge</sub>
+    </td>
+    <td align="center" width="200">
+      <a href="https://bitbadges.io" target="_blank">
+        <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/bitbadges/images/bitbadgeslogo.png" width="80" height="80" alt="BitBadges" style="border-radius: 50%;"/>
+        <br />
+        <b>BitBadges</b>
+      </a>
+      <br />
+      <sub>Digital Badges Protocol</sub>
+    </td>
+  </tr>
+</table>
+
+### Become a Sponsor
+
+Interested in sponsoring WinScan? Contact us:
+- 📧 Email: [winsnip@winsnip.xyz](mailto:winsnip@winsnip.xyz)
+- 💬 Telegram: [@winsnip](https://t.me/winsnip)
+
+</div>
+
 ## 📈 Roadmap
 
 - [ ] WebSocket support for real-time updates
