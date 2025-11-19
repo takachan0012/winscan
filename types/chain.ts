@@ -56,6 +56,9 @@ export interface ValidatorData {
   status?: string;
   jailed?: boolean;
   identity?: string;  // Keybase identity (16-char hex)
+  delegatorsCount?: number; // Number of delegators
+  uptime?: number; // Validator uptime percentage (0-100)
+  consensus_pubkey?: any; // Consensus public key for signing info
 }
 
 export interface ChainStats {

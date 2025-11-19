@@ -127,6 +127,65 @@ export async function fetchProposalsDirectly(
 }
 
 /**
+ * Fetch delegators count for a validator
+ * Smart fallback: Uses ssl.winsnip.xyz if direct LCD fails
+ */
+export async function fetchValidatorDelegatorsCount(
+  endpoints: LCDEndpoint[],
+  validatorAddress: string,
+  chainPath?: string
+): Promise<number> {
+  // Try direct LCD endpoints first
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${endpoint.address}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations?pagination.limit=1&pagination.count_total=true`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' },
+        mode: 'cors',
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) continue;
+      
+      const data = await response.json();
+      const total = data.pagination?.total || '0';
+      return parseInt(total);
+      
+    } catch (error: any) {
+      continue;
+    }
+  }
+  
+  // Smart fallback: Try ssl.winsnip.xyz API if all LCD endpoints fail
+  if (chainPath) {
+    try {
+      console.log(`[CosmosClient] Direct LCD failed for delegators, trying ssl.winsnip.xyz fallback`);
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/validators/delegators?chain=${chainPath}&validator=${validatorAddress}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[CosmosClient] ✓ Delegators from ssl.winsnip.xyz fallback: ${data.count || 0}`);
+        return data.count || 0;
+      }
+    } catch (fallbackError) {
+      console.error('[CosmosClient] Fallback API also failed for delegators:', fallbackError);
+    }
+  }
+  
+  return 0; // Return 0 if everything fails
+}
+
+/**
  * Check if a chain should use direct LCD fetch (rate limited chains)
  * Enable for ALL chains to bypass server IP blocks universally
  */
@@ -612,4 +671,69 @@ export async function fetchBalancesDirectly(
   }
   
   throw new Error(`All LCD endpoints failed:\n${errors.join('\n')}`);
+}
+
+/**
+ * Fetch validator uptime (signing info)
+ * Smart fallback: Uses ssl.winsnip.xyz if direct LCD fails
+ */
+export async function fetchValidatorUptime(
+  endpoints: LCDEndpoint[],
+  consensusAddress: string,
+  chainPath?: string
+): Promise<number> {
+  // Try direct LCD endpoints first
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${endpoint.address}/cosmos/slashing/v1beta1/signing_infos/${consensusAddress}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' },
+        mode: 'cors',
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) continue;
+      
+      const data = await response.json();
+      const missedBlocks = parseInt(data.val_signing_info?.missed_blocks_counter || '0');
+      const indexOffset = parseInt(data.val_signing_info?.index_offset || '0');
+      
+      // Calculate uptime: (total - missed) / total * 100
+      if (indexOffset > 0) {
+        const uptime = ((indexOffset - missedBlocks) / indexOffset) * 100;
+        return Math.max(0, Math.min(100, uptime)); // Clamp between 0-100
+      }
+      
+      return 100; // Default to 100% if no data
+      
+    } catch (error: any) {
+      continue;
+    }
+  }
+  
+  // Smart fallback: Try ssl.winsnip.xyz API if all LCD endpoints fail
+  if (chainPath && consensusAddress) {
+    try {
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/validators/uptime?chain=${chainPath}&consensus=${consensusAddress}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.uptime || 100;
+      }
+    } catch (fallbackError) {
+      // Silent fail
+    }
+  }
+  
+  return 100; // Default to 100% if everything fails
 }
