@@ -448,10 +448,10 @@ export default function Home() {
                 </div>
 
                 {/* Feature Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto animate-slide-up relative z-20" style={{ animationDelay: '0.3s' }}>
                   <div className="relative group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gradient-to-br from-gray-900/60 to-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-blue-500/30 transition-all group-hover:scale-105">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-cyan-500/30 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-800/70 border-2 border-gray-700/70 rounded-2xl p-8 backdrop-blur-sm hover:border-blue-500/50 transition-all group-hover:scale-105">
                       <div className="w-14 h-14 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                         <Shield className="w-7 h-7 text-blue-400" />
                       </div>
@@ -461,8 +461,8 @@ export default function Home() {
                   </div>
 
                   <div className="relative group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gradient-to-br from-gray-900/60 to-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-purple-500/30 transition-all group-hover:scale-105">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-800/70 border-2 border-gray-700/70 rounded-2xl p-8 backdrop-blur-sm hover:border-purple-500/50 transition-all group-hover:scale-105">
                       <div className="w-14 h-14 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                         <BarChart3 className="w-7 h-7 text-purple-400" />
                       </div>
@@ -472,8 +472,8 @@ export default function Home() {
                   </div>
 
                   <div className="relative group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-orange-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gradient-to-br from-gray-900/60 to-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-pink-500/30 transition-all group-hover:scale-105">
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/30 to-orange-500/30 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-800/70 border-2 border-gray-700/70 rounded-2xl p-8 backdrop-blur-sm hover:border-pink-500/50 transition-all group-hover:scale-105">
                       <div className="w-14 h-14 bg-gradient-to-br from-pink-500/20 to-orange-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                         <Zap className="w-7 h-7 text-pink-400" />
                       </div>
@@ -502,8 +502,8 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className="group relative"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all"></div>
-                    <div className="relative flex flex-col items-center gap-3 p-6 bg-gray-900/40 border border-gray-800/50 rounded-2xl hover:border-purple-500/30 transition-all group-hover:scale-105">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-pink-500/30 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all"></div>
+                    <div className="relative flex flex-col items-center gap-3 p-6 bg-gray-800/80 border-2 border-gray-700/70 rounded-2xl hover:border-purple-500/50 transition-all group-hover:scale-105">
                       <img
                         src="https://file.winsnip.xyz/file/uploads/paxi.jpg"
                         alt="Paxi"
@@ -523,8 +523,8 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className="group relative"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all"></div>
-                    <div className="relative flex flex-col items-center gap-3 p-6 bg-gray-900/40 border border-gray-800/50 rounded-2xl hover:border-purple-500/30 transition-all group-hover:scale-105">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-blue-500/30 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all"></div>
+                    <div className="relative flex flex-col items-center gap-3 p-6 bg-gray-800/80 border-2 border-gray-700/70 rounded-2xl hover:border-purple-500/50 transition-all group-hover:scale-105">
                       <img
                         src="https://pbs.twimg.com/profile_images/1841523650043772928/EeZIYE7B_400x400.jpg"
                         alt="Axone"
@@ -544,8 +544,8 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className="group relative"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all"></div>
-                    <div className="relative flex flex-col items-center gap-3 p-6 bg-gray-900/40 border border-gray-800/50 rounded-2xl hover:border-purple-500/30 transition-all group-hover:scale-105">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all"></div>
+                    <div className="relative flex flex-col items-center gap-3 p-6 bg-gray-800/80 border-2 border-gray-700/70 rounded-2xl hover:border-purple-500/50 transition-all group-hover:scale-105">
                       <img
                         src="https://pbs.twimg.com/profile_images/1948901739765084160/RdCGkJt4_400x400.jpg"
                         alt="BitBadges"
@@ -578,7 +578,7 @@ export default function Home() {
                           <Link
                             key={chain.chain_name}
                             href={`/${chainPath}`}
-                            className="group bg-gray-900/30 border border-gray-800/50 rounded-2xl p-5 hover:bg-gray-900/50 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/10 transition-all backdrop-blur-sm"
+                            className="group bg-gray-800/70 border-2 border-gray-700/70 rounded-2xl p-5 hover:bg-gray-800/90 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition-all backdrop-blur-sm relative z-20"
                           >
                             <div className="flex items-center gap-3 mb-4">
                               <img 
@@ -627,7 +627,7 @@ export default function Home() {
                           <Link
                             key={chain.chain_name}
                             href={`/${chainPath}`}
-                            className="group bg-gray-900/30 border border-gray-800/50 rounded-2xl p-5 hover:bg-gray-900/50 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/10 transition-all backdrop-blur-sm"
+                            className="group bg-gray-800/70 border-2 border-gray-700/70 rounded-2xl p-5 hover:bg-gray-800/90 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 transition-all backdrop-blur-sm relative z-20"
                           >
                             <div className="flex items-center gap-3 mb-4">
                               <img 
@@ -697,18 +697,18 @@ export default function Home() {
                 </div>
                 
                 {/* Contributors Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 max-w-4xl mx-auto">
                   {/* Contributor 1 - Izzy */}
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-blue-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gray-800/80 border-2 border-gray-700/70 rounded-xl p-3 backdrop-blur-sm hover:border-blue-500/50 transition-all">
                       <img 
                         src="https://pbs.twimg.com/profile_images/1928087231681679361/p45PsuK7_400x400.jpg"
                         alt="Izzy"
-                        className="w-20 h-20 rounded-full mb-6 mx-auto group-hover:scale-110 transition-transform ring-4 ring-blue-500/10 object-cover"
+                        className="w-12 h-12 rounded-full mb-2 mx-auto group-hover:scale-110 transition-transform ring-2 ring-blue-500/10 object-cover"
                       />
-                      <h3 className="text-white font-bold text-center mb-4 text-xl">Izzy</h3>
-                      <div className="flex justify-center gap-3">
+                      <h3 className="text-white font-semibold text-center mb-2 text-xs">Izzy</h3>
+                      <div className="flex justify-center gap-2">
                         <a href="https://t.me/fitriay19" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400 transition-colors">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>
                         </a>
@@ -724,15 +724,15 @@ export default function Home() {
                   
                   {/* Contributor 2 - OneNov */}
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-purple-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gray-800/80 border-2 border-gray-700/70 rounded-xl p-3 backdrop-blur-sm hover:border-purple-500/50 transition-all">
                       <img 
                         src="https://avatars.githubusercontent.com/u/95606017?s=400&u=957ddaf67bfa7ad3320805f2771b7a8d8a6e52b2&v=4"
                         alt="OneNov"
-                        className="w-20 h-20 rounded-full mb-6 mx-auto group-hover:scale-110 transition-transform ring-4 ring-purple-500/10 object-cover"
+                        className="w-12 h-12 rounded-full mb-2 mx-auto group-hover:scale-110 transition-transform ring-2 ring-purple-500/10 object-cover"
                       />
-                      <h3 className="text-white font-bold text-center mb-4 text-xl">OneNov</h3>
-                      <div className="flex justify-center gap-3">
+                      <h3 className="text-white font-semibold text-center mb-2 text-xs">OneNov</h3>
+                      <div className="flex justify-center gap-2">
                         <a href="https://t.me/OneNov02" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-purple-400 transition-colors">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>
                         </a>
@@ -748,15 +748,15 @@ export default function Home() {
                   
                   {/* Contributor 3 - Taka */}
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-orange-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-pink-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-orange-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gray-800/80 border-2 border-gray-700/70 rounded-xl p-3 backdrop-blur-sm hover:border-pink-500/50 transition-all">
                       <img 
                         src="https://pbs.twimg.com/profile_images/1950568208395870208/Hs3mpiKR_400x400.jpg"
                         alt="Taka"
-                        className="w-20 h-20 rounded-full mb-6 mx-auto group-hover:scale-110 transition-transform ring-4 ring-pink-500/10 object-cover"
+                        className="w-12 h-12 rounded-full mb-2 mx-auto group-hover:scale-110 transition-transform ring-2 ring-pink-500/10 object-cover"
                       />
-                      <h3 className="text-white font-bold text-center mb-4 text-xl">Taka</h3>
-                      <div className="flex justify-center gap-3">
+                      <h3 className="text-white font-semibold text-center mb-2 text-xs">Taka</h3>
+                      <div className="flex justify-center gap-2">
                         <a href="https://t.me/takadotdev" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-pink-400 transition-colors">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>
                         </a>
@@ -772,15 +772,15 @@ export default function Home() {
                   
                   {/* Contributor 4 - jrisamsoee */}
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-cyan-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gray-800/80 border-2 border-gray-700/70 rounded-xl p-3 backdrop-blur-sm hover:border-cyan-500/50 transition-all">
                       <img 
                         src="https://pbs.twimg.com/profile_images/1962594449592365056/aO2zNYHl_400x400.jpg"
                         alt="Neira"
-                        className="w-20 h-20 rounded-full mb-6 mx-auto group-hover:scale-110 transition-transform ring-4 ring-cyan-500/10 object-cover"
+                        className="w-12 h-12 rounded-full mb-2 mx-auto group-hover:scale-110 transition-transform ring-2 ring-cyan-500/10 object-cover"
                       />
-                      <h3 className="text-white font-bold text-center mb-4 text-xl">Neira</h3>
-                      <div className="flex justify-center gap-3">
+                      <h3 className="text-white font-semibold text-center mb-2 text-xs">Neira</h3>
+                      <div className="flex justify-center gap-2">
                         <a href="https://t.me/jrisamsoee" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-cyan-400 transition-colors">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>
                         </a>
@@ -796,15 +796,15 @@ export default function Home() {
                   
                   {/* Contributor 5 - ZeroDevID */}
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-green-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gray-800/80 border-2 border-gray-700/70 rounded-xl p-3 backdrop-blur-sm hover:border-green-500/50 transition-all">
                       <img 
                         src="https://avatars.githubusercontent.com/u/44803987?v=4"
                         alt="ZeroDevID"
-                        className="w-20 h-20 rounded-full mb-6 mx-auto group-hover:scale-110 transition-transform ring-4 ring-green-500/10 object-cover"
+                        className="w-12 h-12 rounded-full mb-2 mx-auto group-hover:scale-110 transition-transform ring-2 ring-green-500/10 object-cover"
                       />
-                      <h3 className="text-white font-bold text-center mb-4 text-xl">ZeroDevID</h3>
-                      <div className="flex justify-center gap-3">
+                      <h3 className="text-white font-semibold text-center mb-2 text-xs">ZeroDevID</h3>
+                      <div className="flex justify-center gap-2">
                         <a href="https://t.me/ZeroDevID" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-green-400 transition-colors">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>
                         </a>
@@ -820,15 +820,15 @@ export default function Home() {
                   
                   {/* Contributor 6 - Jamal */}
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-0 group-hover:opacity-100"></div>
-                    <div className="relative bg-gray-900/40 border border-gray-800/50 rounded-2xl p-8 backdrop-blur-sm hover:border-yellow-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all opacity-0 group-hover:opacity-100"></div>
+                    <div className="relative bg-gray-800/80 border-2 border-gray-700/70 rounded-xl p-3 backdrop-blur-sm hover:border-yellow-500/50 transition-all">
                       <img 
                         src="https://yt3.googleusercontent.com/SbJZAaRrhjIK0N9CcTpLoe5wkIlUSqzh6tmms2Ioiq1X6ojGhrXPHu3Bh_0Eh0gomSeUiFZJYA=s160-c-k-c0x00ffffff-no-rj"
                         alt="Jamal"
-                        className="w-20 h-20 rounded-full mb-6 mx-auto group-hover:scale-110 transition-transform ring-4 ring-yellow-500/10 object-cover"
+                        className="w-12 h-12 rounded-full mb-2 mx-auto group-hover:scale-110 transition-transform ring-2 ring-yellow-500/10 object-cover"
                       />
-                      <h3 className="text-white font-bold text-center mb-4 text-xl">Jamal</h3>
-                      <div className="flex justify-center gap-3">
+                      <h3 className="text-white font-semibold text-center mb-2 text-xs">Jamal</h3>
+                      <div className="flex justify-center gap-2">
                         <a href="https://t.me/jamalsetiawan" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-yellow-400 transition-colors">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>
                         </a>
