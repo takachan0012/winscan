@@ -295,11 +295,11 @@ WinScan currently supports the following blockchain networks:
 | Chain | Network | Status |
 |-------|---------|--------|
 | <img src="https://file.winsnip.xyz/file/uploads/paxi.jpg" width="20"/> **Paxi Network** | Mainnet | 🟢 Live |
-| <img src="https://file.winsnip.xyz/file/uploads/axone.jpg" width="20"/> **Axone** | Mainnet | 🟢 Live |
-| <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/bitbadges/images/bitbadgeslogo.png" width="20"/> **BitBadges** | Mainnet | 🟢 Live |
+| <img src="https://pbs.twimg.com/profile_images/1841523650043772928/EeZIYE7B_400x400.jpg" width="20"/> **Axone** | Mainnet | 🟢 Live |
+| <img src="https://pbs.twimg.com/profile_images/1948901739765084160/RdCGkJt4_400x400.jpg" width="20"/> **BitBadges** | Mainnet | 🟢 Live |
 | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png" width="20"/> **Gitopia** | Mainnet | 🟢 Live |
-| <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/humans/images/humans.png" width="20"/> **Humans.ai** | Mainnet | 🟢 Live |
-| <img src="https://file.winsnip.xyz/file/uploads/shido.jpg" width="20"/> **Shido** | Mainnet | 🟢 Live |
+| <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/humans/images/heart-dark-mode.svg" width="20"/> **Humans.ai** | Mainnet | 🟢 Live |
+| <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/shido/images/shido.png" width="20"/> **Shido** | Mainnet | 🟢 Live |
 
 </div>
 
@@ -308,10 +308,9 @@ WinScan currently supports the following blockchain networks:
 
 | Chain | Network | Status |
 |-------|---------|--------|
-| <img src="https://file.winsnip.xyz/file/uploads/emperia.jpg" width="20"/> **Emperia** | Testnet | 🟡 Testing |
-| <img src="https://file.winsnip.xyz/file/uploads/safrochain.jpg" width="20"/> **Safrochain** | Testnet | 🟡 Testing |
-| <img src="https://file.winsnip.xyz/file/uploads/Lumera.jpg" width="20"/> **Lumera** | Testnet | 🟡 Testing |
-| <img src="https://file.winsnip.xyz/file/uploads/chinhodega.jpg" width="20"/> **CNHO-Stables** | Testnet | 🟡 Testing |
+| <img src="https://pbs.twimg.com/profile_images/1802555804798857216/ZTqy2yxX_400x400.jpg" width="20"/> **CNHO-Stables** | Testnet | 🟡 Testing |
+| <img src="https://pbs.twimg.com/profile_images/1938593981517955072/vTcJ4t5i_400x400.jpg" width="20"/> **Safrochain** | Testnet | 🟡 Testing |
+| <img src="https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png" width="20"/> **Lumera** | Testnet | 🟡 Testing |
 
 </div>
 
@@ -338,7 +337,7 @@ We are proud to be sponsored by these amazing projects:
     </td>
     <td align="center" width="200">
       <a href="https://axone.xyz" target="_blank">
-        <img src="https://file.winsnip.xyz/file/uploads/axone.jpg" width="80" height="80" alt="Axone" style="border-radius: 50%;"/>
+        <img src="https://pbs.twimg.com/profile_images/1841523650043772928/EeZIYE7B_400x400.jpg" width="80" height="80" alt="Axone" style="border-radius: 50%;"/>
         <br />
         <b>Axone</b>
       </a>
@@ -347,7 +346,7 @@ We are proud to be sponsored by these amazing projects:
     </td>
     <td align="center" width="200">
       <a href="https://bitbadges.io" target="_blank">
-        <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/bitbadges/images/bitbadgeslogo.png" width="80" height="80" alt="BitBadges" style="border-radius: 50%;"/>
+        <img src="https://pbs.twimg.com/profile_images/1948901739765084160/RdCGkJt4_400x400.jpg" width="80" height="80" alt="BitBadges" style="border-radius: 50%;"/>
         <br />
         <b>BitBadges</b>
       </a>
@@ -360,7 +359,7 @@ We are proud to be sponsored by these amazing projects:
 ### Become a Sponsor
 
 Interested in sponsoring WinScan? Contact us:
-- 📧 Email: [winsnip@winsnip.xyz](mailto:winsnip@winsnip.xyz)
+- 📧 Email: [admin@winsnip.xyz](mailto:admin@winsnip.xyz)
 - 💬 Telegram: [@winsnip](https://t.me/winsnip)
 
 </div>
