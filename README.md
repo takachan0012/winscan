@@ -13,6 +13,14 @@
 [![Telegram](https://img.shields.io/badge/Telegram-WinSnip-26A5E4?style=for-the-badge&logo=telegram)](https://t.me/winsnip)
 [![GitHub](https://img.shields.io/badge/GitHub-winsnip--official-181717?style=for-the-badge&logo=github)](https://github.com/winsnip-official)
 
+---
+
+**📖 Documentation**
+
+[![Contributing Guide](https://img.shields.io/badge/📖-Contributing_Guide-green?style=flat-square)](CONTRIBUTING.md)
+[![Chain Configuration](https://img.shields.io/badge/⚙️-Chain_Configuration-orange?style=flat-square)](CHAIN-GUIDELINES.md)
+[![License](https://img.shields.io/badge/📜-MIT_License-blue?style=flat-square)](LICENSE)
+
 </div>
 
 ## ✨ Features
