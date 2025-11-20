@@ -33,6 +33,11 @@
 - 🎨 **Modern UI** - Clean, elegant design with dark theme
 - 📱 **Responsive** - Works perfectly on desktop, tablet, and mobile
 - ⚡ **Fast & Optimized** - Built with performance in mind
+- 💼 **Keplr Wallet Integration**
+  - 🔄 **Staking Operations** - Delegate, redelegate, and unbond tokens directly from the explorer
+  - 💸 **Withdraw Rewards** - Claim staking rewards from single or multiple validators
+  - 🗳️ **Governance Voting** - Vote on proposals (Yes, No, Abstain, No With Veto)
+  - 💰 **Token Transfers** - Send tokens to other addresses securely
 
 ## 🚀 Quick Start
 
@@ -341,7 +346,7 @@ Interested in partnering with WinScan? Contact us:
 - [ ] IBC tracking
 - [ ] NFT explorer
 - [ ] Token swap integration
-- [ ] Wallet integration
+- [x] Wallet integration
 
 ## 🤝 Contributing
 
