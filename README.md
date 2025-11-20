@@ -18,7 +18,8 @@
 **📖 Documentation**
 
 [![Contributing Guide](https://img.shields.io/badge/📖-Contributing_Guide-green?style=flat-square)](CONTRIBUTING.md)
-[![Chain Configuration](https://img.shields.io/badge/⚙️-Chain_Configuration-orange?style=flat-square)](SECURITY.md)
+[![Chain Configuration](https://img.shields.io/badge/⚙️-Chain_Configuration-orange?style=flat-square)](CHAIN-GUIDELINES.md)
+[![Security Policy](https://img.shields.io/badge/🔒-Security_Policy-red?style=flat-square)](SECURITY.md)
 [![License](https://img.shields.io/badge/📜-MIT_License-blue?style=flat-square)](LICENSE)
 
 </div>
@@ -114,7 +115,7 @@ Default configuration uses our public API, so you don't need to setup backend.
 
 Want to add your blockchain to WinScan? It's easy!
 
-**📖 See [SECURITY.md](SECURITY.md) for complete instructions**
+**📖 See [CHAIN-GUIDELINES.md](CHAIN-GUIDELINES.md) for complete instructions**
 
 Quick overview:
 1. Create JSON file in `Chains/` directory (e.g., `yourchain-mainnet.json`)
