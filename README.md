@@ -230,54 +230,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - ⚠️ Must include original license
 - ⚠️ No warranty provided
 
-## 🤝 Contributing
-
-**We welcome contributions!** Whether you're fixing bugs, adding features, improving docs, or adding new chains - your help makes WinScan better.
-
-### 🚀 Quick Start
-
-```bash
-# 1. Fork & clone
-git clone https://github.com/YOUR-USERNAME/winscan.git
-cd winscan
-npm install
-
-# 2. Create feature branch from dev
-git checkout dev
-git checkout -b feature/amazing-feature
-
-# 3. Make changes, test, commit
-npm run dev
-git commit -m "feat: add amazing feature"
-
-# 4. Push and create PR to dev branch
-git push origin feature/amazing-feature
-```
-
-### 📖 Full Guidelines
-
-**Please read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing:**
-- Development workflow & branch strategy
-- Coding standards & best practices
-- Commit message format
-- Pull request process
-- Testing guidelines
-
-### 🎯 Good First Issues
-
-New contributor? Look for:
-- `good first issue` - Perfect for beginners
-- `help wanted` - Community contributions welcome
-- `documentation` - Help improve our docs
-
-### 🏆 Contributors
-
-<a href="https://github.com/winsnip-official/winscan/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=winsnip-official/winscan" />
-</a>
-
-Made with ❤️ by our amazing contributors!
-
 ## 📞 Support & Community
 
 Need help or want to connect? Join our community:
@@ -381,6 +333,54 @@ Interested in partnering with WinScan? Contact us:
 - [ ] NFT explorer
 - [ ] Token swap integration
 - [ ] Wallet integration
+
+## 🤝 Contributing
+
+**We welcome contributions!** Whether you're fixing bugs, adding features, improving docs, or adding new chains - your help makes WinScan better.
+
+### 🚀 Quick Start
+
+```bash
+# 1. Fork & clone
+git clone https://github.com/YOUR-USERNAME/winscan.git
+cd winscan
+npm install
+
+# 2. Create feature branch from dev
+git checkout dev
+git checkout -b feature/amazing-feature
+
+# 3. Make changes, test, commit
+npm run dev
+git commit -m "feat: add amazing feature"
+
+# 4. Push and create PR to dev branch
+git push origin feature/amazing-feature
+```
+
+### 📖 Full Guidelines
+
+**Please read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing:**
+- Development workflow & branch strategy
+- Coding standards & best practices
+- Commit message format
+- Pull request process
+- Testing guidelines
+
+### 🎯 Good First Issues
+
+New contributor? Look for:
+- `good first issue` - Perfect for beginners
+- `help wanted` - Community contributions welcome
+- `documentation` - Help improve our docs
+
+### 🏆 Contributors
+
+<a href="https://github.com/winsnip-official/winscan/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=winsnip-official/winscan" />
+</a>
+
+Made with ❤️ by our amazing contributors!
 
 ---
 
