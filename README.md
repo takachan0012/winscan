@@ -104,37 +104,30 @@ Default configuration uses our public API, so you don't need to setup backend.
 
 ### Adding New Chains
 
-Create a JSON file in `Chains/` directory:
+WinScan supports multiple blockchain networks. To add a new chain:
 
+1. **Create chain configuration file** in `Chains/` directory
+2. **Follow naming convention**: `{network}-{type}.json`
+   - Example: `lumera-mainnet.json`, `tellor-test.json`
+3. **Use the configuration template** with required fields
+
+**📖 For detailed instructions, see [CHAIN-GUIDELINES.md](CHAIN-GUIDELINES.md)**
+
+Quick example:
 ```json
 {
-  "chain_name": "your-chain",
+  "chain_name": "your-chain-mainnet",
   "chain_id": "your-chain-1",
-  "pretty_name": "Your Chain",
-  "status": "live",
-  "network_type": "mainnet",
-  "logo": "https://your-logo-url.png",
+  "pretty_name": "Your Chain Mainnet",
   "addr_prefix": "your",
-  "rpc": [
-    {
-      "address": "https://rpc.your-chain.com",
-      "provider": "Your Provider"
-    }
-  ],
-  "api": [
-    {
-      "address": "https://api.your-chain.com",
-      "provider": "Your Provider"
-    }
-  ],
-  "assets": [
-    {
-      "name": "Your Token",
-      "symbol": "YOURTOKEN",
-      "denom": "uyourtoken",
-      "decimals": 6
-    }
-  ]
+  "rpc": [{"address": "https://rpc.example.com"}],
+  "api": [{"address": "https://api.example.com"}],
+  "assets": [{
+    "name": "Your Token",
+    "symbol": "TOKEN",
+    "base": "utoken",
+    "exponent": 6
+  }]
 }
 ```
 
@@ -255,153 +248,58 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! Here's how to get started:
+We love contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help is welcome.
 
-### For Contributors
+### Quick Start for Contributors
 
-#### 🔧 Setup Development Environment
-
-1. **Fork this repository**
-   - Click the "Fork" button at the top right
-   - This creates your own copy of the repository
-
-2. **Clone your fork**
+1. **Fork & Clone**
    ```bash
    git clone https://github.com/YOUR-USERNAME/winscan.git
    cd winscan
-   ```
-
-3. **Add upstream remote**
-   ```bash
-   git remote add upstream https://github.com/winsnip-official/winscan.git
-   ```
-
-4. **Install dependencies**
-   ```bash
    npm install
    ```
 
-#### 📝 Development Workflow
-
-1. **Switch to dev branch** (IMPORTANT!)
+2. **Create Feature Branch**
    ```bash
    git checkout dev
-   ```
-
-2. **ALWAYS pull latest changes before starting work**
-   ```bash
    git pull origin dev
+   git checkout -b feature/your-feature
    ```
 
-3. **Create a feature branch**
+3. **Make Changes & Test**
    ```bash
-   git checkout -b feature/your-feature-name
-   # or
-   git checkout -b fix/bug-description
+   npm run dev
+   npm run build
    ```
 
-4. **Make your changes**
-   - Write clean, readable code
-   - Follow existing code style
-   - Add comments where necessary
-
-5. **Test your changes**
-   ```bash
-   npm run dev    # Test in development
-   npm run build  # Ensure it builds successfully
-   ```
-
-6. **Commit your changes**
+4. **Commit & Push**
    ```bash
    git add .
-   git commit -m "feat: add amazing feature"
-   # or
-   git commit -m "fix: resolve issue with..."
-   ```
-
-7. **Pull again before pushing** (avoid conflicts)
-   ```bash
+   git commit -m "feat: your feature description"
    git pull origin dev
+   git push origin feature/your-feature
    ```
 
-8. **Push to your fork**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+5. **Create Pull Request** to `dev` branch
 
-9. **Create Pull Request**
-   - Go to your fork on GitHub
-   - Click "Pull Request" button
-   - Target: `winsnip-official/winscan` branch `dev`
-   - Describe your changes clearly
+### 📖 Detailed Guidelines
 
-### 🌿 Branch Strategy
-
-- **`main`** - Production branch (stable releases only)
-- **`dev`** - Development branch (active development)
-- **`feature/*`** - New features
-- **`fix/*`** - Bug fixes
-
-**⚠️ IMPORTANT:** Always work on `dev` branch, never push directly to `main`!
-
-### ✅ Contribution Guidelines
-
-**Code Quality:**
-- Follow TypeScript best practices
-- Use meaningful variable/function names
-- Keep functions small and focused
-- Add proper type definitions
-
-**Commit Messages:**
-- Use conventional commits format:
-  - `feat:` - New feature
-  - `fix:` - Bug fix
-  - `docs:` - Documentation changes
-  - `style:` - Code style changes (formatting)
-  - `refactor:` - Code refactoring
-  - `test:` - Adding tests
-  - `chore:` - Maintenance tasks
-
-**Examples:**
-```bash
-git commit -m "feat: add wallet integration with Keplr"
-git commit -m "fix: resolve balance display issue"
-git commit -m "docs: update contributing guidelines"
-```
-
-**Testing:**
-- Test your changes thoroughly
-- Check responsive design (mobile, tablet, desktop)
-- Test on different browsers if possible
-- Ensure no console errors
-
-**Pull Request:**
-- Clear title and description
-- Link related issues
-- Add screenshots/videos if UI changes
-- Wait for review before merging
-
-### 🚫 What NOT to Do
-
-- ❌ Don't push directly to `main` branch
-- ❌ Don't commit `node_modules/` or `.env` files
-- ❌ Don't make too many unrelated changes in one PR
-- ❌ Don't ignore ESLint warnings
-- ❌ Don't forget to pull before pushing
+**Please read our [Contributing Guide](CONTRIBUTING.md) for:**
+- Complete setup instructions
+- Development workflow
+- Branch strategy (dev vs main)
+- Coding standards
+- Commit message format
+- PR process
+- Testing guidelines
+- Do's and don'ts
 
 ### 🎯 Good First Issues
 
-Looking for where to start? Check out issues labeled:
-- `good first issue` - Easy tasks for beginners
-- `help wanted` - Community help needed
-- `bug` - Bug fixes needed
-- `enhancement` - Feature requests
-
-### 💡 Need Help?
-
-- 💬 Ask in [Telegram Group](https://t.me/winsnip)
-- 📧 Email: admin@winsnip.xyz
-- 🐛 Create an issue on GitHub
+New to the project? Look for issues labeled:
+- `good first issue` - Perfect for beginners
+- `help wanted` - Community help welcome
+- `documentation` - Help improve docs
 
 ### 🏆 Contributors
 
@@ -411,7 +309,7 @@ Thank you to all our amazing contributors! 🎉
   <img src="https://contrib.rocks/image?repo=winsnip-official/winscan" />
 </a>
 
-**Want to see your name here?** Start contributing today!
+**Want to see your name here?** Check out [CONTRIBUTING.md](CONTRIBUTING.md) and start contributing today!
 
 ## 📞 Support & Community
 
