@@ -29,8 +29,6 @@ export async function fetchValidatorsDirectly(
 
   for (const endpoint of endpoints) {
     try {
-      console.log(`[CosmosClient] Trying ${endpoint.provider}: ${endpoint.address}`);
-      
       const url = `${endpoint.address}/cosmos/staking/v1beta1/validators?status=${status}&pagination.limit=${limit}`;
       
       const controller = new AbortController();
@@ -58,8 +56,6 @@ export async function fetchValidatorsDirectly(
         errors.push(`${endpoint.provider}: Empty response`);
         continue;
       }
-      
-      console.log(`[CosmosClient] ✓ Success from ${endpoint.provider} (${data.validators.length} validators)`);
       return data.validators;
       
     } catch (error: any) {
@@ -83,8 +79,6 @@ export async function fetchProposalsDirectly(
   
   for (const endpoint of endpoints) {
     try {
-      console.log(`[CosmosClient] Trying ${endpoint.provider}: ${endpoint.address}`);
-      
       const url = `${endpoint.address}/cosmos/gov/v1beta1/proposals?proposal_status=${status}&pagination.limit=${limit}&pagination.reverse=true`;
       
       const controller = new AbortController();
@@ -111,8 +105,6 @@ export async function fetchProposalsDirectly(
         errors.push(`${endpoint.provider}: No proposals field`);
         continue;
       }
-      
-      console.log(`[CosmosClient] ✓ Success from ${endpoint.provider} (${data.proposals.length} proposals)`);
       return data.proposals;
       
     } catch (error: any) {
@@ -162,7 +154,6 @@ export async function fetchValidatorDelegatorsCount(
 
   if (chainPath) {
     try {
-      console.log(`[CosmosClient] Direct LCD failed for delegators, trying ssl.winsnip.xyz fallback`);
       const fallbackUrl = `https://ssl.winsnip.xyz/api/validators/delegators?chain=${chainPath}&validator=${validatorAddress}`;
       
       const response = await fetch(fallbackUrl, {
@@ -171,11 +162,9 @@ export async function fetchValidatorDelegatorsCount(
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[CosmosClient] ✓ Delegators from ssl.winsnip.xyz fallback: ${data.count || 0}`);
         return data.count || 0;
       }
     } catch (fallbackError) {
-      console.error('[CosmosClient] Fallback API also failed for delegators:', fallbackError);
     }
   }
   
@@ -204,8 +193,6 @@ export async function fetchBlocksDirectly(
   
   for (const endpoint of endpoints) {
     try {
-      console.log(`[CosmosClient] Fetching blocks from ${endpoint.provider}`);
-
       const latestUrl = `${endpoint.address}/cosmos/base/tendermint/v1beta1/blocks/latest`;
       const latestResponse = await fetch(latestUrl, {
         headers: { 'Accept': 'application/json' },
@@ -248,7 +235,6 @@ export async function fetchBlocksDirectly(
       }
       
       if (blocks.length > 0) {
-        console.log(`[CosmosClient] ✓ Success from ${endpoint.provider} (${blocks.length} blocks)`);
         return blocks;
       }
       
@@ -272,8 +258,6 @@ export async function fetchBlockByHeightDirectly(
   
   for (const endpoint of endpoints) {
     try {
-      console.log(`[CosmosClient] Fetching block ${height} from ${endpoint.provider}`);
-      
       const url = `${endpoint.address}/cosmos/base/tendermint/v1beta1/blocks/${height}`;
       
       const controller = new AbortController();
@@ -293,7 +277,6 @@ export async function fetchBlockByHeightDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Success from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {
@@ -318,8 +301,6 @@ export async function fetchTransactionsDirectly(
   
   for (const endpoint of endpoints) {
     try {
-      console.log(`[CosmosClient] Fetching transactions from ${endpoint.provider}`);
-      
       const url = `${endpoint.address}/cosmos/tx/v1beta1/txs?pagination.limit=${limit}&pagination.offset=${offset}&pagination.reverse=true`;
       
       const controller = new AbortController();
@@ -339,7 +320,6 @@ export async function fetchTransactionsDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Success from ${endpoint.provider} (${data.txs?.length || 0} txs)`);
       return data;
       
     } catch (error: any) {
@@ -362,8 +342,6 @@ export async function fetchTransactionByHashDirectly(
   
   for (const endpoint of endpoints) {
     try {
-      console.log(`[CosmosClient] Fetching tx ${hash} from ${endpoint.provider}`);
-      
       const url = `${endpoint.address}/cosmos/tx/v1beta1/txs/${hash}`;
       
       const controller = new AbortController();
@@ -383,7 +361,6 @@ export async function fetchTransactionByHashDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Success from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {
@@ -426,7 +403,6 @@ export async function fetchStakingParamsDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Staking params from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {
@@ -437,7 +413,6 @@ export async function fetchStakingParamsDirectly(
 
   if (chainPath) {
     try {
-      console.log(`[CosmosClient] Direct LCD failed for staking params, trying ssl.winsnip.xyz fallback`);
       const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/staking?chain=${chainPath}`;
       
       const response = await fetch(fallbackUrl, {
@@ -446,15 +421,11 @@ export async function fetchStakingParamsDirectly(
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[CosmosClient] ✓ Staking params from ssl.winsnip.xyz fallback`);
         return data;
       }
     } catch (fallbackError) {
-      console.error('[CosmosClient] Fallback API also failed for staking params:', fallbackError);
     }
   }
-
-  console.warn('[CosmosClient] All endpoints failed for staking params, returning empty');
   return {};
 }
 
@@ -489,7 +460,6 @@ export async function fetchSlashingParamsDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Slashing params from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {
@@ -500,7 +470,6 @@ export async function fetchSlashingParamsDirectly(
 
   if (chainPath) {
     try {
-      console.log(`[CosmosClient] Direct LCD failed for slashing params, trying ssl.winsnip.xyz fallback`);
       const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/slashing?chain=${chainPath}`;
       
       const response = await fetch(fallbackUrl, {
@@ -509,15 +478,11 @@ export async function fetchSlashingParamsDirectly(
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[CosmosClient] ✓ Slashing params from ssl.winsnip.xyz fallback`);
         return data;
       }
     } catch (fallbackError) {
-      console.error('[CosmosClient] Fallback API also failed for slashing params:', fallbackError);
     }
   }
-
-  console.warn('[CosmosClient] All endpoints failed for slashing params, returning empty');
   return {};
 }
 
@@ -555,7 +520,6 @@ export async function fetchGovParamsDirectly(
       if (tally.status === 'fulfilled' && tally.value) result.tally_params = tally.value;
       
       if (Object.keys(result).length > 0) {
-        console.log(`[CosmosClient] ✓ Gov params from ${endpoint.provider}`);
         return result;
       }
       
@@ -569,7 +533,6 @@ export async function fetchGovParamsDirectly(
 
   if (chainPath) {
     try {
-      console.log(`[CosmosClient] Direct LCD failed for gov params, trying ssl.winsnip.xyz fallback`);
       const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/gov?chain=${chainPath}`;
       
       const response = await fetch(fallbackUrl, {
@@ -578,15 +541,11 @@ export async function fetchGovParamsDirectly(
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[CosmosClient] ✓ Gov params from ssl.winsnip.xyz fallback`);
         return data;
       }
     } catch (fallbackError) {
-      console.error('[CosmosClient] Fallback API also failed for gov params:', fallbackError);
     }
   }
-
-  console.warn('[CosmosClient] All endpoints failed for gov params, returning empty');
   return {};
 }
 
@@ -621,7 +580,6 @@ export async function fetchDistributionParamsDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Distribution params from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {
@@ -632,7 +590,6 @@ export async function fetchDistributionParamsDirectly(
 
   if (chainPath) {
     try {
-      console.log(`[CosmosClient] Direct LCD failed for distribution params, trying ssl.winsnip.xyz fallback`);
       const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/distribution?chain=${chainPath}`;
       
       const response = await fetch(fallbackUrl, {
@@ -641,15 +598,11 @@ export async function fetchDistributionParamsDirectly(
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[CosmosClient] ✓ Distribution params from ssl.winsnip.xyz fallback`);
         return data;
       }
     } catch (fallbackError) {
-      console.error('[CosmosClient] Fallback API also failed for distribution params:', fallbackError);
     }
   }
-
-  console.warn('[CosmosClient] All endpoints failed for distribution params, returning empty');
   return {};
 }
 
@@ -684,7 +637,6 @@ export async function fetchMintParamsDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Mint params from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {
@@ -695,7 +647,6 @@ export async function fetchMintParamsDirectly(
 
   if (chainPath) {
     try {
-      console.log(`[CosmosClient] Direct LCD failed for mint params, trying ssl.winsnip.xyz fallback`);
       const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/mint?chain=${chainPath}`;
       
       const response = await fetch(fallbackUrl, {
@@ -704,15 +655,11 @@ export async function fetchMintParamsDirectly(
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[CosmosClient] ✓ Mint params from ssl.winsnip.xyz fallback`);
         return data;
       }
     } catch (fallbackError) {
-      console.error('[CosmosClient] Fallback API also failed for mint params:', fallbackError);
     }
   }
-
-  console.warn('[CosmosClient] All endpoints failed for mint params, returning empty');
   return {};
 }
 
@@ -727,8 +674,6 @@ export async function fetchAccountDirectly(
   
   for (const endpoint of endpoints) {
     try {
-      console.log(`[CosmosClient] Fetching account ${address} from ${endpoint.provider}`);
-      
       const url = `${endpoint.address}/cosmos/auth/v1beta1/accounts/${address}`;
       
       const controller = new AbortController();
@@ -748,7 +693,6 @@ export async function fetchAccountDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Success from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {
@@ -790,7 +734,6 @@ export async function fetchBalancesDirectly(
       }
       
       const data = await response.json();
-      console.log(`[CosmosClient] ✓ Balances from ${endpoint.provider}`);
       return data;
       
     } catch (error: any) {

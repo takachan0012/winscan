@@ -13,23 +13,6 @@ interface PriceTrackerProps {
   selectedChain: ChainData | null;
 }
 
-// Mapping untuk token yang dikenal
-const TOKEN_ID_MAP: { [key: string]: string } = {
-  'atom': 'cosmos',
-  'osmo': 'osmosis',
-  'juno': 'juno-network',
-  'lumera': 'lumera',
-  'paxi': 'paxi',
-  'axone': 'axone',
-  'badge': 'bitbadges',
-  'shido': 'shido',
-  'tellor': 'tellor',
-  'sunrise': 'sunrise',
-  'human': 'human',
-  'gitopia': 'gitopia',
-  'kii': 'kiichain',
-};
-
 export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
   const [priceData, setPriceData] = useState<PriceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +23,6 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
       return;
     }
 
-    // Skip testnet
     const chainName = selectedChain.chain_name.toLowerCase();
     if (chainName.includes('test') && !chainName.includes('mainnet')) {
       setPriceData(null);
@@ -51,166 +33,156 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
       setIsLoading(true);
       try {
         const symbol = selectedChain.assets?.[0]?.symbol?.toLowerCase();
+        const coingeckoId = selectedChain.assets?.[0]?.coingecko_id;
+        
         if (!symbol) {
           setPriceData(null);
           setIsLoading(false);
           return;
         }
 
-        // Get CoinGecko ID from mapping or use symbol
-        const coinGeckoId = TOKEN_ID_MAP[symbol] || symbol;
+        let priceResult: PriceData | null = null;
 
-        // Strategy 1: Try CoinGecko with ID mapping
-        try {
-          const cgResponse = await fetch(
-            `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoId}&vs_currencies=usd&include_24hr_change=true`,
-            { signal: AbortSignal.timeout(5000) }
-          );
-          if (cgResponse.ok) {
-            const cgData = await cgResponse.json();
-            if (cgData[coinGeckoId]) {
-              setPriceData({
-                price: cgData[coinGeckoId].usd,
-                change24h: cgData[coinGeckoId].usd_24h_change || 0,
-                source: 'CoinGecko'
-              });
-              setIsLoading(false);
-              return;
-            }
-          }
-        } catch (e) {
-          console.warn('CoinGecko failed');
-        }
-
-        // Strategy 2: Try Osmosis Zone API (for IBC tokens)
         try {
           const osmoResponse = await fetch(
-            `https://api-osmosis.imperator.co/tokens/v2/${symbol}`,
-            { signal: AbortSignal.timeout(5000) }
+            `https://public-osmosis-api.numia.xyz/tokens/v2/all`,
+            { signal: AbortSignal.timeout(10000) }
           );
+          
           if (osmoResponse.ok) {
             const osmoData = await osmoResponse.json();
-            if (osmoData[0] && osmoData[0].price) {
-              setPriceData({
-                price: parseFloat(osmoData[0].price),
-                change24h: parseFloat(osmoData[0].price_24h_change || '0'),
-                source: 'Osmosis'
-              });
-              setIsLoading(false);
-              return;
-            }
-          }
-        } catch (e) {
-          console.warn('Osmosis failed');
-        }
-
-        // Strategy 3: Try MEXC with multiple symbol formats
-        const mexcSymbols = [
-          `${symbol.toUpperCase()}USDT`,
-          `${symbol.toUpperCase()}USDC`,
-        ];
-
-        for (const mexcSymbol of mexcSymbols) {
-          try {
-            const mexcResponse = await fetch(
-              `https://api.mexc.com/api/v3/ticker/24hr?symbol=${mexcSymbol}`,
-              { signal: AbortSignal.timeout(5000) }
-            );
-            if (mexcResponse.ok) {
-              const mexcData = await mexcResponse.json();
-              if (mexcData.lastPrice && parseFloat(mexcData.lastPrice) > 0) {
-                setPriceData({
-                  price: parseFloat(mexcData.lastPrice),
-                  change24h: parseFloat(mexcData.priceChangePercent || '0'),
-                  source: 'MEXC'
-                });
-                setIsLoading(false);
-                return;
-              }
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-
-        // Strategy 4: Try Bitget
-        const bitgetSymbols = [
-          `${symbol.toUpperCase()}USDT`,
-          `${symbol.toUpperCase()}USDC`,
-        ];
-
-        for (const bitgetSymbol of bitgetSymbols) {
-          try {
-            const bitgetResponse = await fetch(
-              `https://api.bitget.com/api/spot/v1/market/ticker?symbol=${bitgetSymbol}`,
-              { signal: AbortSignal.timeout(5000) }
-            );
-            if (bitgetResponse.ok) {
-              const bitgetData = await bitgetResponse.json();
-              if (bitgetData.data && bitgetData.data.close && parseFloat(bitgetData.data.close) > 0) {
-                setPriceData({
-                  price: parseFloat(bitgetData.data.close),
-                  change24h: parseFloat(bitgetData.data.changeUtc || '0'),
-                  source: 'Bitget'
-                });
-                setIsLoading(false);
-                return;
-              }
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-
-        // Strategy 5: Try CoinGecko search by symbol
-        try {
-          const searchResponse = await fetch(
-            `https://api.coingecko.com/api/v3/search?query=${symbol}`,
-            { signal: AbortSignal.timeout(5000) }
-          );
-          if (searchResponse.ok) {
-            const searchData = await searchResponse.json();
-            const coin = searchData.coins?.find((c: any) => 
-              c.symbol?.toLowerCase() === symbol.toLowerCase()
+            const token = osmoData.find((t: any) => 
+              t.symbol?.toLowerCase() === symbol.toLowerCase()
             );
             
-            if (coin && coin.id) {
-              const priceResponse = await fetch(
-                `https://api.coingecko.com/api/v3/simple/price?ids=${coin.id}&vs_currencies=usd&include_24hr_change=true`,
+            if (token && token.price) {
+              priceResult = {
+                price: token.price,
+                change24h: token.price_24h_change || 0,
+                source: 'Osmosis'
+              };
+            } else if (token && token.denom) {
+              try {
+                const quoteResponse = await fetch(
+                  `https://sqs.osmosis.zone/tokens/prices?base=${encodeURIComponent(token.denom)}`,
+                  { signal: AbortSignal.timeout(5000) }
+                );
+                
+                if (quoteResponse.ok) {
+                  const quoteData = await quoteResponse.json();
+                  const basePrices = quoteData[token.denom];
+                  if (basePrices) {
+                    const firstPrice = Object.values(basePrices)[0] as string;
+                    if (firstPrice) {
+                      priceResult = {
+                        price: parseFloat(firstPrice),
+                        change24h: 0,
+                        source: 'Osmosis Pool'
+                      };
+                    }
+                  }
+                }
+              } catch {}
+            }
+          }
+        } catch {}
+
+        if (!priceResult && coingeckoId) {
+          try {
+            const cgResponse = await fetch(
+              `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&include_24hr_change=true`,
+              { signal: AbortSignal.timeout(5000) }
+            );
+            
+            if (cgResponse.ok) {
+              const cgData = await cgResponse.json();
+              if (cgData[coingeckoId]?.usd) {
+                priceResult = {
+                  price: cgData[coingeckoId].usd,
+                  change24h: cgData[coingeckoId].usd_24h_change || 0,
+                  source: 'CoinGecko'
+                };
+              }
+            }
+          } catch {}
+        }
+
+        if (!priceResult) {
+          try {
+            const pairs = [`${symbol.toUpperCase()}USDT`, `${symbol.toUpperCase()}USDC`];
+            
+            for (const pair of pairs) {
+              const mexcResponse = await fetch(
+                `https://api.mexc.com/api/v3/ticker/24hr?symbol=${pair}`,
                 { signal: AbortSignal.timeout(5000) }
               );
-              if (priceResponse.ok) {
-                const priceData = await priceResponse.json();
-                if (priceData[coin.id]) {
-                  setPriceData({
-                    price: priceData[coin.id].usd,
-                    change24h: priceData[coin.id].usd_24h_change || 0,
-                    source: 'CoinGecko'
-                  });
-                  setIsLoading(false);
-                  return;
+              
+              if (mexcResponse.ok) {
+                const mexcData = await mexcResponse.json();
+                if (mexcData.lastPrice) {
+                  priceResult = {
+                    price: parseFloat(mexcData.lastPrice),
+                    change24h: parseFloat(mexcData.priceChangePercent || '0'),
+                    source: 'MEXC'
+                  };
+                  break;
                 }
               }
             }
-          }
-        } catch (e) {
-          console.warn('CoinGecko search failed');
+          } catch {}
         }
 
-        // If all failed
-        setPriceData(null);
+        if (!priceResult) {
+          try {
+            const pairs = [`${symbol.toUpperCase()}USDT`, `${symbol.toUpperCase()}USDC`];
+            
+            for (const pair of pairs) {
+              const bitgetResponse = await fetch(
+                `https://api.bitget.com/api/v2/spot/market/tickers?symbol=${pair}`,
+                { signal: AbortSignal.timeout(5000) }
+              );
+              
+              if (bitgetResponse.ok) {
+                const bitgetData = await bitgetResponse.json();
+                if (bitgetData.data?.[0]?.lastPr) {
+                  priceResult = {
+                    price: parseFloat(bitgetData.data[0].lastPr),
+                    change24h: parseFloat(bitgetData.data[0].changeUtc24h || '0'),
+                    source: 'Bitget'
+                  };
+                  break;
+                }
+              }
+            }
+          } catch {}
+        }
+
+        if (!priceResult) {
+          const response = await fetch(`/api/price?symbol=${symbol}`, {
+            signal: AbortSignal.timeout(10000),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.price) {
+              priceResult = {
+                price: data.price,
+                change24h: data.change24h || 0,
+                source: data.source + ' (Server)'
+              };
+            }
+          }
+        }
+
+        setPriceData(priceResult);
       } catch (error) {
-        console.error('Error fetching price:', error);
         setPriceData(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Initial fetch
     fetchPrice();
-
-    // Refresh every 60 seconds
     const interval = setInterval(fetchPrice, 60000);
 
     return () => clearInterval(interval);
@@ -234,7 +206,6 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
       </div>
       
       <div className="flex items-center gap-3 pl-3 border-l border-gray-700">
-        {/* Price */}
         <div>
           <div className="text-sm font-bold text-white">
             ${priceData.price < 0.01 
@@ -246,7 +217,6 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
           <div className="text-xs text-gray-500">{priceData.source}</div>
         </div>
         
-        {/* 24h Change */}
         <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${
           isPositive 
             ? 'bg-green-500/10 text-green-400' 
