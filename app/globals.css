@@ -214,6 +214,17 @@ a, button {
       transform: translateY(-5px);
     }
   }
+
+  @keyframes slideIn {
+    0% {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
   
   .animate-shimmer {
     animation: shimmer 2s infinite;
@@ -233,6 +244,10 @@ a, button {
 
   .animate-slide-up {
     animation: slide-up 0.6s ease-out;
+  }
+
+  .animate-slideIn {
+    animation: slideIn 0.5s ease-out;
   }
 
   .animate-spin-reverse {

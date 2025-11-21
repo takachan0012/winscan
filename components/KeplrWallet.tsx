@@ -20,6 +20,21 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
   const [error, setError] = useState<string | null>(null);
   const [coinType, setCoinType] = useState<118 | 60>(118);
   const [showModal, setShowModal] = useState(false);
+
+  // Listen for trigger connect event
+  useEffect(() => {
+    const handleTriggerConnect = () => {
+      if (!isConnected) {
+        openCoinTypeModal();
+      }
+    };
+
+    window.addEventListener('trigger_keplr_connect', handleTriggerConnect);
+    return () => {
+      window.removeEventListener('trigger_keplr_connect', handleTriggerConnect);
+    };
+  }, [isConnected]);
+
   const handleConnect = async (selectedCoinType: 118 | 60) => {
     if (!selectedChain) {
       setError('Please select a chain first');

@@ -645,48 +645,72 @@ export default function AccountsPage() {
             </div>
           ) : (
             <>
-              {/* Search Form (when not connected) */}
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 mb-6">
-            <form onSubmit={handleSearch} className="flex gap-4">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={searchAddress}
-                  onChange={(e) => setSearchAddress(e.target.value)}
-                  placeholder={t('accounts.searchPlaceholder')}
-                  className="w-full bg-[#0f0f0f] border border-gray-800 rounded-lg px-4 py-3 text-white placeholder-text-dim focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!searchAddress.trim()}
-                className="px-6 py-3 bg-blue-500 hover:bg-blue-500/90 disabled:bg-blue-500/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                <Search className="w-4 h-4" />
-                {t('accounts.searchButton')}
-              </button>
-            </form>
-          </div>
-
-          {/* Info Card */}
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-12 text-center">
-            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2">{t('accounts.searchTitle')}</h3>
-            <p className="text-gray-400 mb-6">
-              {t('accounts.searchDesc')}
-            </p>
-            <div className="text-left max-w-2xl mx-auto bg-[#0f0f0f] p-4 rounded-lg">
-              <p className="text-sm text-gray-400 mb-2">{t('accounts.exampleAddresses')}</p>
-              <div className="space-y-2">
-                <div className="font-mono text-xs text-white break-all">
-                  {selectedChain?.addr_prefix || 'cosmos'}1abc...xyz
+              {/* Search Form */}
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Search className="w-5 h-5 text-gray-400" />
+                  <h3 className="text-lg font-semibold text-white">Search Any Wallet Address</h3>
                 </div>
-                <p className="text-xs text-gray-400">
-                  {t('accounts.searchAny')} {selectedChain?.chain_name || 'chain'} {t('accounts.network')}
-                </p>
+                <form onSubmit={handleSearch} className="flex gap-4 mb-6">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={searchAddress}
+                      onChange={(e) => setSearchAddress(e.target.value)}
+                      placeholder={t('accounts.searchPlaceholder')}
+                      className="w-full bg-[#0f0f0f] border border-gray-800 rounded-lg px-4 py-3 text-white placeholder-text-dim focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!searchAddress.trim()}
+                    className="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Search className="w-4 h-4" />
+                    {t('accounts.searchButton')}
+                  </button>
+                </form>
+                
+                {/* Connect Wallet Section */}
+                <div className="pt-6 border-t border-gray-800 text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#0f0f0f] border border-gray-800 mb-4">
+                    <Wallet className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Connect Your Wallet</h3>
+                  <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
+                    Connect your Keplr wallet to view your assets, delegations, and manage your account
+                  </p>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() => {
+                        const event = new CustomEvent('trigger_keplr_connect');
+                        window.dispatchEvent(event);
+                      }}
+                      className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      Connect Keplr Wallet
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    <a 
+                      href="https://www.keplr.app/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 text-sm"
+                    >
+                      Don't have Keplr? Download →
+                    </a>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-[#0f0f0f] rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Example address:</p>
+                  <code className="text-xs text-gray-400 font-mono">
+                    {selectedChain?.addr_prefix || 'cosmos'}1abc...xyz
+                  </code>
+                </div>
               </div>
-            </div>
-          </div>
             </>
           )}
         </main>
