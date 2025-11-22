@@ -9,6 +9,10 @@
     {
       "address": "https://api-paxi.winnode.xyz",
       "provider": "Winnode"
+    },
+    {
+      "address": "https://api-paxi-m.maouam.xyz",
+      "provider": "MaouamNodelab"
     }
   ],
   "rpc": [
@@ -19,6 +23,10 @@
     {
       "address": "https://rpc-paxi.winnode.xyz",
       "provider": "Winnode"
+    },
+    {
+      "address": "https://rpc-paxi-m.maouam.xyz",
+      "provider": "MaouamNodelab"
     }
   ],
   "sdk_version": "0.47.0",
