@@ -4,22 +4,21 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const chain = searchParams.get('chain');
-    const height = searchParams.get('height');
-    
-    if (!chain || !height) {
-      return NextResponse.json(
-        { error: 'Chain and height parameters required' },
-        { status: 400 }
-      );
+    const limit = searchParams.get('limit') || '100';
+    const offset = searchParams.get('offset') || '0';
+
+    if (!chain) {
+      return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });
     }
 
-    // Use backend API which supports both chain_name and chain_id
-    const backendUrl = `${API_URL}/api/blocks/${height}?chain=${chain}`;
-    console.log('[Block API] Fetching from backend:', backendUrl);
+    // Use backend API which supports both chain_name and chain_id with load balancer
+    const backendUrl = `${API_URL}/api/accounts?chain=${chain}&limit=${limit}&offset=${offset}`;
+    console.log('[Accounts API] Fetching from backend:', backendUrl);
     
     const response = await fetch(backendUrl, {
       headers: { 'Accept': 'application/json' },
@@ -27,24 +26,25 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error('[Block API] Backend error:', response.status);
+      console.error('[Accounts API] Backend error:', response.status);
       return NextResponse.json(
-        { error: 'Block not found' },
+        { error: 'Failed to fetch accounts' },
         { status: response.status }
       );
     }
 
-    const blockDetail = await response.json();
+    const data = await response.json();
     
-    return NextResponse.json(blockDetail, {
+    return NextResponse.json(data, {
       headers: {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
       }
     });
+
   } catch (error: any) {
-    console.error('[Block API] Error:', error);
+    console.error('[Accounts API] Error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }

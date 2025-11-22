@@ -11,6 +11,10 @@
     {
       "address": "https://mainnet-rpc.paxinet.io",
       "provider": "Paxi Foundation"
+    },
+    {
+      "address": "https://rpc-paxi.winnode.xyz",
+      "provider": "Winnode"
     }
   ],
   "sdk_version": "0.47.0",
@@ -21,7 +25,7 @@
       "base": "upaxi",
       "symbol": "PAXI",
       "exponent": "6",
-      "coingecko_id": "paxi",
+      "coingecko_id": "paxi-network",
       "logo": "https://file.winsnip.xyz/file/uploads/paxi.jpg"
     }
   ],

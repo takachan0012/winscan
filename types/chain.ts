@@ -10,6 +10,7 @@ export interface ChainAsset {
 export interface ChainEndpoint {
   address: string;
   provider: string;
+  tx_index?: string; // "on" or "off" - indicates if RPC has transaction indexing enabled
 }
 
 export interface ChainData {

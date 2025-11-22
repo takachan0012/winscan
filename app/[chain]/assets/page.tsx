@@ -520,22 +520,30 @@ export default function AssetsPage() {
                             >
                               {/* Token Logo */}
                               <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-gray-700 flex-shrink-0 overflow-hidden">
-                                {logoUrl ? (
-                                  <Image
-                                    src={logoUrl}
-                                    alt={asset.symbol || 'token'}
-                                    width={40}
-                                    height={40}
-                                    className="object-cover"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <Coins className="w-5 h-5 text-gray-600" />
-                                  </div>
-                                )}
+                                {(() => {
+                                  // For native tokens, use chain logo if available
+                                  const isNative = isNativeAsset(asset);
+                                  const logoUrl = isNative && selectedChain?.logo 
+                                    ? selectedChain.logo 
+                                    : (asset.logo || asset.uri || '');
+                                  
+                                  return logoUrl ? (
+                                    <Image
+                                      src={logoUrl}
+                                      alt={asset.symbol || 'token'}
+                                      width={40}
+                                      height={40}
+                                      className="object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Coins className="w-5 h-5 text-gray-600" />
+                                    </div>
+                                  );
+                                })()}
                               </div>
                               
                               {/* Token Info */}

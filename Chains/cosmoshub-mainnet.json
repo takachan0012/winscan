@@ -1,0 +1,49 @@
+{
+  "chain_name": "cosmoshub-mainnet",
+  "chain_id": "cosmoshub-4",
+  "api": [
+    {
+      "address": "https://rest.lavenderfive.com:443/cosmoshub",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://cosmos-rest.publicnode.com",
+      "provider": "PublicNode"
+    },
+    {
+      "address": "https://cosmos-api.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://cosmoshub.tendermintrpc.lava.build:443",
+      "provider": "Lava"
+    },
+    {
+      "address": "https://rpc.lavenderfive.com:443/cosmoshub",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://cosmos-rpc.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "sdk_version": "0.53.3",
+  "coin_type": "118",
+  "min_tx_fee": "0.01",
+  "assets": [
+    {
+      "base": "uatom",
+      "symbol": "ATOM",
+      "exponent": "6",
+      "coingecko_id": "cosmos",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png"
+    }
+  ],
+  "addr_prefix": "cosmos",
+  "bech32_prefix": "cosmos",
+  "theme_color": "#2E3148",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
+  "updated": "2025-11-21"
+}

@@ -98,7 +98,7 @@ export default function ParametersPage() {
     
     const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
     const cacheKey = `parameters_${chainName}`;
-    const cacheTimeout = 300000; // 5 minutes
+    const cacheTimeout = 600000; // 10 minutes
 
     try {
       const cached = sessionStorage.getItem(cacheKey);

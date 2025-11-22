@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // Clean URL parameters - remove leading/trailing spaces from path segments
+  const pathname = request.nextUrl.pathname;
+  const cleanedPathname = pathname
+    .split('/')
+    .map(segment => decodeURIComponent(segment).trim())
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+  
+  // Redirect if pathname has changed after cleaning
+  if (cleanedPathname !== pathname && !pathname.startsWith('/api/')) {
+    const url = request.nextUrl.clone();
+    url.pathname = cleanedPathname;
+    return NextResponse.redirect(url);
+  }
 
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const response = NextResponse.next();
@@ -25,5 +39,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/api/:path*',
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)', '/api/:path*'],
 };

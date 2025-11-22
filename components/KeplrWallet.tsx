@@ -9,6 +9,13 @@ import {
   disconnectKeplr,
   saveKeplrAccount,
 } from '@/lib/keplr';
+import {
+  isMetaMaskInstalled,
+  connectMetaMask,
+  disconnectMetaMask,
+  saveMetaMaskAccount,
+  hexToBech32,
+} from '@/lib/metamask';
 
 interface KeplrWalletProps {
   selectedChain: ChainData | null;
@@ -20,6 +27,10 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
   const [error, setError] = useState<string | null>(null);
   const [coinType, setCoinType] = useState<118 | 60>(118);
   const [showModal, setShowModal] = useState(false);
+  const [walletType, setWalletType] = useState<'keplr' | 'metamask'>('keplr');
+  const [bech32Address, setBech32Address] = useState<string>('');
+
+  const isEvmChain = selectedChain && parseInt(selectedChain.coin_type || '118') === 60;
 
   // Listen for trigger connect event
   useEffect(() => {
@@ -45,38 +56,79 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
     };
   }, [isConnected, selectedChain]);
 
-  const handleConnect = async (selectedCoinType: 118 | 60) => {
+  const handleConnect = async (selectedCoinType: 118 | 60, selectedWalletType: 'keplr' | 'metamask' = 'keplr') => {
     if (!selectedChain) {
       setError('Please select a chain first');
       return;
     }
-    if (!isKeplrInstalled()) {
-      setError('Keplr extension is not installed. Please install it from https://www.keplr.app/');
-      window.open('https://www.keplr.app/', '_blank');
-      return;
-    }
+    
     setIsConnecting(true);
     setError(null);
     setShowModal(false);
+    
     try {
-      const connectedAccount = await connectKeplr(selectedChain, selectedCoinType);
-      setAccount(connectedAccount);
-      setCoinType(selectedCoinType);
-      const chainId = selectedChain.chain_id || selectedChain.chain_name;
-      saveKeplrAccount(connectedAccount, chainId, selectedCoinType);
-      window.dispatchEvent(new CustomEvent('keplr_wallet_changed'));
+      if (selectedWalletType === 'metamask') {
+        if (!isMetaMaskInstalled()) {
+          setError('MetaMask extension is not installed. Please install it from https://metamask.io/');
+          window.open('https://metamask.io/', '_blank');
+          return;
+        }
+        
+        const metaMaskAccount = await connectMetaMask(selectedChain);
+        
+        // Convert hex address to bech32 for Cosmos compatibility
+        const prefix = selectedChain.addr_prefix || 'cosmos';
+        const bech32Addr = await hexToBech32(metaMaskAccount.address, prefix);
+        setBech32Address(bech32Addr);
+        
+        // Store as KeplrAccount format for compatibility
+        const account = {
+          address: bech32Addr,
+          algo: 'ethsecp256k1' as const,
+          pubKey: new Uint8Array(),
+          isNanoLedger: false,
+        };
+        
+        setAccount(account);
+        setWalletType('metamask');
+        setCoinType(60);
+        saveMetaMaskAccount(metaMaskAccount);
+        window.dispatchEvent(new CustomEvent('keplr_wallet_changed'));
+        
+      } else {
+        // Keplr connection
+        if (!isKeplrInstalled()) {
+          setError('Keplr extension is not installed. Please install it from https://www.keplr.app/');
+          window.open('https://www.keplr.app/', '_blank');
+          return;
+        }
+        
+        const connectedAccount = await connectKeplr(selectedChain, selectedCoinType);
+        setAccount(connectedAccount);
+        setWalletType('keplr');
+        setCoinType(selectedCoinType);
+        const chainId = selectedChain.chain_id || selectedChain.chain_name;
+        saveKeplrAccount(connectedAccount, chainId, selectedCoinType);
+        window.dispatchEvent(new CustomEvent('keplr_wallet_changed'));
+      }
     } catch (err: any) {
-      console.error('Keplr connection error:', err);
-      setError(err.message || 'Failed to connect to Keplr');
+      console.error('Wallet connection error:', err);
+      setError(err.message || `Failed to connect to ${selectedWalletType === 'metamask' ? 'MetaMask' : 'Keplr'}`);
       setAccount(null);
     } finally {
       setIsConnecting(false);
     }
   };
+  
   const handleDisconnect = () => {
-    disconnectKeplr();
+    if (walletType === 'metamask') {
+      disconnectMetaMask();
+    } else {
+      disconnectKeplr();
+    }
     setAccount(null);
     setError(null);
+    setBech32Address('');
     window.dispatchEvent(new CustomEvent('keplr_wallet_changed'));
   };
   const openCoinTypeModal = () => {
@@ -111,7 +163,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
                 {account && formatAddress(account.address)}
               </code>
               <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
-                Type {coinType}
+                {walletType === 'metamask' ? 'MetaMask' : `Type ${coinType}`}
               </span>
             </div>
             <button
@@ -156,12 +208,37 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
               </button>
             </div>
             <p className="text-gray-400 text-sm mb-6">
-              Choose the coin type for {selectedChain?.chain_name || 'this chain'}
+              Choose wallet for {selectedChain?.chain_name || 'this chain'}
+              {isEvmChain && <span className="block text-xs text-purple-400 mt-1">⚡ EVM-compatible chain detected</span>}
             </p>
             <div className="space-y-3">
-              {}
+              {/* MetaMask option for EVM chains */}
+              {isEvmChain && (
+                <button
+                  onClick={() => handleConnect(60, 'metamask')}
+                  disabled={isConnecting}
+                  className="w-full p-4 bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 border border-orange-500/50 hover:border-orange-400 rounded-lg transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-10 h-10 bg-orange-500/30 rounded-lg flex items-center justify-center group-hover:bg-orange-500/40 transition-colors">
+                      <span className="text-orange-400 font-bold text-lg">🦊</span>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white font-medium">MetaMask</span>
+                        <span className="text-xs bg-orange-500/30 text-orange-300 px-2 py-0.5 rounded">EVM Native</span>
+                      </div>
+                      <p className="text-sm text-gray-400">
+                        Connect with MetaMask for full EVM compatibility
+                      </p>
+                    </div>
+                    <Check className="w-5 h-5 text-gray-600 group-hover:text-orange-400 transition-colors" />
+                  </div>
+                </button>
+              )}
+              {/* Keplr Cosmos Standard */}
               <button
-                onClick={() => handleConnect(118)}
+                onClick={() => handleConnect(118, 'keplr')}
                 disabled={isConnecting}
                 className="w-full p-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 rounded-lg transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -171,7 +248,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
                   </div>
                   <div className="flex-1 text-left">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-white font-medium">Cosmos Standard</span>
+                      <span className="text-white font-medium">Keplr - Cosmos</span>
                       <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">Recommended</span>
                     </div>
                     <p className="text-sm text-gray-400">
@@ -181,9 +258,9 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
                   <Check className="w-5 h-5 text-gray-600 group-hover:text-blue-400 transition-colors" />
                 </div>
               </button>
-              {}
+              {/* Keplr EVM Compatible */}
               <button
-                onClick={() => handleConnect(60)}
+                onClick={() => handleConnect(60, 'keplr')}
                 disabled={isConnecting}
                 className="w-full p-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-purple-500 rounded-lg transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -193,10 +270,10 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
                   </div>
                   <div className="flex-1 text-left">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-white font-medium">EVM Compatible</span>
+                      <span className="text-white font-medium">Keplr - EVM</span>
                     </div>
                     <p className="text-sm text-gray-400">
-                      Ethereum-compatible chains (Evmos, Injective, Canto, etc.)
+                      Use Keplr with EVM-compatible chains (Evmos, Injective, etc.)
                     </p>
                   </div>
                   <Check className="w-5 h-5 text-gray-600 group-hover:text-purple-400 transition-colors" />
@@ -205,19 +282,30 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
             </div>
             <div className="mt-6 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
               <p className="text-xs text-gray-400">
-                <strong className="text-gray-300">Note:</strong> Choose the coin type that matches your chain's configuration. 
-                Most Cosmos chains use type 118. Only select type 60 if the chain explicitly supports EVM addresses.
+                <strong className="text-gray-300">Note:</strong> {isEvmChain 
+                  ? 'For EVM chains, MetaMask provides the best compatibility. Alternatively, use Keplr with coin type 60.'
+                  : 'Most Cosmos chains use Keplr with coin type 118. Only select type 60 for EVM-compatible chains.'}
               </p>
             </div>
-            <div className="mt-4 text-center">
+            <div className="mt-4 flex justify-center gap-4 text-xs">
               <a
                 href="https://www.keplr.app/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                className="text-blue-400 hover:text-blue-300 transition-colors"
               >
-                Don't have Keplr? Install here →
+                Get Keplr →
               </a>
+              {isEvmChain && (
+                <a
+                  href="https://metamask.io/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-orange-400 hover:text-orange-300 transition-colors"
+                >
+                  Get MetaMask →
+                </a>
+              )}
             </div>
           </div>
         </div>

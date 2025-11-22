@@ -187,7 +187,7 @@ export default function TransactionHistoryChart({ data }: TransactionHistoryChar
     });
   }, [data, timeRange]);
   return (
-    <div className="bg-card border border-theme rounded-lg p-6">
+    <div className="bg-card border border-theme rounded-lg p-6 flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-theme flex items-center">
           <TrendingUp className="w-5 h-5 mr-2 text-primary" />
@@ -241,11 +241,13 @@ export default function TransactionHistoryChart({ data }: TransactionHistoryChar
           </div>
         </div>
       </div>
-      <canvas 
-        ref={canvasRef} 
-        className="w-full"
-        style={{ height: '200px' }}
-      />
+      <div className="flex-1">
+        <canvas 
+          ref={canvasRef} 
+          className="w-full h-full"
+          style={{ minHeight: '200px' }}
+        />
+      </div>
     </div>
   );
 }

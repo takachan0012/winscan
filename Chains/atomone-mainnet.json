@@ -1,0 +1,75 @@
+{
+  "chain_name": "atomone-mainnet",
+  "chain_id": "atomone-1",
+  "pretty_name": "AtomOne Mainnet",
+  "network_type": "mainnet",
+  "bech32_prefix": "atone",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uatone",
+        "fixed_min_gas_price": 0.001,
+        "low_gas_price": 0.001,
+        "average_gas_price": 0.0025,
+        "high_gas_price": 0.004
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uatone"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/atomone-hub/atomone",
+    "recommended_version": "v3.0.3",
+    "compatible_versions": ["v3.0.3"],
+    "cosmos_sdk_version": "0.47.17",
+    "tendermint_version": "0.37.16"
+  },
+  "api": [
+    {
+      "address": "https://api-atomone.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://atomone-api.allinbits.com",
+      "provider": "All in Bits"
+    },
+    {
+      "address": "https://atomone-api.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://atomone-rpc.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "sdk_version": "0.47.17",
+  "coin_type": "118",
+  "min_tx_fee": "0.03",
+  "assets": [
+    {
+      "base": "uatone",
+      "symbol": "ATONE",
+      "exponent": "6",
+      "coingecko_id": "atomone",
+      "logo": "https://pbs.twimg.com/profile_images/1891894823390429185/9swkoZNn_400x400.png"
+    }
+  ],
+  "addr_prefix": "atone",
+  "theme_color": "#812cd6",
+  "logo": "https://pbs.twimg.com/profile_images/1891894823390429185/9swkoZNn_400x400.png",
+  "explorers": [
+    {
+      "kind": "winscan",
+      "url": "https://winscan.winsnip.xyz/atomone-mainnet"
+    }
+  ],
+  "updated": "2025-11-21"
+}

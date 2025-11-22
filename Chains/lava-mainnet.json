@@ -1,0 +1,45 @@
+{
+  "chain_name": "lava-mainnet",
+  "chain_id": "lava-mainnet-1",
+  "api": [
+    {
+      "address": "https://api-lava.onenov.xyz",
+      "provider": "OneNov"
+    },
+    {
+      "address": "https://lava.rest.lava.build",
+      "provider": "Lava Over Lava"
+    },
+    {
+      "address": "https://lava-api.w3coins.io",
+      "provider": "w3coins"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://lava.tendermintrpc.lava.build",
+      "provider": "Lava Over Lava"
+    },
+    {
+      "address": "https://lava-rpc.w3coins.io",
+      "provider": "w3coins"
+    }
+  ],
+  "sdk_version": "0.47.13",
+  "coin_type": "118",
+  "min_tx_fee": "0.025",
+  "assets": [
+    {
+      "base": "ulava",
+      "symbol": "LAVA",
+      "exponent": "6",
+      "coingecko_id": "lava-network",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png"
+    }
+  ],
+  "addr_prefix": "lava@",
+  "bech32_prefix": "lava@",
+  "theme_color": "#D7002A",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png",
+  "updated": "2025-11-21"
+}

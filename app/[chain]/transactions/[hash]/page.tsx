@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import Link from 'next/link';
 import { ChainData } from '@/types/chain';
 import { formatDistanceToNow } from 'date-fns';
-import { FileText, Hash, Clock, CheckCircle, XCircle, DollarSign, Code, Zap } from 'lucide-react';
+import { FileText, Hash, Clock, CheckCircle, XCircle, DollarSign, Code, Zap, Copy, Check } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 
@@ -25,6 +25,7 @@ interface TxDetail {
     type: string;
     value: any;
   }>;
+  events?: Array<any>;
   logs: string;
   rawLog: string;
 }
@@ -38,13 +39,20 @@ export default function TransactionDetailPage() {
   const [transaction, setTransaction] = useState<TxDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'logs' | 'raw'>('overview');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   useEffect(() => {
     fetch('/api/chains')
       .then(res => res.json())
       .then(data => {
         setChains(data);
-        const chainName = params?.chain as string;
+        const chainName = (params?.chain as string)?.trim();
         const chain = chainName 
           ? data.find((c: ChainData) => c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase())
           : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
@@ -68,18 +76,18 @@ export default function TransactionDetailPage() {
             hash: data.hash,
             height: data.height,
             time: data.time,
-            result: data.success ? 'Success' : 'Failed',
-            code: data.success ? 0 : 1,
+            result: data.code === 0 ? 'Success' : 'Failed',
+            code: data.code || 0,
             gasUsed: data.gasUsed,
             gasWanted: data.gasWanted,
             fee: data.fee,
             memo: data.memo || '',
             messages: data.messages.map((msg: any) => ({
-              type: msg.type,
-              value: msg.data
+              type: msg['@type'] || msg.type || 'Unknown',
+              value: msg
             })),
-            logs: JSON.stringify(data.events, null, 2),
-            rawLog: data.rawLog || JSON.stringify(data.events, null, 2)
+            logs: data.rawLog || JSON.stringify(data.events || data.logs, null, 2),
+            rawLog: data.rawLog || JSON.stringify(data.events || [], null, 2)
           };
           setTransaction(transformedData);
           setLoading(false);
@@ -98,6 +106,138 @@ export default function TransactionDetailPage() {
     if (!asset) return fee;
     const feeNum = parseFloat(fee) / Math.pow(10, Number(asset.exponent));
     return `${feeNum.toFixed(6)} ${asset.symbol}`;
+  };
+
+  const getTransferInfo = (msg: any) => {
+    const msgType = msg.type;
+    const msgValue = msg.value;
+
+    // Extract message type name (last part of path)
+    const typeName = msgType.split('.').pop() || msgType;
+
+    // If message is Unknown (from RPC), try to parse from rawLog/events
+    if (typeName === 'Unknown' && transaction) {
+      return parseFromEvents();
+    }
+
+    // Extract transfer details from message value
+    if (typeName.includes('MsgSend') || typeName.includes('MsgTransfer')) {
+      return {
+        from: msgValue.from_address || msgValue.sender,
+        to: msgValue.to_address || msgValue.receiver,
+        amount: msgValue.amount?.[0] || msgValue.token,
+        type: 'Transfer'
+      };
+    } else if (typeName.includes('MsgDelegate') && !typeName.includes('Undelegate')) {
+      return {
+        from: msgValue.delegator_address,
+        to: msgValue.validator_address,
+        amount: msgValue.amount,
+        type: 'Delegate'
+      };
+    } else if (typeName.includes('MsgUndelegate')) {
+      return {
+        from: msgValue.delegator_address,
+        to: msgValue.validator_address,
+        amount: msgValue.amount,
+        type: 'Undelegate'
+      };
+    } else if (typeName.includes('MsgBeginRedelegate')) {
+      return {
+        from: msgValue.validator_src_address,
+        to: msgValue.validator_dst_address,
+        amount: msgValue.amount,
+        type: 'Redelegate',
+        delegator: msgValue.delegator_address
+      };
+    } else if (typeName.includes('MsgWithdrawDelegatorReward') || typeName.includes('MsgWithdrawReward')) {
+      return {
+        from: msgValue.validator_address,
+        to: msgValue.delegator_address,
+        type: 'Withdraw Rewards'
+      };
+    }
+    return null;
+  };
+
+  const parseFromEvents = () => {
+    if (!transaction || !transaction.rawLog) return null;
+
+    try {
+      const logData = JSON.parse(transaction.rawLog);
+      if (!logData[0]?.events) return null;
+
+      const events = logData[0].events;
+      
+      // Check for delegate event
+      const delegateEvent = events.find((e: any) => e.type === 'delegate');
+      if (delegateEvent) {
+        const validator = delegateEvent.attributes.find((a: any) => a.key === 'validator')?.value;
+        const delegator = delegateEvent.attributes.find((a: any) => a.key === 'delegator')?.value;
+        const amount = delegateEvent.attributes.find((a: any) => a.key === 'amount')?.value;
+        
+        if (validator && delegator && amount) {
+          return {
+            from: delegator,
+            to: validator,
+            amount: { amount: amount.replace(/[^0-9]/g, '') },
+            type: 'Delegate'
+          };
+        }
+      }
+
+      // Check for transfer event
+      const transferEvent = events.find((e: any) => e.type === 'transfer');
+      if (transferEvent) {
+        const recipient = transferEvent.attributes.find((a: any) => a.key === 'recipient')?.value;
+        const sender = transferEvent.attributes.find((a: any) => a.key === 'sender')?.value;
+        const amount = transferEvent.attributes.find((a: any) => a.key === 'amount')?.value;
+        
+        if (recipient && sender && amount) {
+          return {
+            from: sender,
+            to: recipient,
+            amount: { amount: amount.replace(/[^0-9]/g, '') },
+            type: 'Transfer'
+          };
+        }
+      }
+
+      // Check for withdraw_rewards event
+      const withdrawEvent = events.find((e: any) => e.type === 'withdraw_rewards');
+      if (withdrawEvent) {
+        const validator = withdrawEvent.attributes.find((a: any) => a.key === 'validator')?.value;
+        const delegator = withdrawEvent.attributes.find((a: any) => a.key === 'delegator')?.value;
+        const amount = withdrawEvent.attributes.find((a: any) => a.key === 'amount')?.value;
+        
+        return {
+          from: validator,
+          to: delegator,
+          amount: amount ? { amount: amount.replace(/[^0-9]/g, '') } : null,
+          type: 'Withdraw Rewards'
+        };
+      }
+    } catch (e) {
+      console.error('Error parsing events:', e);
+    }
+
+    return null;
+  };
+
+  const formatAmount = (amount: any) => {
+    if (!amount || !asset) return 'N/A';
+    
+    let value = '0';
+    if (typeof amount === 'string') {
+      value = amount;
+    } else if (amount.amount) {
+      value = amount.amount;
+    } else if (amount.value) {
+      value = amount.value;
+    }
+    
+    const num = parseFloat(value) / Math.pow(10, Number(asset.exponent));
+    return `${num.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${asset.symbol}`;
   };
 
   return (
@@ -166,9 +306,22 @@ export default function TransactionDetailPage() {
                   {/* Left Column */}
                   <div className="space-y-4">
                     <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Hash className="w-4 h-4 text-gray-400" />
-                        <p className="text-gray-400 text-sm font-semibold">{t('txDetail.txHash')}</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Hash className="w-4 h-4 text-gray-400" />
+                          <p className="text-gray-400 text-sm font-semibold">{t('txDetail.txHash')}</p>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(transaction.hash, 'hash')}
+                          className="p-1.5 hover:bg-gray-800 rounded transition-colors"
+                          title="Copy hash"
+                        >
+                          {copiedField === 'hash' ? (
+                            <Check className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
                       </div>
                       <p className="text-white font-mono text-sm break-all">{transaction.hash}</p>
                     </div>
@@ -245,6 +398,117 @@ export default function TransactionDetailPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Transaction Actions */}
+                {transaction.messages.some(msg => getTransferInfo(msg)) && (
+                  <div className="mt-6 pt-6 border-t border-gray-700">
+                    <h3 className="text-lg font-bold text-white mb-4">Transaction Actions</h3>
+                    <div className="space-y-3">
+                      {transaction.messages.map((msg, idx) => {
+                        const transferInfo = getTransferInfo(msg);
+                        if (!transferInfo) return null;
+
+                        return (
+                          <div key={idx} className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+                                <span className="text-xl">
+                                  {transferInfo.type === 'Transfer' && '💸'}
+                                  {transferInfo.type === 'Delegate' && '🔗'}
+                                  {transferInfo.type === 'Undelegate' && '🔓'}
+                                  {transferInfo.type === 'Redelegate' && '🔄'}
+                                  {transferInfo.type === 'Withdraw Rewards' && '💰'}
+                                </span>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-white font-semibold">{transferInfo.type}</p>
+                                <p className="text-gray-400 text-xs">{msg.type.split('.').pop()}</p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 text-sm">
+                              {transferInfo.delegator && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-gray-400 min-w-[80px]">Delegator:</span>
+                                  <div className="flex-1 flex items-center gap-2">
+                                    <span className="text-blue-400 font-mono break-all">{transferInfo.delegator}</span>
+                                    <button
+                                      onClick={() => copyToClipboard(transferInfo.delegator, `delegator-${idx}`)}
+                                      className="p-1 hover:bg-gray-800 rounded"
+                                    >
+                                      {copiedField === `delegator-${idx}` ? (
+                                        <Check className="w-3 h-3 text-green-500" />
+                                      ) : (
+                                        <Copy className="w-3 h-3 text-gray-400" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="flex items-start gap-2">
+                                <span className="text-gray-400 min-w-[80px]">From:</span>
+                                <div className="flex-1 flex items-center gap-2">
+                                  <span className="text-white font-mono break-all">{transferInfo.from}</span>
+                                  <button
+                                    onClick={() => copyToClipboard(transferInfo.from, `from-${idx}`)}
+                                    className="p-1 hover:bg-gray-800 rounded"
+                                  >
+                                    {copiedField === `from-${idx}` ? (
+                                      <Check className="w-3 h-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3 text-gray-400" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-gray-500 pl-[88px]">
+                                <span>→</span>
+                              </div>
+
+                              <div className="flex items-start gap-2">
+                                <span className="text-gray-400 min-w-[80px]">To:</span>
+                                <div className="flex-1 flex items-center gap-2">
+                                  <span className="text-white font-mono break-all">{transferInfo.to}</span>
+                                  <button
+                                    onClick={() => copyToClipboard(transferInfo.to, `to-${idx}`)}
+                                    className="p-1 hover:bg-gray-800 rounded"
+                                  >
+                                    {copiedField === `to-${idx}` ? (
+                                      <Check className="w-3 h-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3 text-gray-400" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {transferInfo.amount && (
+                                <div className="flex items-start gap-2 pt-2 border-t border-gray-700">
+                                  <span className="text-gray-400 min-w-[80px]">Amount:</span>
+                                  <div className="flex-1 flex items-center gap-2">
+                                    <span className="text-green-400 font-bold text-lg">{formatAmount(transferInfo.amount)}</span>
+                                    <button
+                                      onClick={() => copyToClipboard(formatAmount(transferInfo.amount), `amount-${idx}`)}
+                                      className="p-1 hover:bg-gray-800 rounded"
+                                    >
+                                      {copiedField === `amount-${idx}` ? (
+                                        <Check className="w-3 h-3 text-green-500" />
+                                      ) : (
+                                        <Copy className="w-3 h-3 text-gray-400" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Tabs */}
@@ -271,16 +535,6 @@ export default function TransactionDetailPage() {
                     {t('txDetail.tabMessages')} ({transaction.messages.length})
                   </button>
                   <button
-                    onClick={() => setActiveTab('logs')}
-                    className={`px-6 py-3 font-medium transition-colors ${
-                      activeTab === 'logs'
-                        ? 'bg-blue-500 text-white'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    {t('txDetail.tabLogs')}
-                  </button>
-                  <button
                     onClick={() => setActiveTab('raw')}
                     className={`px-6 py-3 font-medium transition-colors ${
                       activeTab === 'raw'
@@ -294,18 +548,29 @@ export default function TransactionDetailPage() {
 
                 <div className="p-6">
                   {activeTab === 'overview' && (
-                    <div>
-                      <h3 className="text-lg font-bold text-white mb-4">{t('txDetail.summary')}</h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">{t('txDetail.messages')}:</span>
-                          <span className="text-white font-semibold">{transaction.messages.length}</span>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-white mb-4">{t('txDetail.summary')}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
+                            <p className="text-gray-400 text-sm mb-1">Messages</p>
+                            <p className="text-white font-semibold text-2xl">{transaction.messages.length}</p>
+                          </div>
+                          <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
+                            <p className="text-gray-400 text-sm mb-1">Gas Efficiency</p>
+                            <p className="text-white font-semibold text-2xl">
+                              {((parseFloat(transaction.gasUsed) / parseFloat(transaction.gasWanted)) * 100).toFixed(2)}%
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">{t('txDetail.gasEfficiency')}:</span>
-                          <span className="text-white">
-                            {((parseFloat(transaction.gasUsed) / parseFloat(transaction.gasWanted)) * 100).toFixed(2)}%
-                          </span>
+                      </div>
+
+                      {/* Additional Overview Info */}
+                      <div>
+                        <h3 className="text-lg font-bold text-white mb-4">Transaction Events</h3>
+                        <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
+                          <p className="text-gray-400 text-sm mb-1">Total Events</p>
+                          <p className="text-white font-semibold text-2xl">{transaction.events?.length || 0}</p>
                         </div>
                       </div>
                     </div>
@@ -695,16 +960,27 @@ export default function TransactionDetailPage() {
                     </div>
                   )}
 
-                  {activeTab === 'logs' && (
-                    <div>
-                      <pre className="bg-black p-4 rounded text-xs text-gray-300 overflow-x-auto">
-                        {transaction.logs || 'No logs available'}
-                      </pre>
-                    </div>
-                  )}
-
                   {activeTab === 'raw' && (
                     <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-bold text-white">Raw Transaction Data</h3>
+                        <button
+                          onClick={() => copyToClipboard(transaction.rawLog || '', 'rawLog')}
+                          className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded transition-colors"
+                        >
+                          {copiedField === 'rawLog' ? (
+                            <>
+                              <Check className="w-4 h-4" />
+                              <span className="text-sm">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              <span className="text-sm">Copy Raw Data</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                       <pre className="bg-black p-4 rounded text-xs text-gray-300 overflow-x-auto">
                         {transaction.rawLog || 'No raw data available'}
                       </pre>

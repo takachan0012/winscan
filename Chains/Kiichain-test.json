@@ -8,34 +8,30 @@
     },
     {
       "address": "https://lcd.dos.sentry.testnet.v3.kiivalidator.com",
-      "provider": "Winnode"
+      "provider": "KiiValidator"
     }
   ],
   "rpc": [
     {
-      "address": "https://rpc-kiichain.Winnode.xyz",
-      "provider": "Winnode"
-    },
-    {
-      "address": "https://rpc.dos.sentry.testnet.v3.kiivalidator.com",
-      "provider": "Winnode"
+      "address": "https://rpc-kiichain.winnode.xyz",
+      "provider": "KiiValidator"
     }
   ],
-  "sdk_version": "0.46.1",
-  "coin_type": "60",
+  "sdk_version": "0.53.4",
+  "coin_type": "118",
   "min_tx_fee": "800",
   "assets": [
     {
       "base": "akii",
       "symbol": "KII",
       "exponent": "18",
-      "coingecko_id": "unknown",
-      "logo": ""
+      "coingecko_id": "kii",
+      "logo": "https://pbs.twimg.com/profile_images/1800553180083666944/zZe128CW_400x400.jpg"
     }
   ],
   "addr_prefix": "kii",
+  "bech32_prefix": "kii",
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1800553180083666944/zZe128CW_400x400.jpg",
-  "bech32_prefix": "kii",
-  "updated": "2025-11-17"
+  "updated": "2025-11-21"
 }

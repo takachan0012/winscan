@@ -30,63 +30,86 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
     }
 
     const fetchPrice = async () => {
-      setIsLoading(true);
-      try {
-        const symbol = selectedChain.assets?.[0]?.symbol?.toLowerCase();
-        const coingeckoId = selectedChain.assets?.[0]?.coingecko_id;
-        
-        if (!symbol) {
-          setPriceData(null);
-          setIsLoading(false);
-          return;
-        }
+      const symbol = selectedChain.assets?.[0]?.symbol?.toLowerCase();
+      const coingeckoId = selectedChain.assets?.[0]?.coingecko_id;
+      
+      if (!symbol) {
+        setPriceData(null);
+        return;
+      }
 
-        let priceResult: PriceData | null = null;
-
+      // Check cache first (10 minutes)
+      const cacheKey = `price_${symbol}_${coingeckoId || 'unknown'}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
         try {
-          const osmoResponse = await fetch(
-            `https://public-osmosis-api.numia.xyz/tokens/v2/all`,
-            { signal: AbortSignal.timeout(10000) }
-          );
+          const { data, timestamp } = JSON.parse(cached);
+          const age = Date.now() - timestamp;
           
-          if (osmoResponse.ok) {
-            const osmoData = await osmoResponse.json();
-            const token = osmoData.find((t: any) => 
-              t.symbol?.toLowerCase() === symbol.toLowerCase()
-            );
-            
-            if (token && token.price) {
-              priceResult = {
-                price: token.price,
-                change24h: token.price_24h_change || 0,
-                source: 'Osmosis'
-              };
-            } else if (token && token.denom) {
-              try {
-                const quoteResponse = await fetch(
-                  `https://sqs.osmosis.zone/tokens/prices?base=${encodeURIComponent(token.denom)}`,
-                  { signal: AbortSignal.timeout(5000) }
-                );
-                
-                if (quoteResponse.ok) {
-                  const quoteData = await quoteResponse.json();
-                  const basePrices = quoteData[token.denom];
-                  if (basePrices) {
-                    const firstPrice = Object.values(basePrices)[0] as string;
-                    if (firstPrice) {
-                      priceResult = {
-                        price: parseFloat(firstPrice),
-                        change24h: 0,
-                        source: 'Osmosis Pool'
-                      };
-                    }
-                  }
-                }
-              } catch {}
-            }
+          // Use cache if less than 10 minutes old
+          if (age < 10 * 60 * 1000) {
+            setPriceData(data);
+            setIsLoading(false);
+            return;
           }
         } catch {}
+      }
 
+      setIsLoading(true);
+      try {
+        let priceResult: PriceData | null = null;
+
+        // 1. Try Osmosis API first (best for Cosmos tokens)
+        if (!priceResult) {
+          try {
+            const osmoResponse = await fetch(
+              `https://public-osmosis-api.numia.xyz/tokens/v2/all`,
+              { signal: AbortSignal.timeout(10000) }
+            );
+            
+            if (osmoResponse.ok) {
+              const osmoData = await osmoResponse.json();
+              const token = osmoData.find((t: any) => 
+                t.symbol?.toLowerCase() === symbol.toLowerCase()
+              );
+              
+              if (token && token.price) {
+                priceResult = {
+                  price: token.price,
+                  change24h: token.price_24h_change || 0,
+                  source: 'Osmosis'
+                };
+              } else if (token && token.denom) {
+                try {
+                  const quoteResponse = await fetch(
+                    `https://sqs.osmosis.zone/tokens/prices?base=${encodeURIComponent(token.denom)}`,
+                    { signal: AbortSignal.timeout(5000) }
+                  );
+                  
+                  if (quoteResponse.ok) {
+                    const quoteData = await quoteResponse.json();
+                    const basePrices = quoteData[token.denom];
+                    if (basePrices) {
+                      const firstPrice = Object.values(basePrices)[0] as string;
+                      if (firstPrice) {
+                        priceResult = {
+                          price: parseFloat(firstPrice),
+                          change24h: 0,
+                          source: 'Osmosis Pool'
+                        };
+                      }
+                    }
+                  }
+                } catch {}
+              }
+            }
+          } catch (err) {
+            console.log('Osmosis API failed:', err);
+          }
+        }
+
+        // 2. Try CoinGecko if coingecko_id exists
         if (!priceResult && coingeckoId) {
           try {
             const cgResponse = await fetch(
@@ -104,9 +127,12 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
                 };
               }
             }
-          } catch {}
+          } catch (err) {
+            console.log('CoinGecko API failed:', err);
+          }
         }
 
+        // 3. Try MEXC Exchange
         if (!priceResult) {
           try {
             const pairs = [`${symbol.toUpperCase()}USDT`, `${symbol.toUpperCase()}USDC`];
@@ -129,9 +155,12 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
                 }
               }
             }
-          } catch {}
+          } catch (err) {
+            console.log('MEXC API failed:', err);
+          }
         }
 
+        // 4. Try Bitget Exchange
         if (!priceResult) {
           try {
             const pairs = [`${symbol.toUpperCase()}USDT`, `${symbol.toUpperCase()}USDC`];
@@ -154,27 +183,133 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
                 }
               }
             }
-          } catch {}
+          } catch (err) {
+            console.log('Bitget API failed:', err);
+          }
         }
 
+        // 5. Try Gate.io Exchange
         if (!priceResult) {
-          const response = await fetch(`/api/price?symbol=${symbol}`, {
-            signal: AbortSignal.timeout(10000),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.price) {
-              priceResult = {
-                price: data.price,
-                change24h: data.change24h || 0,
-                source: data.source + ' (Server)'
-              };
+          try {
+            const pairs = [`${symbol.toUpperCase()}_USDT`, `${symbol.toUpperCase()}_USDC`];
+            
+            for (const pair of pairs) {
+              const gateResponse = await fetch(
+                `https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${pair}`,
+                { signal: AbortSignal.timeout(5000) }
+              );
+              
+              if (gateResponse.ok) {
+                const gateData = await gateResponse.json();
+                if (gateData[0]?.last) {
+                  priceResult = {
+                    price: parseFloat(gateData[0].last),
+                    change24h: parseFloat(gateData[0].change_percentage || '0'),
+                    source: 'Gate.io'
+                  };
+                  break;
+                }
+              }
             }
+          } catch (err) {
+            console.log('Gate.io API failed:', err);
+          }
+        }
+
+        // 6. Try KuCoin Exchange
+        if (!priceResult) {
+          try {
+            const pairs = [`${symbol.toUpperCase()}-USDT`, `${symbol.toUpperCase()}-USDC`];
+            
+            for (const pair of pairs) {
+              const kucoinResponse = await fetch(
+                `https://api.kucoin.com/api/v1/market/stats?symbol=${pair}`,
+                { signal: AbortSignal.timeout(5000) }
+              );
+              
+              if (kucoinResponse.ok) {
+                const kucoinData = await kucoinResponse.json();
+                if (kucoinData.data?.last) {
+                  priceResult = {
+                    price: parseFloat(kucoinData.data.last),
+                    change24h: parseFloat(kucoinData.data.changeRate || '0') * 100,
+                    source: 'KuCoin'
+                  };
+                  break;
+                }
+              }
+            }
+          } catch (err) {
+            console.log('KuCoin API failed:', err);
+          }
+        }
+
+        // 7. Try CoinMarketCap (requires no API key for basic data)
+        if (!priceResult) {
+          try {
+            // CMC uses cryptocurrency names/slugs, try common variations
+            const slugs = [
+              symbol.toLowerCase(),
+              coingeckoId?.toLowerCase(),
+              selectedChain.chain_name.toLowerCase().replace('-mainnet', '').replace('-testnet', '')
+            ].filter(Boolean);
+            
+            for (const slug of slugs) {
+              const cmcResponse = await fetch(
+                `https://api.coinmarketcap.com/data-api/v3/cryptocurrency/detail?slug=${slug}`,
+                { signal: AbortSignal.timeout(5000) }
+              );
+              
+              if (cmcResponse.ok) {
+                const cmcData = await cmcResponse.json();
+                const quote = cmcData?.data?.statistics?.price;
+                if (quote) {
+                  priceResult = {
+                    price: parseFloat(quote),
+                    change24h: parseFloat(cmcData?.data?.statistics?.priceChangePercentage24h || '0'),
+                    source: 'CoinMarketCap'
+                  };
+                  break;
+                }
+              }
+            }
+          } catch (err) {
+            console.log('CoinMarketCap API failed:', err);
+          }
+        }
+
+        // 8. Try Backend API as last resort
+        if (!priceResult) {
+          try {
+            const response = await fetch(`/api/price?symbol=${symbol}`, {
+              signal: AbortSignal.timeout(10000),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              if (data.price) {
+                priceResult = {
+                  price: data.price,
+                  change24h: data.change24h || 0,
+                  source: data.source + ' (API)'
+                };
+              }
+            }
+          } catch (err) {
+            console.log('Backend API failed:', err);
           }
         }
 
         setPriceData(priceResult);
+        
+        // Save to cache
+        if (priceResult) {
+          const cacheKey = `price_${symbol}_${coingeckoId || 'unknown'}`;
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data: priceResult,
+            timestamp: Date.now()
+          }));
+        }
       } catch (error) {
         setPriceData(null);
       } finally {
@@ -183,7 +318,8 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
     };
 
     fetchPrice();
-    const interval = setInterval(fetchPrice, 60000);
+    // Update every 10 minutes
+    const interval = setInterval(fetchPrice, 10 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [selectedChain]);

@@ -6,17 +6,17 @@ export const runtime = 'nodejs';
 const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const chain = searchParams.get('chain');
-
-  if (!chain) {
-    return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });
-  }
-
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const chain = searchParams.get('chain');
+
+    if (!chain) {
+      return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });
+    }
+
     // Use backend API which supports both chain_name and chain_id with load balancer
-    const backendUrl = `${API_URL}/api/validators?chain=${chain}`;
-    console.log('[Validators API] Fetching from backend:', backendUrl);
+    const backendUrl = `${API_URL}/api/network?chain=${chain}`;
+    console.log('[Network API] Fetching from backend:', backendUrl);
     
     const response = await fetch(backendUrl, {
       headers: { 'Accept': 'application/json' },
@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error('[Validators API] Backend error:', response.status);
+      console.error('[Network API] Backend error:', response.status);
       return NextResponse.json(
-        { error: 'Failed to fetch validators' },
+        { error: 'Failed to fetch network info' },
         { status: response.status }
       );
     }
@@ -39,10 +39,10 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error) {
-    console.error('[Validators API] Error:', error);
+  } catch (error: any) {
+    console.error('[Network API] Error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }

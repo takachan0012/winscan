@@ -58,27 +58,81 @@ export default function BlocksPage() {
     const cacheKey = getCacheKey('blocks', selectedChain.chain_name, `page${currentPage}`);
     const cachedData = getStaleCache<BlockData[]>(cacheKey);
     
+    // Always show cached data immediately (optimistic UI)
     if (cachedData && cachedData.length > 0) {
       setBlocks(cachedData);
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     } else if (showLoading) {
       setLoading(true);
     }
     
-    if (!showLoading) setIsRefreshing(true);
+    // Silent background refresh
+    if (!showLoading) {
+      setIsRefreshing(true);
+    }
     
     try {
-      const data = await fetchWithCache<BlockData[]>(
-        `/api/blocks?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=${blocksPerPage}&page=${currentPage}`,
-        {},
-        0
-      );
-      setBlocks(data);
-      setCache(cacheKey, data);
-      setLoading(false);
+      // Try backend API first
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
+      const backendUrl = `${API_URL}/api/blocks?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=${blocksPerPage}&page=${currentPage}`;
+      
+      const res = await fetch(backendUrl, {
+        signal: AbortSignal.timeout(8000), // 8 second timeout
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          // Smooth update: only update if data actually changed
+          setBlocks(prev => {
+            const hasChanges = JSON.stringify(prev) !== JSON.stringify(data);
+            return hasChanges ? data : prev;
+          });
+          setCache(cacheKey, data);
+          setLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
+      }
+      
+      // Fallback to cosmos-client (direct LCD)
+      const { fetchBlocksDirectly } = await import('@/lib/cosmos-client');
+      const endpoints = selectedChain.api?.map((a: any) => ({
+        address: a.address,
+        provider: a.provider || 'unknown'
+      })) || [];
+      
+      if (endpoints.length > 0) {
+        const directBlocks = await fetchBlocksDirectly(endpoints, blocksPerPage);
+        
+        // Transform LCD format to backend format
+        const blockData = directBlocks.map((b: any) => ({
+          height: b.block?.header?.height || b.header?.height || '0',
+          hash: b.block_id?.hash || b.block?.last_block_id?.hash || '',
+          time: b.block?.header?.time || b.header?.time || new Date().toISOString(),
+          txs: b.block?.data?.txs?.length || b.data?.txs?.length || 0,
+          proposer: b.block?.header?.proposer_address || b.header?.proposer_address || '',
+        }));
+        
+        // Smooth update: only update if data actually changed
+        setBlocks(prev => {
+          const hasChanges = JSON.stringify(prev) !== JSON.stringify(blockData);
+          return hasChanges ? blockData : prev;
+        });
+        setCache(cacheKey, blockData);
+        setLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
+      
+      throw new Error('No LCD endpoints available');
+      
     } catch (err) {
+      console.error('Error fetching blocks:', err);
+      setBlocks([]);
       setLoading(false);
-    } finally {
       setIsRefreshing(false);
     }
   }, [selectedChain, currentPage, blocksPerPage]);
@@ -117,12 +171,12 @@ export default function BlocksPage() {
               </p>
             </div>
             
-            {/* Realtime indicator */}
-            {currentPage === 1 && (
+            {/* Realtime indicator - hidden during refresh for smooth UX */}
+            {currentPage === 1 && !isRefreshing && (
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 <span className="text-xs text-gray-400">
-                  {isRefreshing ? t('overview.updating') : t('overview.live')}
+                  {t('overview.live')}
                 </span>
               </div>
             )}

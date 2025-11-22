@@ -7,10 +7,11 @@ import Header from '@/components/Header';
 import Link from 'next/link';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { ChainData, TransactionData } from '@/types/chain';
-import { Wallet, Copy, CheckCircle, XCircle } from 'lucide-react';
+import { Wallet, Copy, CheckCircle, XCircle, ArrowLeftRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { getAddressVariants, detectAddressType } from '@/lib/addressConverter';
 
 interface AccountDetail {
   address: string;
@@ -44,6 +45,12 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [addressVariants, setAddressVariants] = useState<{
+    bech32: string;
+    eth: string;
+    original: string;
+    type: 'bech32' | 'eth' | 'unknown';
+  } | null>(null);
 
   useEffect(() => {
 
@@ -75,8 +82,17 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (selectedChain && params?.address) {
+      const addressStr = params.address as string;
+      
+      // Detect and convert address for EVM-compatible chains
+      const chainPrefix = selectedChain.addr_prefix || 'cosmos';
+      const variants = getAddressVariants(addressStr, chainPrefix);
+      setAddressVariants(variants);
+      
+      // Use bech32 address for API calls (Cosmos SDK expects bech32)
+      const queryAddress = variants.type === 'eth' ? variants.bech32 : addressStr;
 
-      const cacheKey = `account_${selectedChain.chain_name}_${params.address}`;
+      const cacheKey = `account_${selectedChain.chain_name}_${queryAddress}`;
       const cached = sessionStorage.getItem(cacheKey);
       
       // Stale-while-revalidate: Show cache immediately if available
@@ -102,7 +118,7 @@ export default function AccountPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s
       
-      fetch(`/api/accounts?chain=${selectedChain.chain_id || selectedChain.chain_name}&address=${params.address}`, { signal: controller.signal })
+      fetch(`/api/accounts?chain=${selectedChain.chain_id || selectedChain.chain_name}&address=${queryAddress}`, { signal: controller.signal })
         .then(r => {
           if (!r.ok) {
             throw new Error(`HTTP ${r.status}: ${r.statusText}`);
@@ -198,22 +214,89 @@ export default function AccountPage() {
               {t('accountDetail.title')}
             </h1>
             
-            {/* Address */}
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 flex items-center justify-between">
-              <code className="text-blue-400 font-mono text-sm md:text-base break-all">
-                {params?.address}
-              </code>
-              <button
-                onClick={copyAddress}
-                className="ml-4 p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
-                title={t('accountDetail.copyAddress')}
-              >
-                {copied ? (
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                ) : (
-                  <Copy className="w-5 h-5 text-gray-400" />
-                )}
-              </button>
+            {/* Address with EVM/Bech32 variants */}
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
+              {addressVariants && addressVariants.type !== 'unknown' && (
+                <>
+                  {/* Show both formats for EVM-compatible chains */}
+                  {addressVariants.bech32 && addressVariants.eth && (
+                    <div className="mb-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 text-sm font-medium">Cosmos (Bech32):</span>
+                        <div className="flex items-center flex-1 gap-2">
+                          <code className="text-blue-400 font-mono text-sm break-all flex-1">
+                            {addressVariants.bech32}
+                          </code>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(addressVariants.bech32);
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            }}
+                            className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                            title="Copy Bech32 address"
+                          >
+                            {copied ? (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 text-sm font-medium">EVM (Hex):</span>
+                        <div className="flex items-center flex-1 gap-2">
+                          <code className="text-purple-400 font-mono text-sm break-all flex-1">
+                            {addressVariants.eth}
+                          </code>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(addressVariants.eth);
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            }}
+                            className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                            title="Copy EVM address"
+                          >
+                            {copied ? (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
+                        <ArrowLeftRight className="w-3 h-3" />
+                        <span>This chain supports both Cosmos and EVM addresses (same account)</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              
+              {/* Fallback: show original address if no variants */}
+              {(!addressVariants || addressVariants.type === 'unknown') && (
+                <div className="flex items-center justify-between">
+                  <code className="text-blue-400 font-mono text-sm md:text-base break-all">
+                    {params?.address}
+                  </code>
+                  <button
+                    onClick={copyAddress}
+                    className="ml-4 p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                    title={t('accountDetail.copyAddress')}
+                  >
+                    {copied ? (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Copy className="w-5 h-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

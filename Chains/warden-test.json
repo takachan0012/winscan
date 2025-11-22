@@ -1,0 +1,53 @@
+{
+  "chain_name": "warden-test",
+  "chain_id": "barra_9191-1",
+  "api": [
+    {
+      "address": "https://warden-testnet-api.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://warden-testnet-api.itrocket.net",
+      "provider": "ItRocket"
+    },
+    {
+      "address": "https://api-warden.winnode.xyz",
+      "provider": "WinNode"
+    },
+    {
+      "address": "https://api.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://warden-testnet-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://warden-testnet-rpc.itrocket.net",
+      "provider": "ItRocket"
+    },
+    {
+      "address": "https://rpc.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
+  "sdk_version": "0.53.4",
+  "coin_type": "60",
+  "min_tx_fee": "0.025",
+  "assets": [
+    {
+      "base": "award",
+      "symbol": "WARD",
+      "exponent": "18",
+      "coingecko_id": "warden",
+      "logo": "https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg"
+    }
+  ],
+  "addr_prefix": "warden",
+  "bech32_prefix": "warden",
+  "theme_color": "#1e2a38",
+  "logo": "https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg",
+  "updated": "2025-11-21-v2"
+}

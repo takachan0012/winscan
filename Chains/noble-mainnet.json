@@ -1,0 +1,49 @@
+{
+  "chain_name": "noble-mainnet",
+  "chain_id": "noble-1",
+  "api": [
+    {
+      "address": "https://noble-api.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rest.lavenderfive.com:443/noble",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://noble-rest.owallet.io",
+      "provider": "OWALLET"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://noble-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rpc.lavenderfive.com:443/noble",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://noble-rpc.owallet.io",
+      "provider": "OWALLET"
+    }
+  ],
+  "sdk_version": "0.50.14",
+  "coin_type": "118",
+  "min_tx_fee": "0.1",
+  "assets": [
+    {
+      "base": "uusdc",
+      "symbol": "USDC",
+      "exponent": "6",
+      "coingecko_id": "usd-coin",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/USDCoin.png"
+    }
+  ],
+  "addr_prefix": "noble",
+  "bech32_prefix": "noble",
+  "theme_color": "#2B2D42",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/stake.png",
+  "updated": "2025-11-21"
+}

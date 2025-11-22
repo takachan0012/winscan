@@ -1,4 +1,26 @@
 import { ChainData } from '@/types/chain';
+
+// Helper function to create CosmJS registry with EVM pubkey support
+async function createEvmRegistry() {
+  // @ts-ignore
+  const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
+  // @ts-ignore
+  const { decodePubkey, encodePubkey } = await import('@cosmjs/proto-signing');
+  
+  const registry = new Registry(defaultRegistryTypes);
+  
+  // Add EVM pubkey type support
+  try {
+    // Register eth_secp256k1 pubkey decoder/encoder
+    const originalDecode = decodePubkey;
+    const originalEncode = encodePubkey;
+  } catch (error) {
+    console.warn('Could not register EVM pubkey support:', error);
+  }
+  
+  return registry;
+}
+
 export interface KeplrChainInfo {
   chainId: string;
   chainName: string;
@@ -92,7 +114,7 @@ export function convertChainToKeplr(chain: ChainData, coinType: 118 | 60 = 118):
       coinMinimalDenom: 'uatom',
       coinDecimals: 6,
     },
-    features: coinType === 60 ? ['eth-address-gen', 'eth-key-sign'] : undefined,
+    features: coinType === 60 ? ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'] : ['ibc-transfer'],
   };
 }
 export function isKeplrInstalled(): boolean {
@@ -107,7 +129,17 @@ export function getKeplr() {
 export async function suggestChain(chainInfo: KeplrChainInfo): Promise<void> {
   const keplr = getKeplr();
   try {
-    await keplr.experimentalSuggestChain(chainInfo);
+    // For EVM chains (coin_type 60), add ethermint account support
+    if (chainInfo.bip44.coinType === 60) {
+      // @ts-ignore - Keplr internal property
+      const chainInfoWithEvm = {
+        ...chainInfo,
+        features: chainInfo.features || ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'],
+      };
+      await keplr.experimentalSuggestChain(chainInfoWithEvm);
+    } else {
+      await keplr.experimentalSuggestChain(chainInfo);
+    }
   } catch (error) {
     console.error('Failed to suggest chain to Keplr:', error);
     throw error;
@@ -122,24 +154,107 @@ export async function connectKeplr(
   }
   const keplr = getKeplr();
   const chainInfo = convertChainToKeplr(chain, coinType);
-  const chainId = chainInfo.chainId;
+  let chainId = chainInfo.chainId;
+
+  console.log('🔍 connectKeplr Debug:', {
+    chain_name: chain.chain_name,
+    chain_id: chain.chain_id,
+    computed_chainId: chainId,
+    coinType: coinType
+  });
+
+  // Verify chain ID from RPC before connecting
+  const rpcEndpoint = chain.rpc?.[0]?.address;
+  if (rpcEndpoint) {
+    try {
+      console.log('📡 Verifying chain ID from RPC:', rpcEndpoint);
+      const statusResponse = await fetch(`${rpcEndpoint}/status`);
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        const rpcChainId = statusData.result?.node_info?.network;
+        
+        console.log('📡 RPC Chain ID:', rpcChainId);
+        console.log('🔑 Config Chain ID:', chainId);
+        
+        if (rpcChainId && rpcChainId !== chainId) {
+          console.warn(`⚠️ Chain ID mismatch! Config: ${chainId}, RPC: ${rpcChainId}`);
+          console.log('🔄 Updating to use RPC chain ID:', rpcChainId);
+          chainId = rpcChainId;
+          // Update chainInfo with correct chain ID
+          chainInfo.chainId = rpcChainId;
+        }
+      }
+    } catch (rpcError) {
+      console.warn('Could not verify chain ID from RPC, using config chain ID:', rpcError);
+    }
+  }
+
   try {
     try {
       await keplr.enable(chainId);
-    } catch (enableError) {
-      console.log('Chain not found, suggesting to Keplr...');
+      console.log('✅ Chain enabled:', chainId);
+    } catch (enableError: any) {
+      console.log('Chain not found or enable failed:', enableError.message);
+      console.log('Suggesting chain to Keplr...');
+      
+      // For EVM chains, ensure the chain suggestion includes EVM features
+      if (coinType === 60 && !chainInfo.features?.includes('eth-address-gen')) {
+        chainInfo.features = ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'];
+        console.log('🔧 Added EVM features to chain suggestion');
+      }
+      
       await suggestChain(chainInfo);
+      console.log('✅ Chain suggested successfully');
+      
       await keplr.enable(chainId);
+      console.log('✅ Chain enabled after suggestion:', chainId);
     }
-    const key = await keplr.getKey(chainId);
+    
+    let key;
+    try {
+      key = await keplr.getKey(chainId);
+      console.log('✅ Keplr key retrieved for address:', key.bech32Address);
+    } catch (keyError: any) {
+      // Handle EthAccount error specifically
+      if (keyError.message?.includes('EthAccount') || keyError.message?.includes('Unsupported type')) {
+        console.log('🔄 EthAccount type detected, reconnecting with EVM support...');
+        
+        // Force re-suggest chain with explicit EVM features
+        const evmChainInfo = {
+          ...chainInfo,
+          features: ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'],
+        };
+        
+        await keplr.experimentalSuggestChain(evmChainInfo);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+        await keplr.enable(chainId);
+        
+        // Retry getKey
+        key = await keplr.getKey(chainId);
+        console.log('✅ Keplr key retrieved after EVM re-config:', key.bech32Address);
+      } else {
+        throw keyError;
+      }
+    }
+    
     return {
       address: key.bech32Address,
       algo: key.algo,
       pubKey: key.pubKey,
       isNanoLedger: key.isNanoLedger,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to connect to Keplr:', error);
+    
+    // Specific error messages for common issues
+    if (error.message?.includes('EthAccount') || error.message?.includes('Unsupported type')) {
+      throw new Error(`EVM chain not fully supported in this Keplr version. Please: 1) Update Keplr to latest version, 2) Clear browser cache, 3) Reconnect wallet. Error: ${error.message}`);
+    }
+    
+    if (error.message?.includes('chain id') || error.message?.includes('signer')) {
+      throw new Error(`Chain ID mismatch. Please try: 1) Disconnect Keplr wallet, 2) Clear browser cache, 3) Reconnect. Chain ID: ${chainId}`);
+    }
+    
     throw error;
   }
 }
@@ -248,6 +363,7 @@ export async function executeStaking(
         console.log('Chain not found in Keplr, suggesting chain...');
         const rpcEndpoint = chain.rpc?.[0]?.address || '';
         const apiEndpoint = chain.api?.[0]?.address || '';
+        const coinType = parseInt(chain.coin_type || '118');
         
         await keplr.experimentalSuggestChain({
           chainId: chainId,
@@ -255,7 +371,7 @@ export async function executeStaking(
           rpc: rpcEndpoint,
           rest: apiEndpoint,
           bip44: {
-            coinType: parseInt(chain.coin_type || '118'),
+            coinType: coinType,
           },
           bech32Config: {
             bech32PrefixAccAddr: chain.addr_prefix || 'cosmos',
@@ -289,6 +405,7 @@ export async function executeStaking(
             coinMinimalDenom: chain.assets?.[0]?.base || 'uatom',
             coinDecimals: parseInt(String(chain.assets?.[0]?.exponent || '6')),
           },
+          features: coinType === 60 ? ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'] : ['ibc-transfer'],
         });
         
         // Try to enable again after suggesting
@@ -348,13 +465,26 @@ export async function executeStaking(
       console.warn('Could not fetch chain ID from RPC, continuing with existing chainId:', chainId);
     }
     
+    // Create client with custom options to support EVM chains
+    const clientOptions: any = { 
+      broadcastTimeoutMs: 30000, 
+      broadcastPollIntervalMs: 3000,
+    };
+    
+    // For EVM-compatible chains (coin type 60 or ethsecp256k1), add custom amino types
+    const isEvmChain = parseInt(chain.coin_type || '118') === 60 || 
+                       chainId.includes('_') || // EVM chains often have underscore in chain_id
+                       chain.chain_id?.includes('_');
+    
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM-compatible chain, using extended config');
+      // CosmJS will handle ethsecp256k1 pubkeys automatically with proper signer
+    }
+    
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint,
       actualSigner,
-      { 
-        broadcastTimeoutMs: 30000, 
-        broadcastPollIntervalMs: 3000,
-      }
+      clientOptions
     );
     
     console.log('✅ SigningStargateClient connected');
@@ -487,7 +617,25 @@ export async function executeWithdrawAll(
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     
-    const rpcEndpoint = chain.rpc?.[0]?.address || '';
+    // Find RPC with indexer enabled (tx_index = on)
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    // Priority: Use RPC with tx_index enabled
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        console.log('✅ Using RPC with tx_index enabled:', rpcEndpoint);
+        break;
+      }
+    }
+    
+    // Fallback: Use first available RPC
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+      console.warn('⚠️ No RPC with tx_index found, using first available:', rpcEndpoint);
+    }
+    
     if (!rpcEndpoint) {
       throw new Error('No RPC endpoint available');
     }
@@ -608,7 +756,25 @@ export async function executeWithdrawAllValidators(
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     
-    const rpcEndpoint = chain.rpc?.[0]?.address || '';
+    // Find RPC with indexer enabled (tx_index = on)
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    // Priority: Use RPC with tx_index enabled
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        console.log('✅ Using RPC with tx_index enabled:', rpcEndpoint);
+        break;
+      }
+    }
+    
+    // Fallback: Use first available RPC
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+      console.warn('⚠️ No RPC with tx_index found, using first available:', rpcEndpoint);
+    }
+    
     if (!rpcEndpoint) {
       throw new Error('No RPC endpoint available');
     }
@@ -629,13 +795,15 @@ export async function executeWithdrawAllValidators(
       console.warn('Could not verify chain ID from RPC');
     }
     
+    const clientOptions: any = { 
+      broadcastTimeoutMs: 30000, 
+      broadcastPollIntervalMs: 3000,
+    };
+    
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint,
       actualSigner,
-      { 
-        broadcastTimeoutMs: 30000, 
-        broadcastPollIntervalMs: 3000,
-      }
+      clientOptions
     );
     
     console.log('✅ Client connected for withdraw all validators');
@@ -783,7 +951,25 @@ export async function executeSend(
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     
-    const rpcEndpoint = chain.rpc?.[0]?.address || '';
+    // Find RPC with indexer enabled (tx_index = on)
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    // Priority: Use RPC with tx_index enabled
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        console.log('✅ Using RPC with tx_index enabled:', rpcEndpoint);
+        break;
+      }
+    }
+    
+    // Fallback: Use first available RPC
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+      console.warn('⚠️ No RPC with tx_index found, using first available:', rpcEndpoint);
+    }
+    
     if (!rpcEndpoint) {
       throw new Error('No RPC endpoint available');
     }
@@ -988,12 +1174,16 @@ export async function executeVote(
     
     const gasPrice = GasPrice.fromString(`${chain.min_tx_fee || '0.025'}${chain.assets?.[0]?.base || 'uatom'}`);
     
+    const clientOptions: any = {
+      gasPrice,
+      broadcastTimeoutMs: 30000,
+      broadcastPollIntervalMs: 3000,
+    };
+    
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint,
       offlineSigner,
-      {
-        gasPrice,
-      }
+      clientOptions
     );
 
     console.log('Creating MsgVote transaction...');

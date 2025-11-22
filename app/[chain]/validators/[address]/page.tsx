@@ -86,7 +86,7 @@ export default function ValidatorDetailPage() {
     if (cachedChains) {
       const data = JSON.parse(cachedChains);
       setChains(data);
-      const chainName = params?.chain as string;
+      const chainName = (params?.chain as string)?.trim();
       const chain = chainName 
         ? data.find((c: ChainData) => c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase())
         : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
@@ -97,7 +97,7 @@ export default function ValidatorDetailPage() {
         .then(data => {
           sessionStorage.setItem('chains', JSON.stringify(data));
           setChains(data);
-          const chainName = params?.chain as string;
+          const chainName = (params?.chain as string)?.trim();
           const chain = chainName 
             ? data.find((c: ChainData) => c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase())
             : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];

@@ -14,16 +14,19 @@ export default function LatestTransactions({ transactions, chainName, asset }: L
   const [highlightedTxs, setHighlightedTxs] = useState<Set<string>>(new Set());
   const { language } = useLanguage();
   const t = (key: string) => getTranslation(language, key);
+  
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  
   useEffect(() => {
-    if (transactions.length > 0) {
-      const newTxs = transactions.slice(0, 2).map(tx => tx.hash);
+    if (safeTransactions.length > 0) {
+      const newTxs = safeTransactions.slice(0, 2).map(tx => tx.hash);
       setHighlightedTxs(new Set(newTxs));
       const timeout = setTimeout(() => {
         setHighlightedTxs(new Set());
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [transactions]);
+  }, [safeTransactions]);
   const formatFee = (fee: string) => {
     if (!asset) return fee;
     const feeNum = parseFloat(fee) / Math.pow(10, Number(asset.exponent));
@@ -45,12 +48,12 @@ export default function LatestTransactions({ transactions, chainName, asset }: L
         </a>
       </div>
       <div className="space-y-3">
-        {transactions.length === 0 ? (
+        {safeTransactions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <div className="text-sm">{t('common.loading')}</div>
           </div>
         ) : (
-          transactions.map((tx) => (
+          safeTransactions.map((tx) => (
             <div
               key={tx.hash}
               className={`bg-[#0f0f0f] border border-gray-800 rounded-lg p-4 hover:border-blue-500 transition-all duration-500 ${

@@ -34,10 +34,13 @@ export async function GET(request: NextRequest) {
     const chainConfig = chainsData.find((c: ChainData) => 
       c.chain_name === chain || 
       c.chain_id === chain ||
+      c.chain_name.toLowerCase() === chain.toLowerCase() ||
+      c.chain_id?.toLowerCase() === chain.toLowerCase() ||
       c.chain_name.toLowerCase().replace(/\s+/g, '-') === chain.toLowerCase()
     );
 
     if (!chainConfig) {
+      console.log(`Chain not found: ${chain}. Available chains: ${chainsData.map(c => c.chain_id || c.chain_name).join(', ')}`);
       return NextResponse.json({ error: 'Chain not found' }, { status: 404 });
     }
 

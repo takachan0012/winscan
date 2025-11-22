@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const revalidate = 0;
 
 const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
@@ -10,25 +9,29 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const chain = searchParams.get('chain');
-    const address = searchParams.get('address');
+    const status = searchParams.get('status');
+    const limit = searchParams.get('limit') || '50';
 
-    if (!chain || !address) {
-      return NextResponse.json({ error: 'Chain and address parameters required' }, { status: 400 });
+    if (!chain) {
+      return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });
     }
 
     // Use backend API which supports both chain_name and chain_id with load balancer
-    const backendUrl = `${API_URL}/api/validator/delegations?chain=${chain}&address=${address}`;
-    console.log('[Delegations API] Fetching from backend:', backendUrl);
+    let backendUrl = `${API_URL}/api/proposals?chain=${chain}&limit=${limit}`;
+    if (status) {
+      backendUrl += `&status=${status}`;
+    }
+    console.log('[Proposals API] Fetching from backend:', backendUrl);
     
     const response = await fetch(backendUrl, {
       headers: { 'Accept': 'application/json' },
-      cache: 'no-store'
+      next: { revalidate: 60 }
     });
 
     if (!response.ok) {
-      console.error('[Delegations API] Backend error:', response.status);
+      console.error('[Proposals API] Backend error:', response.status);
       return NextResponse.json(
-        { delegations: [], unbonding: [], source: 'none' },
+        { error: 'Failed to fetch proposals' },
         { status: response.status }
       );
     }
@@ -37,14 +40,14 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(data, {
       headers: {
-        'Cache-Control': 'no-store, must-revalidate'
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
       }
     });
 
   } catch (error: any) {
-    console.error('[Delegations API] Error:', error.message);
+    console.error('[Proposals API] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch delegations', details: error.message },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }

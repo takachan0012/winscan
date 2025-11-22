@@ -1,0 +1,33 @@
+{
+  "chain_name": "noble-test",
+  "chain_id": "grand-1",
+  "api": [
+    {
+      "address": "https://noble-testnet-api.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://noble-testnet-rpc.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "sdk_version": "0.50.14",
+  "coin_type": "118",
+  "min_tx_fee": "0.1",
+  "assets": [
+    {
+      "base": "uusdc",
+      "symbol": "USDC",
+      "exponent": "6",
+      "coingecko_id": "",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/USDCoin.png"
+    }
+  ],
+  "addr_prefix": "noble",
+  "bech32_prefix": "noble",
+  "theme_color": "#2B2D42",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/stake.png",
+  "updated": "2025-11-21"
+}

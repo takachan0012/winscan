@@ -124,7 +124,8 @@ export default function AccountsPage() {
 
     const fetchData = async () => {
       try {
-        const response = await fetch(`/api/accounts?chain=${selectedChain.chain_id || selectedChain.chain_name}&address=${connectedAddress}`);
+        const chainParam = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
+        const response = await fetch(`/api/wallet?chain=${chainParam}&address=${connectedAddress}`);
         const data = await response.json();
         console.log('Account data:', data);
         
@@ -579,7 +580,7 @@ export default function AccountsPage() {
               )}
 
               {/* Recent Transactions */}
-              {walletData.transactions.length > 0 && (
+              {walletData.transactions.length > 0 ? (
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
                   <div className="p-6 border-b border-gray-800">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -601,12 +602,29 @@ export default function AccountsPage() {
                         {walletData.transactions.map((tx, idx) => (
                           <tr key={idx} className="hover:bg-gray-800/50 transition-colors">
                             <td className="px-6 py-4">
-                              <Link
-                                href={`/${chainPath}/transactions/${tx.hash}`}
-                                className="text-blue-400 hover:text-blue-300 font-mono text-sm"
-                              >
-                                {tx.hash.slice(0, 16)}...
-                              </Link>
+                              <div className="flex items-center gap-2">
+                                <Link
+                                  href={`/${chainPath}/transactions/${tx.hash}`}
+                                  className="text-blue-400 hover:text-blue-300 font-mono text-sm"
+                                >
+                                  {tx.hash.slice(0, 16)}...
+                                </Link>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(tx.hash);
+                                    const btn = event?.target as HTMLElement;
+                                    const originalContent = btn.innerHTML;
+                                    btn.innerHTML = '<svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                                    setTimeout(() => {
+                                      btn.innerHTML = originalContent;
+                                    }, 1500);
+                                  }}
+                                  className="text-gray-400 hover:text-gray-300 transition-colors"
+                                  title="Copy hash"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-gray-300 text-sm">
@@ -636,6 +654,14 @@ export default function AccountsPage() {
                       View All Transactions →
                     </Link>
                   </div>
+                </div>
+              ) : (
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-12 text-center">
+                  <ArrowDownLeft className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-white mb-2">No Recent Transactions</h3>
+                  <p className="text-gray-400 text-sm">
+                    Your transactions will appear here after you make your first transaction.
+                  </p>
                 </div>
               )}
 

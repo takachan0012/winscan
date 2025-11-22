@@ -82,8 +82,27 @@ const ValidatorRow = memo(({
             >
               {validator.moniker || t('common.unknown')}
             </Link>
-            <div className="text-xs text-gray-500 mt-0.5 font-mono truncate max-w-[200px]">
-              {validator.address?.slice(0, 20)}...
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="text-sm text-gray-500 font-mono truncate max-w-[200px]">
+                {validator.address?.slice(0, 20)}...
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(validator.address || '');
+                  const btn = event?.target as HTMLElement;
+                  const originalContent = btn.innerHTML;
+                  btn.innerHTML = '<svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                  setTimeout(() => {
+                    btn.innerHTML = originalContent;
+                  }, 1500);
+                }}
+                className="text-gray-500 hover:text-gray-300 transition-colors"
+                title="Copy validator address"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>

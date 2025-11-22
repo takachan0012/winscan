@@ -23,13 +23,20 @@ export default function ValidatorsPage() {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    // Cache version - increment to force refresh
+    const CACHE_VERSION = 'v2';
+    const cachedVersion = sessionStorage.getItem('chainsVersion');
     const cachedChains = sessionStorage.getItem('chains');
-    if (cachedChains) {
+    
+    if (cachedChains && cachedVersion === CACHE_VERSION) {
       const data = JSON.parse(cachedChains);
       setChains(data);
-      const chainName = params?.chain as string;
+      const chainName = (params?.chain as string)?.trim();
       const chain = chainName 
-        ? data.find((c: ChainData) => c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase())
+        ? data.find((c: ChainData) => 
+            c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase() ||
+            c.chain_id?.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase()
+          )
         : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
       if (chain) setSelectedChain(chain);
       return;
@@ -39,10 +46,14 @@ export default function ValidatorsPage() {
       .then(res => res.json())
       .then(data => {
         sessionStorage.setItem('chains', JSON.stringify(data));
+        sessionStorage.setItem('chainsVersion', CACHE_VERSION);
         setChains(data);
-        const chainName = params?.chain as string;
+        const chainName = (params?.chain as string)?.trim();
         const chain = chainName 
-          ? data.find((c: ChainData) => c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase())
+          ? data.find((c: ChainData) => 
+              c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase() ||
+              c.chain_id?.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase()
+            )
           : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
         if (chain) setSelectedChain(chain);
       });
@@ -61,18 +72,19 @@ export default function ValidatorsPage() {
     try {
       const chainPath = params?.chain as string;
       
-      // Strategy 1: Try our optimized server API first (fastest, includes all data)
+      // Strategy 1: Try backend API first (fastest, includes all data)
       try {
-        console.log(`[Validators] Trying optimized server API for ${selectedChain.chain_name}`);
-        const apiResponse = await fetch(`/api/validators?chain=${chainPath}`, {
+        console.log(`[Validators] Trying backend API for ${selectedChain.chain_name}`);
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
+        const apiResponse = await fetch(`${API_URL}/api/validators?chain=${chainPath}`, {
           headers: { 'Accept': 'application/json' },
-          signal: AbortSignal.timeout(15000), // 15s timeout for full data
+          signal: AbortSignal.timeout(10000), // 10s timeout
         });
         
         if (apiResponse.ok) {
           const apiData = await apiResponse.json();
           if (Array.isArray(apiData.validators) && apiData.validators.length > 0) {
-            console.log(`[Validators] ✓ Got ${apiData.validators.length} validators from server API (with delegators & uptime)`);
+            console.log(`[Validators] ✓ Got ${apiData.validators.length} validators from backend API`);
             
             const formattedValidators = apiData.validators
               .map((v: any) => ({
@@ -95,37 +107,11 @@ export default function ValidatorsPage() {
               setCache(cacheKey, formattedValidators);
             });
             
-            // Fetch uptime for top 20 validators progressively
-            const lcdEndpoints = selectedChain.api?.map(api => ({
-              address: api.address,
-              provider: api.provider || 'Unknown'
-            })) || [];
-            
-            const top20 = formattedValidators.slice(0, 20);
-            Promise.all(
-              top20.map(async (v: any) => {
-                if (!v.consensus_pubkey) return { address: v.address, uptime: 100 };
-                
-                const consensusAddress = v.consensus_pubkey?.key || '';
-                const uptime = await fetchValidatorUptime(lcdEndpoints, consensusAddress, chainPath);
-                return { address: v.address, uptime };
-              })
-            ).then((results) => {
-              const uptimeMap = new Map(results.map(r => [r.address, r.uptime]));
-              
-              setValidators(prev => prev.map(v => ({
-                ...v,
-                uptime: uptimeMap.get(v.address) || v.uptime || 100
-              })));
-            }).catch(err => {
-              console.warn('[Validators] Failed to fetch uptime:', err);
-            });
-            
-            return; // Success, exit early
+            return; // Success, exit
           }
         }
       } catch (apiError) {
-        console.warn('[Validators] Server API failed, falling back to direct LCD:', apiError);
+        console.warn('[Validators] Backend API failed, falling back to LCD:', apiError);
       }
       
       // Strategy 2: Direct LCD fetch (fallback)

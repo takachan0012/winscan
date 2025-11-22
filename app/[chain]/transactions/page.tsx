@@ -57,27 +57,90 @@ export default function TransactionsPage() {
     const cacheKey = getCacheKey('transactions', selectedChain.chain_name, `page${currentPage}`);
     const cachedData = getStaleCache<TransactionData[]>(cacheKey);
     
+    // Always show cached data immediately (optimistic UI)
     if (cachedData && cachedData.length > 0) {
       setTransactions(cachedData);
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     } else if (showLoading) {
       setLoading(true);
     }
     
-    if (!showLoading) setIsRefreshing(true);
+    // Silent background refresh
+    if (!showLoading) {
+      setIsRefreshing(true);
+    }
     
     try {
-      const res = await fetchApi(`/api/transactions?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=${txsPerPage}&page=${currentPage}`);
-      const data = await res.json();
-
-      const txData = Array.isArray(data) ? data : [];
-      setTransactions(txData);
-      setCache(cacheKey, txData);
-      setLoading(false);
+      // Try backend API first
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
+      const backendUrl = `${API_URL}/api/transactions?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=${txsPerPage}&page=${currentPage}`;
+      
+      const res = await fetch(backendUrl, {
+        signal: AbortSignal.timeout(8000), // 8 second timeout
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const txData = Array.isArray(data) ? data : [];
+        
+        if (txData.length > 0) {
+          // Smooth update: only update if data actually changed
+          setTransactions(prev => {
+            const hasChanges = JSON.stringify(prev) !== JSON.stringify(txData);
+            return hasChanges ? txData : prev;
+          });
+          setCache(cacheKey, txData);
+          setLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
+      }
+      
+      // Fallback to cosmos-client (direct LCD)
+      const { fetchTransactionsDirectly } = await import('@/lib/cosmos-client');
+      const endpoints = selectedChain.api?.map((a: any) => ({
+        address: a.address,
+        provider: a.provider || 'unknown'
+      })) || [];
+      
+      if (endpoints.length > 0) {
+        const directData = await fetchTransactionsDirectly(endpoints, currentPage, txsPerPage);
+        
+        // Transform LCD format to backend format
+        const txData = (directData.tx_responses || directData.txs || []).map((tx: any) => {
+          const firstMsg = tx.tx?.body?.messages?.[0];
+          const msgType = firstMsg?.['@type'] || '';
+          const type = msgType.split('.').pop() || 'Unknown';
+          
+          return {
+            hash: tx.txhash || tx.hash,
+            height: tx.height || '0',
+            time: tx.timestamp || new Date().toISOString(),
+            type: type,
+            result: tx.code === 0 ? 'Success' : 'Failed',
+            code: tx.code || 0,
+          };
+        });
+        
+        // Smooth update: only update if data actually changed
+        setTransactions(prev => {
+          const hasChanges = JSON.stringify(prev) !== JSON.stringify(txData);
+          return hasChanges ? txData : prev;
+        });
+        setCache(cacheKey, txData);
+        setLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
+      
+      throw new Error('No LCD endpoints available');
+      
     } catch (err) {
+      console.error('Error fetching transactions:', err);
       setTransactions([]);
       setLoading(false);
-    } finally {
       setIsRefreshing(false);
     }
   }, [selectedChain, currentPage, txsPerPage]);
@@ -116,12 +179,12 @@ export default function TransactionsPage() {
               </p>
             </div>
             
-            {/* Realtime indicator */}
-            {currentPage === 1 && (
+            {/* Realtime indicator - hidden during refresh for smooth UX */}
+            {currentPage === 1 && !isRefreshing && (
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 <span className="text-xs text-gray-400">
-                  {isRefreshing ? t('overview.updating') : t('overview.live')}
+                  {t('overview.live')}
                 </span>
               </div>
             )}
