@@ -81,29 +81,22 @@ export default function ProposalsPage() {
       }
     } catch (e) {}
     
-    // Fetch proposals through backend API only (avoids CORS issues)
     const fetchProposals = async () => {
       try {
-        // Use backend API with chain_name (not chain_id)
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
         const backendUrl = `${API_URL}/api/proposals?chain=${selectedChain.chain_name}`;
         
-        console.log(`[Proposals] Fetching from backend: ${backendUrl}`);
-        
         const res = await fetch(backendUrl, {
-          signal: AbortSignal.timeout(15000), // 15 second timeout
+          signal: AbortSignal.timeout(15000),
         });
         
         if (!res.ok) {
-          // Check for 404 (chain not found) or 501 (governance not implemented)
           if (res.status === 404) {
-            console.warn('[Proposals] Chain not found in backend');
             setError('chain_not_found');
             setLoading(false);
             return;
           }
           if (res.status === 501) {
-            console.warn('[Proposals] Governance not implemented');
             setError('governance_not_available');
             setLoading(false);
             return;
@@ -114,13 +107,10 @@ export default function ProposalsPage() {
         const data = await res.json();
         
         if (!Array.isArray(data)) {
-          console.warn('[Proposals] Invalid response format:', data);
           setProposals([]);
           setLoading(false);
           return;
         }
-        
-        // Transform and sort proposals
         const transformedData = data.map((p: any) => ({
           id: p.proposal_id || p.id,
           title: p.content?.title || p.title || `Proposal #${p.proposal_id || p.id}`,
@@ -141,20 +131,14 @@ export default function ProposalsPage() {
           return idB - idA;
         });
         
-        console.log(`[Proposals] Successfully fetched ${transformedData.length} proposals`);
-        
         setProposals(transformedData);
         setLoading(false);
         
-        // Cache the results
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify({ data: transformedData, timestamp: Date.now() }));
-        } catch (e) {
-          console.warn('[Proposals] Failed to cache:', e);
-        }
+        } catch (e) {}
         
       } catch (err) {
-        console.error('[Proposals] Failed to fetch:', err);
         setError('fetch_failed');
         setLoading(false);
       }

@@ -95,32 +95,25 @@ export default function ProposalDetailPage() {
   useEffect(() => {
     if (selectedChain && params?.id) {
       setLoading(true);
-      // Use chain_name instead of chain_id for consistency with backend API
       const endpoint = getApiUrl(`api/proposal?chain=${selectedChain.chain_name}&id=${params.id}`);
-      
-      console.log(`[ProposalDetail] Fetching proposal #${params.id} for ${selectedChain.chain_name}`);
       
       fetch(endpoint)
         .then(res => {
           if (!res.ok) {
-            console.error(`[ProposalDetail] API returned ${res.status}`);
             throw new Error('Proposal not found');
           }
           return res.json();
         })
         .then(data => {
-          console.log(`[ProposalDetail] Successfully loaded proposal #${params.id}`);
           setProposal(data);
           setLoading(false);
         })
         .catch(err => {
-          console.error('[ProposalDetail] Failed to fetch:', err);
           setLoading(false);
         });
     }
   }, [selectedChain, params]);
 
-  // Fetch validators for voter info
   useEffect(() => {
     if (!selectedChain) return;
     
@@ -144,12 +137,13 @@ export default function ProposalDetailPage() {
         setValidators(data);
         try {
           localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-        } catch (e) {}
+        } catch (e) {
+          // Ignore cache errors
+        }
       })
       .catch(() => {});
   }, [selectedChain]);
 
-  // Map votes with validator info
   useEffect(() => {
     if (!proposal?.votes || validators.length === 0) {
       setVotesWithValidators(proposal?.votes || []);
@@ -158,8 +152,6 @@ export default function ProposalDetailPage() {
 
     const mapped = proposal.votes.map(vote => {
       const voterAddr = vote.voter || '';
-      
-      // Find validator by converting operator address to account address
       const validator = validators.find(v => {
         const operatorAddr = v.address || '';
         const accountAddr = convertOperatorToAccount(operatorAddr);
@@ -177,19 +169,13 @@ export default function ProposalDetailPage() {
 
   const chainPath = selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '';
 
-  // Convert validator operator address to account address
   const convertOperatorToAccount = (operatorAddress: string): string => {
     try {
       const decoded = bech32Decode(operatorAddress);
       if (!decoded) return '';
-      
-      // Get the prefix without 'valoper' (e.g., 'tellor' from 'tellorvaloper')
       const accountPrefix = decoded.hrp.replace('valoper', '');
-      
-      // Re-encode with account prefix
       return bech32Encode(accountPrefix, decoded.data);
     } catch (e) {
-      console.error('Failed to convert operator address:', e);
       return '';
     }
   };
