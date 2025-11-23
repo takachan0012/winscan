@@ -35,9 +35,18 @@
 - ⚡ **Fast & Optimized** - Built with performance in mind
 - 💼 **Keplr Wallet Integration**
   - 🔄 **Staking Operations** - Delegate, redelegate, and unbond tokens directly from the explorer
-  - 💸 **Withdraw Rewards** - Claim staking rewards from single or multiple validators
+  - 💸 **Withdraw Rewards** - Claim staking rewards and validator commissions
   - 🗳️ **Governance Voting** - Vote on proposals (Yes, No, Abstain, No With Veto)
   - 💰 **Token Transfers** - Send tokens to other addresses securely
+  - 🔓 **Unjail Validator** - Unjail your validator after being jailed
+  - 💎 **Account Dashboard** - View balances, delegations, unbonding, and rewards
+- 👨‍⚖️ **Advanced Validator Features**
+  - 📈 **Realtime Uptime Monitoring** - 150-block grid showing signed/missed blocks
+  - 🔄 **Auto-Refresh** - Updates every 15 seconds for live tracking
+  - 📊 **Consensus Address Display** - Shows operator, account, consensus (valcons), and hex addresses
+  - 📜 **Validator Transactions** - Complete transaction history via RPC
+  - 👥 **Delegators List** - View all delegators and unbonding delegations
+  - 💰 **Integrated Stake Management** - Full staking modal directly from validator detail page
 
 ## 🚀 Quick Start
 
@@ -209,18 +218,33 @@ This repository is configured with branch protection rules:
 - Chain selector
 
 ### 🔍 Explorer
-- **Blocks** - Real-time block explorer
-- **Transactions** - Transaction search and details
-- **Accounts** - Account balances and history
-- **Validators** - Validator list and details
-- **Proposals** - Governance proposals
-- **Assets** - Token information
+- **Blocks** - Real-time block explorer with transaction count
+- **Transactions** - Transaction search and detailed information
+- **Accounts** - Account balances, delegations, unbonding, and transaction history
+- **Validators** - Complete validator list with voting power, commission, and status
+- **Validator Detail** - Advanced validator page with:
+  - Realtime uptime monitoring (150-block grid)
+  - Consensus address conversion (valcons + hex)
+  - Delegators and unbonding delegations list
+  - Transaction history via RPC
+  - Integrated stake management modal
+- **Proposals** - Governance proposals with voting interface
+- **Assets** - Token information and supply details
 
 ### ⚙️ Advanced Features
-- **Consensus** - Real-time consensus monitoring
-- **State Sync** - State sync configuration generator
-- **Network** - Network information and endpoints
-- **Uptime** - Validator uptime tracking
+- **Consensus** - Real-time consensus monitoring with pre-commit tracking
+- **State Sync** - State sync configuration generator for quick node setup
+- **Network** - Network information, RPC/API endpoints, and peers
+- **Uptime** - Validator uptime tracking with historical data
+- **Parameters** - Chain parameters (staking, slashing, governance, distribution)
+
+### 💼 Wallet Operations
+- **Staking** - Delegate, redelegate, undelegate with custom amounts or percentages
+- **Rewards** - Withdraw rewards from single or all validators at once
+- **Voting** - Vote on governance proposals with weighted options
+- **Transfers** - Send tokens with memo support
+- **Unjail** - Unjail your validator after downtime
+- **Commission Withdrawal** - Validators can withdraw commission earnings
 
 ## 🌍 Multi-Language Support
 
@@ -341,12 +365,37 @@ Interested in partnering with WinScan? Contact us:
 
 ## 📈 Roadmap
 
+### Completed ✅
+- [x] Multi-chain support with dynamic routing
+- [x] Real-time block and transaction explorer
+- [x] Validator list with voting power and status
+- [x] Governance proposals with voting
+- [x] Keplr wallet integration
+- [x] Staking operations (delegate, undelegate, redelegate)
+- [x] Reward withdrawals (single and all validators)
+- [x] Unjail validator functionality
+- [x] Realtime validator uptime monitoring (150-block grid)
+- [x] Consensus address conversion (valcons + hex)
+- [x] Validator transactions via RPC
+- [x] Delegators and unbonding delegations display
+- [x] Integrated stake management modal
+- [x] Multi-language support (7 languages)
+- [x] Responsive design for all devices
+
+### In Progress 🚧
 - [ ] WebSocket support for real-time updates
 - [ ] Advanced analytics and charts
-- [ ] IBC tracking
-- [ ] NFT explorer
-- [ ] Token swap integration
-- [x] Wallet integration
+- [ ] Token price integration
+- [ ] Historical data visualization
+
+### Planned 📋
+- [ ] IBC tracking and relayer monitoring
+- [ ] NFT explorer for CosmWasm chains
+- [ ] Token swap integration (Osmosis DEX)
+- [ ] Validator ranking and comparison tools
+- [ ] Mobile app (React Native)
+- [ ] API documentation for developers
+- [ ] Custom alerts and notifications
 
 ## 🤝 Contributing
 
