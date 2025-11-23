@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 interface ValidatorAvatarProps {
   identity?: string;
   moniker?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   showMoniker?: boolean;
 }
 const sizeClasses = {
@@ -13,6 +13,7 @@ const sizeClasses = {
   md: 'w-12 h-12 text-sm',
   lg: 'w-16 h-16 text-base',
   xl: 'w-24 h-24 text-xl',
+  '2xl': 'w-32 h-32 text-4xl',
 };
 export default function ValidatorAvatar({ 
   identity, 

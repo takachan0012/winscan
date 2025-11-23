@@ -78,6 +78,11 @@ export default function AccountsPage() {
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [showWithdrawResult, setShowWithdrawResult] = useState(false);
   const [withdrawResult, setWithdrawResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
+  const [showUnjailModal, setShowUnjailModal] = useState(false);
+  const [unjailValidator, setUnjailValidator] = useState<{ address: string; moniker: string } | null>(null);
+  const [unjailLoading, setUnjailLoading] = useState(false);
+  const [showUnjailResult, setShowUnjailResult] = useState(false);
+  const [unjailResult, setUnjailResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
 
   useEffect(() => {
     fetch('/api/chains')
@@ -129,7 +134,6 @@ export default function AccountsPage() {
         const data = await response.json();
         console.log('Account data:', data);
         
-        // Fetch rewards for each delegation
         const delegationsWithRewards = await Promise.all(
           (data.delegations || []).map(async (del: any) => {
             try {
@@ -306,6 +310,37 @@ export default function AccountsPage() {
     closeSendModal();
   };
 
+  const handleUnjailSubmit = async () => {
+    if (!selectedChain || !unjailValidator) return;
+
+    setUnjailLoading(true);
+    try {
+      const { executeUnjail } = await import('@/lib/keplr');
+      const result = await executeUnjail(selectedChain, {
+        validatorAddress: unjailValidator.address
+      });
+
+      setUnjailResult(result);
+      setShowUnjailResult(true);
+    } catch (error: any) {
+      setUnjailResult({ success: false, error: error.message });
+      setShowUnjailResult(true);
+    } finally {
+      setUnjailLoading(false);
+    }
+  };
+
+  const closeUnjailModal = () => {
+    setShowUnjailModal(false);
+    setUnjailValidator(null);
+  };
+
+  const closeUnjailResultModal = () => {
+    setShowUnjailResult(false);
+    setUnjailResult(null);
+    closeUnjailModal();
+  };
+
   const handleWithdrawRewards = async (validatorAddress: string) => {
     if (!selectedChain || !connectedAddress) return;
 
@@ -404,6 +439,36 @@ export default function AccountsPage() {
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <Wallet className="w-5 h-5" />
                     My Wallet
+                    {walletData.isValidator && (() => {
+                      // Get validator info from delegations for status
+                      const selfDelegation = walletData.delegations?.find((d: any) => {
+                        const validatorAccountAddr = d.validatorInfo?.operatorAddress || d.validator || '';
+                        // Simple check: validator address contains own delegation
+                        return validatorAccountAddr.toLowerCase().includes('valoper');
+                      });
+                      const validatorInfo = selfDelegation?.validatorInfo;
+                      const isJailed = (validatorInfo as any)?.jailed || false;
+                      const status = (validatorInfo as any)?.status || '';
+                      const isBonded = status === 'BOND_STATUS_BONDED';
+                      const isUnbonding = status === 'BOND_STATUS_UNBONDING';
+                      const isUnbonded = status === 'BOND_STATUS_UNBONDED';
+                      
+                      return (
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          isJailed 
+                            ? 'bg-red-500/20 border border-red-500/30 text-red-400' 
+                            : isBonded
+                            ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                            : isUnbonding
+                            ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400'
+                            : isUnbonded
+                            ? 'bg-gray-500/20 border border-gray-500/30 text-gray-400'
+                            : 'bg-blue-500/20 border border-blue-500/30 text-blue-400'
+                        }`}>
+                          {isJailed ? '🔴 JAILED' : isBonded ? '🟢 ACTIVE' : isUnbonding ? '🟡 UNBONDING' : isUnbonded ? '⚪ UNBONDED' : '🔵 VALIDATOR'}
+                        </span>
+                      );
+                    })()}
                   </h2>
                   <div className="flex items-center gap-3">
                     <button
@@ -527,8 +592,39 @@ export default function AccountsPage() {
                                   />
                                 )}
                                   <div>
-                                  <div className="text-white font-medium">
-                                    {delegation.validatorInfo?.moniker || 'Unknown'}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white font-medium">
+                                      {delegation.validatorInfo?.moniker || 'Unknown'}
+                                    </span>
+                                    {delegation.validatorInfo && (() => {
+                                      const validatorInfo = delegation.validatorInfo as any;
+                                      const isJailed = validatorInfo.jailed || false;
+                                      const status = validatorInfo.status || '';
+                                      const isBonded = status === 'BOND_STATUS_BONDED';
+                                      const isUnbonding = status === 'BOND_STATUS_UNBONDING';
+                                      const isUnbonded = status === 'BOND_STATUS_UNBONDED';
+                                      
+                                      if (isJailed) {
+                                        return (
+                                          <span className="px-2 py-0.5 bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-semibold rounded">
+                                            JAILED
+                                          </span>
+                                        );
+                                      } else if (isUnbonding) {
+                                        return (
+                                          <span className="px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-semibold rounded">
+                                            UNBONDING
+                                          </span>
+                                        );
+                                      } else if (isUnbonded) {
+                                        return (
+                                          <span className="px-2 py-0.5 bg-gray-500/20 border border-gray-500/30 text-gray-400 text-xs font-semibold rounded">
+                                            UNBONDED
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                   <code className="text-xs text-gray-500">
                                     {delegation.validator?.slice(0, 20) || 'N/A'}...
@@ -556,17 +652,54 @@ export default function AccountsPage() {
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center gap-2 justify-end">
+                                {(() => {
+                                  const validatorInfo = delegation.validatorInfo as any;
+                                  const isJailed = validatorInfo?.jailed || false;
+                                  const operatorAddress = validatorInfo?.operatorAddress || delegation.validator || '';
+                                  
+                                  // Check if connected wallet is the validator operator
+                                  const { convertValidatorToAccountAddress } = require('@/lib/addressConverter');
+                                  const validatorAccountAddress = operatorAddress ? convertValidatorToAccountAddress(operatorAddress) : '';
+                                  const isOwnValidator = connectedAddress && validatorAccountAddress && 
+                                    connectedAddress.toLowerCase() === validatorAccountAddress.toLowerCase();
+                                  
+                                  // Show Unjail button if jailed AND own validator
+                                  if (isJailed && isOwnValidator) {
+                                    return (
+                                      <button
+                                        onClick={() => {
+                                          setUnjailValidator({
+                                            address: operatorAddress,
+                                            moniker: validatorInfo?.moniker || 'Validator'
+                                          });
+                                          setShowUnjailModal(true);
+                                        }}
+                                        className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-sm font-semibold rounded-lg transition-all shadow-lg shadow-red-500/30 hover:shadow-xl hover:scale-105 active:scale-95"
+                                      >
+                                        Unjail
+                                      </button>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                                 <Link
                                   href={`/${chainPath}/validators/${delegation.validatorInfo?.operatorAddress || delegation.validator}`}
-                                  className="text-blue-400 hover:text-blue-300 text-sm"
+                                  className="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-sm font-medium rounded-lg transition-all hover:scale-105 active:scale-95 inline-flex items-center gap-2"
                                 >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
                                   View
                                 </Link>
                                 <button
                                   onClick={() => handleWithdrawRewards(delegation.validator)}
                                   disabled={withdrawLoading || !delegation.rewards || parseFloat(delegation.rewards) === 0}
-                                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed disabled:text-gray-600 text-white text-xs rounded-lg transition-colors"
+                                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/30 disabled:shadow-none hover:scale-105 active:scale-95 disabled:scale-100 inline-flex items-center gap-2"
                                 >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
                                   {withdrawLoading ? 'Processing...' : 'Withdraw'}
                                 </button>
                               </div>
@@ -580,13 +713,17 @@ export default function AccountsPage() {
               )}
 
               {/* Recent Transactions */}
-              {walletData.transactions.length > 0 ? (
+              {walletData.transactions && walletData.transactions.length > 0 ? (
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
-                  <div className="p-6 border-b border-gray-800">
+                  <div className="p-6 border-b border-gray-800 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                       <ArrowDownLeft className="w-5 h-5" />
-                      Recent Transactions ({walletData.transactions.length})
+                      All Transactions
+                      <span className="text-sm font-normal text-gray-400">({walletData.transactions.length} total)</span>
                     </h2>
+                    {walletData.transactions.length >= 100 && (
+                      <span className="text-xs text-yellow-400">Showing last 100 transactions</span>
+                    )}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
@@ -1078,6 +1215,210 @@ export default function AccountsPage() {
                         setShowWithdrawResult(false);
                         setWithdrawResult(null);
                       }}
+                      className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
+                    >
+                      Close
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unjail Modal */}
+        {showUnjailModal && unjailValidator && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 border-b border-gray-800 flex items-center justify-between sticky top-0 bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] z-10">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Unjail Validator
+                </h2>
+                <button
+                  onClick={closeUnjailModal}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Validator Info */}
+                <div className="bg-[#0f0f0f] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500 mb-1">Validator</p>
+                      <p className="text-white font-semibold">{unjailValidator.moniker}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-gray-800">
+                    <p className="text-xs text-gray-500 mb-1">Operator Address</p>
+                    <code className="text-xs text-gray-400 font-mono break-all">{unjailValidator.address}</code>
+                  </div>
+                </div>
+
+                {/* Warning Message */}
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                  <div className="flex gap-3">
+                    <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1 text-sm">
+                      <p className="text-red-400 font-semibold mb-1">Important Information</p>
+                      <p className="text-gray-400 text-xs leading-relaxed">
+                        This will submit an unjail transaction to restore your validator to active status. 
+                        Make sure your validator node is running properly before unjailing, otherwise it may get jailed again.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* What Happens */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-300">What happens next:</p>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-3 text-sm text-gray-400">
+                      <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Transaction will be broadcast to the network</span>
+                    </div>
+                    <div className="flex items-start gap-3 text-sm text-gray-400">
+                      <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Validator will be restored to active status</span>
+                    </div>
+                    <div className="flex items-start gap-3 text-sm text-gray-400">
+                      <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Validator can start signing blocks again</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={closeUnjailModal}
+                    className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUnjailSubmit}
+                    disabled={unjailLoading}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-500/30 disabled:shadow-none"
+                  >
+                    {unjailLoading ? 'Processing...' : 'Unjail Validator'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unjail Result Modal */}
+        {showUnjailResult && unjailResult && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
+            <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl animate-scale-in">
+              <div className="flex flex-col items-center text-center space-y-6">
+                {unjailResult.success ? (
+                  <>
+                    {/* Success Icon */}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-green-500/20 rounded-full blur-2xl animate-pulse"></div>
+                      <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/50">
+                        <svg className="w-10 h-10 text-white animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* Success Message */}
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold text-white">Unjail Successful!</h3>
+                      <p className="text-gray-400">Your validator has been restored to active status</p>
+                    </div>
+                    
+                    {/* Transaction Hash */}
+                    <div className="w-full bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 space-y-2">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Transaction Hash</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs text-green-400 font-mono break-all flex-1">
+                          {unjailResult.txHash}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(unjailResult.txHash || '');
+                          }}
+                          className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                          title="Copy to clipboard"
+                        >
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 w-full pt-2">
+                      <button
+                        onClick={() => {
+                          window.open(`/${chainPath}/transactions/${unjailResult.txHash}`, '_blank');
+                        }}
+                        className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/30"
+                      >
+                        View in Explorer
+                      </button>
+                      <button
+                        onClick={closeUnjailResultModal}
+                        className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Error Icon */}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-red-500/20 rounded-full blur-2xl animate-pulse"></div>
+                      <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/50">
+                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* Error Message */}
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold text-white">Unjail Failed</h3>
+                      <p className="text-gray-400">An error occurred while processing your unjail transaction</p>
+                    </div>
+                    
+                    {/* Error Details */}
+                    <div className="w-full bg-[#0a0a0a] border border-red-900/50 rounded-xl p-4 space-y-2">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Error Details</p>
+                      <p className="text-sm text-red-400 break-words">
+                        {unjailResult.error || 'Unknown error occurred'}
+                      </p>
+                    </div>
+                    
+                    {/* Close Button */}
+                    <button
+                      onClick={closeUnjailResultModal}
                       className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
                     >
                       Close

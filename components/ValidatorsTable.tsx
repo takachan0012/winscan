@@ -1,6 +1,6 @@
 'use client';
 
-import { ValidatorData, ChainAsset } from '@/types/chain';
+import { ValidatorData, ChainAsset, ChainData } from '@/types/chain';
 import Link from 'next/link';
 import { Users, TrendingUp, Award } from 'lucide-react';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
@@ -26,21 +26,25 @@ const ValidatorRow = memo(({
   validator, 
   chainPath, 
   asset, 
+  chain,
   t, 
   rank, 
   totalVotingPower, 
   cumulativeShare,
   isConnected,
+  accountAddress,
   onManageStake 
 }: { 
   validator: ValidatorData; 
   chainPath: string; 
   asset?: ChainAsset;
+  chain?: ChainData;
   t: (key: string) => string;
   rank: number;
   totalVotingPower: number;
   cumulativeShare: number;
   isConnected: boolean;
+  accountAddress?: string;
   onManageStake: (validator: ValidatorData) => void;
 }) => {
   const formatVotingPower = (power: string) => {
@@ -159,38 +163,94 @@ const ValidatorRow = memo(({
         )}
       </td>
       <td className="px-6 py-4">
-        <div className={`font-medium ${
-          (validator.uptime || 100) >= 99 ? 'text-green-400' :
-          (validator.uptime || 100) >= 95 ? 'text-yellow-400' :
-          'text-red-400'
-        }`}>
-          {(validator.uptime || 100).toFixed(2)}%
-        </div>
+        {validator.jailed ? (
+          <div className="flex flex-col gap-1">
+            <span className="px-2 py-1 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded">JAILED</span>
+            <span className="text-xs text-gray-500">Inactive</span>
+          </div>
+        ) : validator.status === 'BOND_STATUS_UNBONDING' ? (
+          <div className="flex flex-col gap-1">
+            <span className="px-2 py-1 text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded">UNBONDING</span>
+            <span className="text-xs text-gray-500">In Progress</span>
+          </div>
+        ) : validator.status === 'BOND_STATUS_UNBONDED' ? (
+          <div className="flex flex-col gap-1">
+            <span className="px-2 py-1 text-xs font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30 rounded">UNBONDED</span>
+            <span className="text-xs text-gray-500">Inactive</span>
+          </div>
+        ) : (
+          <div className={`font-medium ${
+            (validator.uptime || 100) >= 99 ? 'text-green-400' :
+            (validator.uptime || 100) >= 95 ? 'text-yellow-400' :
+            'text-red-400'
+          }`}>
+            {(validator.uptime || 100).toFixed(2)}%
+          </div>
+        )}
       </td>
       <td className="px-6 py-4">
-        <button 
-          onClick={(e) => {
-            e.preventDefault();
-            if (isConnected) {
-              onManageStake(validator);
-            } else {
-              alert('Please connect your Keplr wallet first');
-            }
-          }}
-          disabled={!isConnected}
-          className={`group relative px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
-            isConnected 
-              ? 'bg-white hover:bg-gray-100 text-black shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer' 
-              : 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-50'
-          }`}
-        >
-          <span className="relative flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Manage Stake
-          </span>
-        </button>
+        <div className="flex items-center gap-2">
+          {validator.jailed && isConnected && validator.address === accountAddress && (
+            <button 
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!chain) return;
+                
+                const confirmed = confirm(`Apakah Anda yakin ingin unjail validator ${validator.moniker}?`);
+                if (!confirmed) return;
+                
+                try {
+                  const { executeUnjail } = await import('../lib/keplr');
+                  const result = await executeUnjail(chain, {
+                    validatorAddress: validator.address
+                  });
+                  
+                  if (result.success) {
+                    alert(`Validator berhasil di-unjail!\nTx Hash: ${result.txHash}`);
+                    window.location.reload();
+                  } else {
+                    alert(`Gagal unjail validator: ${result.error}`);
+                  }
+                } catch (error) {
+                  console.error('Unjail error:', error);
+                  alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+              }}
+              className="group relative px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <span className="relative flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                </svg>
+                Unjail
+              </span>
+            </button>
+          )}
+          
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              if (isConnected) {
+                onManageStake(validator);
+              } else {
+                alert('Please connect your Keplr wallet first');
+              }
+            }}
+            disabled={!isConnected}
+            className={`group relative px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
+              isConnected 
+                ? 'bg-white hover:bg-gray-100 text-black shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer' 
+                : 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-50'
+            }`}
+          >
+            <span className="relative flex items-center gap-1.5">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Manage Stake
+            </span>
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -224,19 +284,19 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
   const handleManageStake = (validator: ValidatorData) => {
     setSelectedValidator(validator);
     setShowStakeModal(true);
+    setStakeTab('delegate');
+    
     if (account && chain) {
       fetchDelegationData(validator.address, account.address);
     }
   };
 
-  // Auto-refresh when modal opens or account changes
   useEffect(() => {
     if (showStakeModal && selectedValidator && account && chain) {
       fetchDelegationData(selectedValidator.address, account.address);
     }
   }, [showStakeModal, account?.address, selectedValidator?.address, chain?.chain_id]);
 
-  // Close validator dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -248,7 +308,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showValidatorList]);
 
-  // Reset states when modal closes
   useEffect(() => {
     if (!showStakeModal) {
       setStakeAmount('');
@@ -277,10 +336,8 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
     }
     
     try {
-      // Import CosmJS untuk query via RPC
       const { StargateClient } = await import('@cosmjs/stargate');
       
-      // Try RPC endpoints
       let client: any = null;
       if (chain.rpc && chain.rpc.length > 0) {
         for (const rpcEndpoint of chain.rpc) {
@@ -305,7 +362,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         return;
       }
       
-      // Get balance
       try {
         const denom = asset?.base || 'ulume';
         const balance = await client.getBalance(delegatorAddress, denom);
@@ -316,7 +372,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         console.log('💰 Balance:', formattedBalance, asset?.symbol);
       } catch (error) {
         console.warn('Balance query via RPC failed, trying LCD...', error);
-        // Fallback to LCD API
         if (chain.api && chain.api.length > 0) {
           for (const endpoint of chain.api) {
             try {
@@ -344,13 +399,11 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         }
       }
       
-      // Get delegation (staked amount) - Use LCD API to get all delegations, then filter
       try {
         let delegationFound = false;
         if (chain.api && chain.api.length > 0) {
           for (const endpoint of chain.api) {
             try {
-              // Get ALL delegations for this delegator
               const allDelegationsUrl = `${endpoint.address}/cosmos/staking/v1beta1/delegations/${delegatorAddress}`;
               console.log('🔍 Fetching all delegations from:', allDelegationsUrl);
               const res = await fetch(allDelegationsUrl);
@@ -364,7 +417,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
               const data = await res.json();
               console.log('📊 All delegations response:', data);
               
-              // Find the specific delegation for this validator
               if (data.delegation_responses && Array.isArray(data.delegation_responses)) {
                 const delegation = data.delegation_responses.find(
                   (d: any) => d.delegation?.validator_address === validatorAddress
@@ -401,7 +453,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         setStakedAmount('0.000');
       }
       
-      // Get rewards
       try {
         if (chain.api && chain.api.length > 0) {
           for (const endpoint of chain.api) {
@@ -430,9 +481,7 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         setRewards('0.000');
       }
 
-      // Get validator commission (if user is the validator operator)
       try {
-        // Try to fetch commission from validator endpoint
         if (chain.api && chain.api.length > 0) {
           for (const endpoint of chain.api) {
             try {
@@ -452,8 +501,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                       ? (commissionAmount / Math.pow(10, Number(asset.exponent)))
                       : commissionAmount;
                     
-                    // Show commission if there's any amount
-                    // The ability to withdraw it will be determined when user clicks withdraw
                     setCommission(formattedCommission.toFixed(6));
                     console.log('💵 Validator Commission:', formattedCommission.toFixed(6), asset?.symbol);
                   } else {
@@ -473,13 +520,11 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         setCommission('0.000');
       }
       
-      // Disconnect client after all queries
       try {
         if (client) {
           client.disconnect();
         }
       } catch (e) {
-        // Ignore disconnect errors
       }
       
     } catch (error) {
@@ -513,7 +558,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         validatorAddress: selectedValidator.address,
       };
       
-      // Add amount for delegate, undelegate, redelegate
       if (['delegate', 'undelegate', 'redelegate'].includes(stakeTab)) {
         if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
           alert('Please enter a valid amount');
@@ -524,7 +568,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         params.amount = baseAmount;
       }
       
-      // Add destination for redelegate
       if (stakeTab === 'redelegate') {
         if (!destinationValidator) {
           alert('Please select a destination validator');
@@ -534,7 +577,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         params.validatorDstAddress = destinationValidator;
       }
       
-      // For withdraw, use special function that sends both messages in one transaction
       if (stakeTab === 'withdraw') {
         const hasRewards = parseFloat(rewards) > 0;
         const hasCommission = parseFloat(commission) > 0;
@@ -545,7 +587,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
           return;
         }
         
-        // Import the withdraw all function
         const { executeWithdrawAll } = await import('../lib/keplr');
         const withdrawParams = {
           delegatorAddress: account.address,
@@ -563,7 +604,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
           setTxResult({ success: false, error: result.error || 'Unknown error' });
         }
         
-        // Refresh data
         setTimeout(() => {
           if (account && chain && selectedValidator) {
             fetchDelegationData(selectedValidator.address, account.address);
@@ -573,13 +613,11 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
         return;
       }
       
-      // For other operations (delegate, undelegate, redelegate)
       const { executeStaking } = await import('../lib/keplr');
       const result = await executeStaking(chain, stakeTab, params, gasLimit, memo);
       
       if (result.success) {
         setTxResult({ success: true, txHash: result.txHash || '' });
-        // Refresh data after a short delay to allow blockchain to update
         setTimeout(() => {
           if (account && chain && selectedValidator) {
             fetchDelegationData(selectedValidator.address, account.address);
@@ -603,7 +641,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
     
     let maxAmount = 0;
     if (stakeTab === 'delegate') {
-      // Reserve ~0.01 token for gas fees
       const exponent = Number(asset.exponent);
       const gasReserve = 0.01; // Reserve 0.01 tokens for gas
       const availableBalance = Math.max(0, parseFloat(balance) - gasReserve);
@@ -745,11 +782,13 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                 validator={validator}
                 chainPath={chainPath}
                 asset={asset}
+                chain={chain}
                 t={t}
                 rank={index + 1}
                 totalVotingPower={totalVotingPower}
                 cumulativeShare={validator.cumulativeShareValue}
                 isConnected={isConnected}
+                accountAddress={account?.address}
                 onManageStake={handleManageStake}
               />
             ))}
@@ -802,14 +841,14 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
               </div>
             </div>
 
-            <div className="flex gap-2 mb-6 bg-[#111111] p-1 rounded-lg">
+            <div className="flex gap-2 mb-6 bg-[#111111] p-1 rounded-lg overflow-x-auto">
               {(['delegate', 'undelegate', 'redelegate', 'withdraw'] as const).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setStakeTab(tab)}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
+                  onClick={() => setStakeTab(tab as any)}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize whitespace-nowrap ${
                     stakeTab === tab 
-                      ? 'bg-white text-black' 
+                      ? 'bg-white text-black'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
@@ -1048,7 +1087,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(txResult.txHash || '');
-                          // Could add a toast notification here
                         }}
                         className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
                         title="Copy to clipboard"

@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { ChainData } from '@/types/chain';
+import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { Activity, Box, Users, TrendingUp } from 'lucide-react';
 import TokenomicsChart from '@/components/TokenomicsChart';
 import TransactionHistoryChart from '@/components/TransactionHistoryChart';
@@ -40,6 +41,31 @@ export default function ChainOverviewPage() {
     transactions: false
   });
 
+  // Format large numbers with M/B/K suffix based on exponent
+  const formatTokenAmount = (amount: number, includeSymbol: boolean = false) => {
+    if (!selectedChain?.assets?.[0]) return amount.toLocaleString();
+    
+    const asset = selectedChain.assets[0];
+    const exponent = parseInt(String(asset.exponent || 6));
+    
+    // Convert from base unit to display unit
+    const displayAmount = amount / Math.pow(10, exponent);
+    
+    // Format with suffix
+    let formatted: string;
+    if (displayAmount >= 1e9) {
+      formatted = `${(displayAmount / 1e9).toFixed(2)}B`;
+    } else if (displayAmount >= 1e6) {
+      formatted = `${(displayAmount / 1e6).toFixed(2)}M`;
+    } else if (displayAmount >= 1e3) {
+      formatted = `${(displayAmount / 1e3).toFixed(2)}K`;
+    } else {
+      formatted = displayAmount.toFixed(2);
+    }
+    
+    return includeSymbol ? `${formatted} ${asset.symbol}` : formatted;
+  };
+
   useEffect(() => {
 
     fetchChainsWithCache()
@@ -59,6 +85,7 @@ export default function ChainOverviewPage() {
 
   useEffect(() => {
     if (selectedChain) {
+      const chainIdentifier = (selectedChain.chain_id || selectedChain.chain_name).trim();
       const chainKey = `chain_data_${selectedChain.chain_name}`;
       const cacheTimeout = 30000;
 
@@ -156,7 +183,8 @@ export default function ChainOverviewPage() {
 
       const loadNetwork = async () => {
         try {
-          const data = await fetchWithRetry(`/api/network?chain=${selectedChain.chain_id || selectedChain.chain_name}`);
+          const chainIdentifier = (selectedChain.chain_id || selectedChain.chain_name).trim();
+          const data = await fetchWithRetry(`/api/network?chain=${chainIdentifier}`);
           
           // Fetch additional stats
           let inflation = '~7%';
@@ -164,7 +192,7 @@ export default function ChainOverviewPage() {
           
           try {
             // Check localStorage cache (10 minutes) to avoid spamming failed endpoints
-            const mintCacheKey = `mint_${selectedChain.chain_id || selectedChain.chain_name}`;
+            const mintCacheKey = `mint_${chainIdentifier}`;
             const cachedMint = localStorage.getItem(mintCacheKey);
             
             if (cachedMint) {
@@ -181,7 +209,7 @@ export default function ChainOverviewPage() {
                 }
               } catch {
                 // Fetch inflation
-                const mintData = await fetchWithRetry(`/api/mint?chain=${selectedChain.chain_id || selectedChain.chain_name}`);
+                const mintData = await fetchWithRetry(`/api/mint?chain=${chainIdentifier}`);
                 if (mintData && mintData.inflation) {
                   inflation = (parseFloat(mintData.inflation) * 100).toFixed(2) + '%';
                 }
@@ -200,7 +228,7 @@ export default function ChainOverviewPage() {
               }
             } else {
               // Fetch inflation
-              const mintData = await fetchWithRetry(`/api/mint?chain=${selectedChain.chain_id || selectedChain.chain_name}`);
+              const mintData = await fetchWithRetry(`/api/mint?chain=${chainIdentifier}`);
               if (mintData && mintData.inflation) {
                 inflation = (parseFloat(mintData.inflation) * 100).toFixed(2) + '%';
               }
@@ -238,7 +266,7 @@ export default function ChainOverviewPage() {
 
       const loadBlocks = async () => {
         try {
-          const data = await fetchWithRetry(`/api/blocks?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=30`);
+          const data = await fetchWithRetry(`/api/blocks?chain=${chainIdentifier}&limit=30`);
           setBlocks(data);
           setCache(`${chainKey}_blocks`, data);
           setDataLoaded(prev => ({ ...prev, blocks: true }));
@@ -250,7 +278,7 @@ export default function ChainOverviewPage() {
       const loadValidators = async () => {
         try {
           // Check localStorage cache (10 minutes)
-          const cacheKey = `validators_${selectedChain.chain_id || selectedChain.chain_name}`;
+          const cacheKey = `validators_${chainIdentifier}`;
           const cached = localStorage.getItem(cacheKey);
           
           if (cached) {
@@ -268,7 +296,7 @@ export default function ChainOverviewPage() {
             } catch {}
           }
           
-          const response = await fetchWithRetry(`/api/validators?chain=${selectedChain.chain_id || selectedChain.chain_name}`);
+          const response = await fetchWithRetry(`/api/validators?chain=${chainIdentifier}`);
           // API returns { validators: [...], total: number }
           const validatorsData = response.validators || response;
           
@@ -296,7 +324,7 @@ export default function ChainOverviewPage() {
       const loadSupply = async () => {
         try {
           // Check localStorage cache (10 minutes)
-          const cacheKey = `supply_${selectedChain.chain_id || selectedChain.chain_name}`;
+          const cacheKey = `supply_${chainIdentifier}`;
           const cached = localStorage.getItem(cacheKey);
           
           if (cached) {
@@ -313,7 +341,7 @@ export default function ChainOverviewPage() {
           }
           
           // Ambil total supply dari API bank/supply
-          const supplyData = await fetchWithRetry(`/api/supply?chain=${selectedChain.chain_id || selectedChain.chain_name}`);
+          const supplyData = await fetchWithRetry(`/api/supply?chain=${chainIdentifier}`);
           if (supplyData && supplyData.totalSupply) {
             const supply = parseFloat(supplyData.totalSupply) / 1000000;
             setTotalSupply(supply);
@@ -334,7 +362,7 @@ export default function ChainOverviewPage() {
 
       const loadTransactions = async () => {
         try {
-          const data = await fetchWithRetry(`/api/transactions?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=20`);
+          const data = await fetchWithRetry(`/api/transactions?chain=${chainIdentifier}&limit=20`);
           setTransactions(data);
           setCache(`${chainKey}_transactions`, data);
           setDataLoaded(prev => ({ ...prev, transactions: true }));
@@ -371,12 +399,14 @@ export default function ChainOverviewPage() {
   useEffect(() => {
     if (!selectedChain) return;
     
+    const chainIdentifier = (selectedChain.chain_id || selectedChain.chain_name).trim();
+    
     const refreshData = async () => {
       setIsRefreshing(true);
       try {
         const [blocksData, txData] = await Promise.all([
-          fetch(`/api/blocks?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=30`).then(r => r.json()),
-          fetch(`/api/transactions?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=10`).then(r => r.json())
+          fetch(`/api/blocks?chain=${chainIdentifier}&limit=30`).then(r => r.json()),
+          fetch(`/api/transactions?chain=${chainIdentifier}&limit=10`).then(r => r.json())
         ]);
         setBlocks(blocksData);
         setTransactions(txData);
@@ -595,7 +625,7 @@ export default function ChainOverviewPage() {
                       </div>
                       <span className="text-sm font-bold text-white">
                         {validators && validators.length > 0
-                          ? (validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0) / 1000000).toLocaleString()
+                          ? formatTokenAmount(validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0), true)
                           : "0"
                         }
                       </span>
@@ -607,8 +637,8 @@ export default function ChainOverviewPage() {
                       </div>
                       <span className="text-sm font-bold text-white">
                         {validators && validators.length > 0 && totalSupply > 0
-                          ? (totalSupply - (validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0) / 1000000)).toLocaleString()
-                          : totalSupply.toLocaleString()
+                          ? formatTokenAmount((totalSupply * Math.pow(10, parseInt(String(selectedChain?.assets?.[0]?.exponent || 6)))) - validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0), true)
+                          : formatTokenAmount(totalSupply * Math.pow(10, parseInt(String(selectedChain?.assets?.[0]?.exponent || 6))), true)
                         }
                       </span>
                     </div>
@@ -616,7 +646,7 @@ export default function ChainOverviewPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-400">Total Supply</span>
                         <span className="text-base font-bold text-white">
-                          {totalSupply > 0 ? totalSupply.toLocaleString() : "1,000,000"}
+                          {totalSupply > 0 ? formatTokenAmount(totalSupply * Math.pow(10, parseInt(String(selectedChain?.assets?.[0]?.exponent || 6))), true) : "1M"}
                         </span>
                       </div>
                     </div>
@@ -763,33 +793,78 @@ export default function ChainOverviewPage() {
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
                   <h3 className="text-lg font-bold text-white mb-4">Block Production</h3>
                   
-                  <div className="space-y-4">
-                    {/* Total Blocks */}
-                    <div className="bg-[#0f0f0f] rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-400">Total Blocks</span>
-                        <Box className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <p className="text-2xl font-bold text-white">
-                        {stats?.latestBlock && stats.latestBlock !== '0' 
-                          ? parseInt(stats.latestBlock).toLocaleString() 
-                          : blocks && blocks.length > 0 
-                          ? parseInt(blocks[0].height).toLocaleString()
-                          : '0'
-                        }
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">current height</p>
-                    </div>
+                  {/* Animated Block Proposer Avatar */}
+                  <div className="flex flex-col items-center justify-center py-6">
+                    {blocks && blocks.length > 0 ? (() => {
+                      const latestBlock = blocks[0];
+                      // Use validator data from block if available, otherwise find from validators array
+                      const moniker = latestBlock.validator?.moniker || 
+                                     validators.find((v: any) => 
+                                       v.address === latestBlock.proposerAddress || 
+                                       v.operatorAddress === latestBlock.proposerAddress
+                                     )?.moniker || 
+                                     latestBlock.proposerAddress?.substring(0, 12) || 
+                                     'Unknown';
+                      const identity = latestBlock.validator?.identity || 
+                                      validators.find((v: any) => 
+                                        v.address === latestBlock.proposerAddress || 
+                                        v.operatorAddress === latestBlock.proposerAddress
+                                      )?.identity;
+                      
+                      return (
+                        <>
+                          {/* Large Animated Avatar with pulse rings */}
+                          <div className="relative mb-4" key={latestBlock.height}>
+                            {/* Outer pulse ring */}
+                            <div className="absolute inset-0 w-32 h-32 rounded-full bg-blue-500 animate-ping opacity-10" />
+                            <div className="absolute inset-0 w-32 h-32 rounded-full bg-blue-500 animate-pulse opacity-20" style={{ animationDuration: '2s' }} />
+                            
+                            {/* Avatar - custom size 128px */}
+                            <div className="relative animate-scale-in">
+                              <ValidatorAvatar 
+                                identity={identity}
+                                moniker={moniker}
+                                size="2xl"
+                              />
+                            </div>
+                          </div>
 
-                    {/* Blocks (24h) */}
-                    <div className="bg-[#0f0f0f] rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-400">Blocks (24h)</span>
-                        <TrendingUp className="w-4 h-4 text-green-500" />
+                          {/* Validator Info */}
+                          <h4 className="text-xl font-bold text-white mb-1 text-center animate-fade-in" key={`${latestBlock.height}-name`}>
+                            {moniker}
+                          </h4>
+                          <p className="text-sm text-gray-400 mb-4">Latest Block Proposer</p>
+
+                          {/* Block Info Badge */}
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                              <span className="text-xs text-gray-400">Block </span>
+                              <span className="text-sm font-bold text-blue-400">
+                                #{parseInt(latestBlock.height).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg">
+                              <span className="text-sm font-bold text-green-400">
+                                {latestBlock.txs || 0} tx
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })() : (
+                      <div className="text-center py-8">
+                        <div className="w-32 h-32 rounded-full bg-gray-800 animate-pulse mx-auto mb-4"></div>
+                        <p className="text-sm text-gray-400">Loading...</p>
                       </div>
-                      <p className="text-2xl font-bold text-green-400">
+                    )}
+                  </div>
+
+                  {/* Stats Summary */}
+                  <div className="grid grid-cols-2 gap-2 pt-4 border-t border-gray-800">
+                    <div className="text-center p-2 bg-[#0f0f0f] rounded">
+                      <p className="text-xs text-gray-400">Blocks (24h)</p>
+                      <p className="text-lg font-bold text-green-400">
                         {(() => {
-                          // Calculate blocks per day based on block time
                           if (stats?.blockTime) {
                             const blockTimeStr = stats.blockTime.replace('~', '').replace('s', '');
                             const blockTimeSeconds = parseFloat(blockTimeStr);
@@ -798,22 +873,15 @@ export default function ChainOverviewPage() {
                               return blocksPerDay.toLocaleString();
                             }
                           }
-                          return '~14,400';
+                          return '~14.4K';
                         })()}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">produced today</p>
                     </div>
-
-                    {/* Avg Block Time */}
-                    <div className="bg-[#0f0f0f] rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-400">Avg Block Time</span>
-                        <Activity className="w-4 h-4 text-purple-500" />
-                      </div>
-                      <p className="text-2xl font-bold text-purple-400">
+                    <div className="text-center p-2 bg-[#0f0f0f] rounded">
+                      <p className="text-xs text-gray-400">Block Time</p>
+                      <p className="text-lg font-bold text-purple-400">
                         {stats?.blockTime || '~6s'}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">per block</p>
                     </div>
                   </div>
                 </div>

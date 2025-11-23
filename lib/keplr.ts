@@ -1,6 +1,5 @@
 import { ChainData } from '@/types/chain';
 
-// Helper function to create CosmJS registry with EVM pubkey support
 async function createEvmRegistry() {
   // @ts-ignore
   const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
@@ -9,9 +8,7 @@ async function createEvmRegistry() {
   
   const registry = new Registry(defaultRegistryTypes);
   
-  // Add EVM pubkey type support
   try {
-    // Register eth_secp256k1 pubkey decoder/encoder
     const originalDecode = decodePubkey;
     const originalEncode = encodePubkey;
   } catch (error) {
@@ -129,7 +126,6 @@ export function getKeplr() {
 export async function suggestChain(chainInfo: KeplrChainInfo): Promise<void> {
   const keplr = getKeplr();
   try {
-    // For EVM chains (coin_type 60), add ethermint account support
     if (chainInfo.bip44.coinType === 60) {
       // @ts-ignore - Keplr internal property
       const chainInfoWithEvm = {
@@ -163,7 +159,6 @@ export async function connectKeplr(
     coinType: coinType
   });
 
-  // Verify chain ID from RPC before connecting
   const rpcEndpoint = chain.rpc?.[0]?.address;
   if (rpcEndpoint) {
     try {
@@ -180,7 +175,6 @@ export async function connectKeplr(
           console.warn(`⚠️ Chain ID mismatch! Config: ${chainId}, RPC: ${rpcChainId}`);
           console.log('🔄 Updating to use RPC chain ID:', rpcChainId);
           chainId = rpcChainId;
-          // Update chainInfo with correct chain ID
           chainInfo.chainId = rpcChainId;
         }
       }
@@ -197,7 +191,6 @@ export async function connectKeplr(
       console.log('Chain not found or enable failed:', enableError.message);
       console.log('Suggesting chain to Keplr...');
       
-      // For EVM chains, ensure the chain suggestion includes EVM features
       if (coinType === 60 && !chainInfo.features?.includes('eth-address-gen')) {
         chainInfo.features = ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'];
         console.log('🔧 Added EVM features to chain suggestion');
@@ -215,21 +208,18 @@ export async function connectKeplr(
       key = await keplr.getKey(chainId);
       console.log('✅ Keplr key retrieved for address:', key.bech32Address);
     } catch (keyError: any) {
-      // Handle EthAccount error specifically
       if (keyError.message?.includes('EthAccount') || keyError.message?.includes('Unsupported type')) {
         console.log('🔄 EthAccount type detected, reconnecting with EVM support...');
         
-        // Force re-suggest chain with explicit EVM features
         const evmChainInfo = {
           ...chainInfo,
           features: ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'],
         };
         
         await keplr.experimentalSuggestChain(evmChainInfo);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+        await new Promise(resolve => setTimeout(resolve, 500));
         await keplr.enable(chainId);
         
-        // Retry getKey
         key = await keplr.getKey(chainId);
         console.log('✅ Keplr key retrieved after EVM re-config:', key.bech32Address);
       } else {
@@ -246,7 +236,6 @@ export async function connectKeplr(
   } catch (error: any) {
     console.error('Failed to connect to Keplr:', error);
     
-    // Specific error messages for common issues
     if (error.message?.includes('EthAccount') || error.message?.includes('Unsupported type')) {
       throw new Error(`EVM chain not fully supported in this Keplr version. Please: 1) Update Keplr to latest version, 2) Clear browser cache, 3) Reconnect wallet. Error: ${error.message}`);
     }
@@ -353,12 +342,10 @@ export async function executeStaking(
       params: params
     });
     
-    // Suggest chain to Keplr if not already added
     try {
       await keplr.enable(chainId);
       console.log('✅ Chain enabled:', chainId);
     } catch (error: any) {
-      // If chain not found, try to suggest it to Keplr
       if (error.message?.includes('There is no chain info')) {
         console.log('Chain not found in Keplr, suggesting chain...');
         const rpcEndpoint = chain.rpc?.[0]?.address || '';
@@ -408,7 +395,6 @@ export async function executeStaking(
           features: coinType === 60 ? ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'] : ['ibc-transfer'],
         });
         
-        // Try to enable again after suggesting
         await keplr.enable(chainId);
       } else {
         throw error;
@@ -417,7 +403,6 @@ export async function executeStaking(
     
     const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
     
-    // Get accounts to verify
     const accounts = await offlineSigner.getAccounts();
     if (accounts.length === 0) {
       throw new Error('No accounts found');
@@ -436,7 +421,6 @@ export async function executeStaking(
 
     console.log('Connecting to RPC:', rpcEndpoint);
     
-    // First, get the actual chain ID from the RPC to ensure it matches
     let actualSigner = offlineSigner;
     try {
       const statusResponse = await fetch(`${rpcEndpoint}/status`);
@@ -449,13 +433,10 @@ export async function executeStaking(
         console.warn(`⚠️ Chain ID mismatch! RPC: ${rpcChainId}, Keplr: ${chainId}`);
         console.log('🔄 Re-creating offline signer with correct chain ID...');
         
-        // Update chainId to match RPC
         chainId = rpcChainId;
         
-        // Re-enable with correct chain ID
         await keplr.enable(chainId);
         
-        // Re-create offline signer with correct chain ID
         actualSigner = await keplr.getOfflineSignerAuto(chainId);
         const correctedAccounts = await actualSigner.getAccounts();
         console.log('✅ Corrected offline signer created for chain ID:', chainId);
@@ -465,20 +446,17 @@ export async function executeStaking(
       console.warn('Could not fetch chain ID from RPC, continuing with existing chainId:', chainId);
     }
     
-    // Create client with custom options to support EVM chains
     const clientOptions: any = { 
       broadcastTimeoutMs: 30000, 
       broadcastPollIntervalMs: 3000,
     };
     
-    // For EVM-compatible chains (coin type 60 or ethsecp256k1), add custom amino types
     const isEvmChain = parseInt(chain.coin_type || '118') === 60 || 
                        chainId.includes('_') || // EVM chains often have underscore in chain_id
                        chain.chain_id?.includes('_');
     
     if (isEvmChain) {
       console.log('🔧 Detected EVM-compatible chain, using extended config');
-      // CosmJS will handle ethsecp256k1 pubkeys automatically with proper signer
     }
     
     const client = await SigningStargateClient.connectWithSigner(
@@ -492,7 +470,6 @@ export async function executeStaking(
     let msg: any;
     const denom = chain.assets?.[0]?.base || 'uatom';
 
-    // Map 'withdraw' to 'withdraw_rewards' for backward compatibility
     const txType = type === 'withdraw' ? 'withdraw_rewards' : type;
 
     switch (txType) {
@@ -610,18 +587,15 @@ export async function executeWithdrawAll(
       chainId: chainId
     });
     
-    // Enable chain
     await keplr.enable(chainId);
     const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
     
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     
-    // Find RPC with indexer enabled (tx_index = on)
     let rpcEndpoint = '';
     const rpcList = chain.rpc || [];
     
-    // Priority: Use RPC with tx_index enabled
     for (const rpc of rpcList) {
       if (rpc.tx_index === 'on') {
         rpcEndpoint = rpc.address;
@@ -630,7 +604,6 @@ export async function executeWithdrawAll(
       }
     }
     
-    // Fallback: Use first available RPC
     if (!rpcEndpoint && rpcList.length > 0) {
       rpcEndpoint = rpcList[0].address;
       console.warn('⚠️ No RPC with tx_index found, using first available:', rpcEndpoint);
@@ -640,7 +613,6 @@ export async function executeWithdrawAll(
       throw new Error('No RPC endpoint available');
     }
 
-    // Check and fix chain ID if needed
     let actualSigner = offlineSigner;
     try {
       const statusResponse = await fetch(`${rpcEndpoint}/status`);
@@ -667,10 +639,8 @@ export async function executeWithdrawAll(
     
     console.log('✅ Client connected for withdraw all');
 
-    // Build messages array
     const messages: any[] = [];
     
-    // Add withdraw rewards message if has rewards
     if (params.hasRewards) {
       messages.push({
         typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
@@ -682,7 +652,6 @@ export async function executeWithdrawAll(
       console.log('📝 Added withdraw rewards message');
     }
     
-    // Add withdraw commission message if has commission
     if (params.hasCommission) {
       messages.push({
         typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission',
@@ -749,18 +718,15 @@ export async function executeWithdrawAllValidators(
       chainId: chainId
     });
     
-    // Enable chain
     await keplr.enable(chainId);
     const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
     
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     
-    // Find RPC with indexer enabled (tx_index = on)
     let rpcEndpoint = '';
     const rpcList = chain.rpc || [];
     
-    // Priority: Use RPC with tx_index enabled
     for (const rpc of rpcList) {
       if (rpc.tx_index === 'on') {
         rpcEndpoint = rpc.address;
@@ -769,7 +735,6 @@ export async function executeWithdrawAllValidators(
       }
     }
     
-    // Fallback: Use first available RPC
     if (!rpcEndpoint && rpcList.length > 0) {
       rpcEndpoint = rpcList[0].address;
       console.warn('⚠️ No RPC with tx_index found, using first available:', rpcEndpoint);
@@ -779,7 +744,6 @@ export async function executeWithdrawAllValidators(
       throw new Error('No RPC endpoint available');
     }
 
-    // Check and fix chain ID if needed
     let actualSigner = offlineSigner;
     try {
       const statusResponse = await fetch(`${rpcEndpoint}/status`);
@@ -808,7 +772,6 @@ export async function executeWithdrawAllValidators(
     
     console.log('✅ Client connected for withdraw all validators');
 
-    // Build messages array for all validators
     const messages: any[] = params.validatorAddresses.map(validatorAddress => ({
       typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
       value: {
@@ -879,7 +842,6 @@ export async function executeSend(
       params: params
     });
     
-    // Suggest chain to Keplr if not already added
     try {
       await keplr.enable(chainId);
       console.log('✅ Chain enabled:', chainId);
@@ -939,7 +901,6 @@ export async function executeSend(
     
     const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
     
-    // Get accounts to verify
     const accounts = await offlineSigner.getAccounts();
     if (accounts.length === 0) {
       throw new Error('No accounts found');
@@ -951,11 +912,9 @@ export async function executeSend(
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     
-    // Find RPC with indexer enabled (tx_index = on)
     let rpcEndpoint = '';
     const rpcList = chain.rpc || [];
     
-    // Priority: Use RPC with tx_index enabled
     for (const rpc of rpcList) {
       if (rpc.tx_index === 'on') {
         rpcEndpoint = rpc.address;
@@ -964,7 +923,6 @@ export async function executeSend(
       }
     }
     
-    // Fallback: Use first available RPC
     if (!rpcEndpoint && rpcList.length > 0) {
       rpcEndpoint = rpcList[0].address;
       console.warn('⚠️ No RPC with tx_index found, using first available:', rpcEndpoint);
@@ -976,7 +934,6 @@ export async function executeSend(
 
     console.log('Connecting to RPC:', rpcEndpoint);
     
-    // Get the actual chain ID from the RPC to ensure it matches
     let actualSigner = offlineSigner;
     try {
       const statusResponse = await fetch(`${rpcEndpoint}/status`);
@@ -1012,7 +969,6 @@ export async function executeSend(
     const exponent = parseInt(String(chain.assets?.[0]?.exponent || '6'));
     const gasPrice = `0.025${params.denom}`;
 
-    // Create send message
     const sendMsg = {
       typeUrl: '/cosmos.bank.v1beta1.MsgSend',
       value: {
@@ -1078,7 +1034,6 @@ export async function executeVote(
       params: params
     });
     
-    // Enable chain
     try {
       await keplr.enable(chainId);
       console.log('✅ Chain enabled:', chainId);
@@ -1138,7 +1093,6 @@ export async function executeVote(
     
     const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
     
-    // Verify RPC chain ID matches
     const rpcEndpoint = chain.rpc?.[0]?.address || '';
     if (!rpcEndpoint) {
       throw new Error('No RPC endpoint available');
@@ -1153,7 +1107,6 @@ export async function executeVote(
           console.warn(`⚠️ Chain ID mismatch! Config: ${chainId}, RPC: ${rpcChainId}. Using RPC chain ID.`);
           chainId = rpcChainId;
           await keplr.enable(chainId);
-          // Recreate offline signer with correct chain ID
           const newOfflineSigner = await keplr.getOfflineSignerAuto(chainId);
           Object.assign(offlineSigner, newOfflineSigner);
         }
@@ -1231,5 +1184,149 @@ export async function executeVote(
   } catch (error: any) {
     console.error('Vote error:', error);
     return { success: false, error: error.message || 'Vote failed' };
+  }
+}
+
+export async function executeUnjail(
+  chain: ChainData,
+  params: {
+    validatorAddress: string;
+  },
+  gasLimit: string = '300000',
+  memo: string = ''
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    if (!isKeplrInstalled()) {
+      throw new Error('Keplr extension is not installed');
+    }
+
+    const keplr = window.keplr!;
+    let chainId = (chain.chain_id || chain.chain_name).trim();
+    
+    console.log('🔓 executeUnjail:', {
+      validatorAddress: params.validatorAddress,
+      chainId: chainId
+    });
+    
+    await keplr.enable(chainId);
+    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    
+    // @ts-ignore - Import required modules
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { Registry } = await import('@cosmjs/proto-signing');
+    // @ts-ignore
+    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { MsgUnjail } = await import('cosmjs-types/cosmos/slashing/v1beta1/tx');
+    
+    // @ts-ignore - Registry types are complex, ignore for custom message
+    const registry = new Registry([
+      ...defaultRegistryTypes,
+      ['/cosmos.slashing.v1beta1.MsgUnjail', MsgUnjail],
+    ]);
+    
+    console.log('✅ Custom registry created with MsgUnjail');
+    
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        console.log('✅ Using RPC with tx_index enabled:', rpcEndpoint);
+        break;
+      }
+    }
+    
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+      console.log('⚠️ Using first available RPC (no tx_index info):', rpcEndpoint);
+    }
+    
+    if (!rpcEndpoint) {
+      throw new Error('No RPC endpoint available for this chain');
+    }
+
+    let actualSigner = offlineSigner;
+    try {
+      const statusResponse = await fetch(`${rpcEndpoint}/status`);
+      const statusData = await statusResponse.json();
+      const rpcChainId = statusData.result.node_info.network;
+      
+      if (rpcChainId !== chainId) {
+        console.log('🔄 Updating chain ID from', chainId, 'to', rpcChainId);
+        chainId = rpcChainId;
+        await keplr.enable(chainId);
+        actualSigner = await keplr.getOfflineSignerAuto(chainId);
+      }
+    } catch (fetchError) {
+      console.warn('Could not verify chain ID from RPC');
+    }
+
+    const client = await SigningStargateClient.connectWithSigner(
+      rpcEndpoint, 
+      actualSigner,
+      {
+        registry,
+        broadcastTimeoutMs: 30000,
+        broadcastPollIntervalMs: 3000,
+      }
+    );
+    
+    console.log('✅ SigningStargateClient connected with custom registry');
+    
+    const accounts = await actualSigner.getAccounts();
+    const signerAddress = accounts[0].address;
+    
+    console.log('👤 Signer address:', signerAddress);
+    console.log('🔓 Unjail validator:', params.validatorAddress);
+
+    const unjailMsg = {
+      typeUrl: '/cosmos.slashing.v1beta1.MsgUnjail',
+      value: {
+        validatorAddr: params.validatorAddress,
+      },
+    };
+
+    console.log('📝 Unjail message:', unjailMsg);
+
+    const denom = chain.assets?.[0]?.base || 'stake';
+    const feeAmount = [{
+      denom: denom,
+      amount: '5000',
+    }];
+
+    const fee = {
+      amount: feeAmount,
+      gas: gasLimit,
+    };
+
+    console.log('💰 Fee:', fee);
+    console.log('📄 Memo:', memo || 'Unjail via WinScan');
+
+    const result = await client.signAndBroadcast(
+      signerAddress,
+      [unjailMsg],
+      fee,
+      memo || 'Unjail via WinScan'
+    );
+
+    console.log('✅ Unjail result:', result);
+
+    if (result.code === 0) {
+      return {
+        success: true,
+        txHash: result.transactionHash,
+      };
+    } else {
+      return {
+        success: false,
+        error: result.rawLog || 'Unjail transaction failed',
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Unjail error:', error);
+    return { success: false, error: error.message || 'Unjail failed' };
   }
 }

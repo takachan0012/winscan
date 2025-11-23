@@ -11,10 +11,13 @@ import { Wallet, Copy, CheckCircle, XCircle, ArrowLeftRight } from 'lucide-react
 import { formatDistanceToNow } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
-import { getAddressVariants, detectAddressType } from '@/lib/addressConverter';
+import { getAddressVariants, detectAddressType, convertValidatorToAccountAddress } from '@/lib/addressConverter';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface AccountDetail {
   address: string;
+  isValidator?: boolean;
+  validatorAddress?: string;
   balances: Array<{
     denom: string;
     amount: string;
@@ -26,6 +29,8 @@ interface AccountDetail {
       moniker: string;
       identity?: string;
       operatorAddress: string;
+      jailed?: boolean;
+      status?: string;
     };
   }>;
   rewards: Array<{
@@ -38,6 +43,7 @@ export default function AccountPage() {
   const params = useParams();
   const { language } = useLanguage();
   const t = (key: string) => getTranslation(language, key);
+  const { account: walletAccount } = useWallet();
   const [chains, setChains] = useState<ChainData[]>([]);
   const [selectedChain, setSelectedChain] = useState<ChainData | null>(null);
   const [account, setAccount] = useState<AccountDetail | null>(null);
@@ -130,6 +136,9 @@ export default function AccountPage() {
             throw new Error(accountData.error);
           }
           
+          console.log('[Account Page] Fetched account data:', accountData);
+          console.log('[Account Page] Delegations:', accountData?.delegations);
+          
           if (accountData) {
             setAccount(accountData);
 
@@ -209,9 +218,38 @@ export default function AccountPage() {
               <span className="mx-2">/</span>
               <span className="text-white">{t('accountDetail.account')}</span>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-4 flex items-center">
-              <Wallet className="w-8 h-8 mr-3" />
+            <h1 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
+              <Wallet className="w-8 h-8" />
               {t('accountDetail.title')}
+              {account?.isValidator && account.validatorAddress && (() => {
+                // Get validator info from delegations for status
+                const selfDelegation = account.delegations?.find((d: any) => 
+                  (d.validator === account.validatorAddress || 
+                   d.validatorInfo?.operatorAddress === account.validatorAddress)
+                );
+                const validatorInfo = selfDelegation?.validatorInfo;
+                const isJailed = validatorInfo?.jailed || false;
+                const status = validatorInfo?.status || '';
+                const isBonded = status === 'BOND_STATUS_BONDED';
+                const isUnbonding = status === 'BOND_STATUS_UNBONDING';
+                const isUnbonded = status === 'BOND_STATUS_UNBONDED';
+                
+                return (
+                  <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${
+                    isJailed 
+                      ? 'bg-red-500/20 border border-red-500/30 text-red-400' 
+                      : isBonded
+                      ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                      : isUnbonding
+                      ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400'
+                      : isUnbonded
+                      ? 'bg-gray-500/20 border border-gray-500/30 text-gray-400'
+                      : 'bg-blue-500/20 border border-blue-500/30 text-blue-400'
+                  }`}>
+                    {isJailed ? 'JAILED VALIDATOR' : isBonded ? 'ACTIVE VALIDATOR' : isUnbonding ? 'UNBONDING VALIDATOR' : isUnbonded ? 'UNBONDED VALIDATOR' : 'VALIDATOR'}
+                  </span>
+                );
+              })()}
             </h1>
             
             {/* Address with EVM/Bech32 variants */}
@@ -348,19 +386,27 @@ export default function AccountPage() {
               {/* Delegations */}
               {account.delegations && account.delegations.length > 0 && (
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-                  <h2 className="text-xl font-bold text-white mb-4">
-                    {t('accountDetail.delegations')} ({account.delegations.length})
-                  </h2>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-white">
+                      {t('accountDetail.delegations')} ({account.delegations.length})
+                    </h2>
+                    {walletAccount?.address && (
+                      <span className="text-xs text-gray-500">
+                        Connected: {walletAccount.address.substring(0, 12)}...
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-3">
                     {account.delegations.map((delegation: any, idx) => {
                       const validatorInfo = delegation.validatorInfo || delegation.validator_info;
                       const validatorAddr = delegation.delegation?.validator_address || delegation.validator_address || delegation.validator || '';
                       const amount = delegation.balance?.amount || delegation.amount || '0';
                       const denom = delegation.balance?.denom || asset?.base || '';
+                      const isJailed = validatorInfo?.jailed || false;
                       
                       return (
                         <div key={idx} className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4 hover:border-blue-500 transition-colors">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3 flex-1">
                               {validatorInfo && (
                                 <ValidatorAvatar 
@@ -370,7 +416,14 @@ export default function AccountPage() {
                                 />
                               )}
                               <div className="flex-1">
-                                <p className="text-gray-400 text-sm mb-1">{t('accountDetail.validator')}</p>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="text-gray-400 text-sm">{t('accountDetail.validator')}</p>
+                                  {isJailed && (
+                                    <span className="px-2 py-0.5 bg-red-500/20 border border-red-500/30 rounded text-red-400 text-xs font-semibold">
+                                      JAILED
+                                    </span>
+                                  )}
+                                </div>
                                 {validatorInfo ? (
                                   <Link 
                                     href={`/${chainPath}/validators/${validatorAddr}`}
@@ -390,11 +443,13 @@ export default function AccountPage() {
                                 )}
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-gray-400 text-sm mb-1">{t('accountDetail.amount')}</p>
-                              <p className="text-white font-semibold">
-                                {formatAmount(amount, denom === asset?.base && asset ? asset.symbol : denom)}
-                              </p>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="text-gray-400 text-sm mb-1">{t('accountDetail.amount')}</p>
+                                <p className="text-white font-semibold">
+                                  {formatAmount(amount, denom === asset?.base && asset ? asset.symbol : denom)}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>

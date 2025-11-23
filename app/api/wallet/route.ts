@@ -10,9 +10,8 @@ export async function GET(request: NextRequest) {
     );
   }
   try {
-    // Use backend accounts API directly
     const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
-    const accountsRes = await fetch(`${API_URL}/api/accounts?chain=${chain}&address=${address}`);
+    const accountsRes = await fetch(`${API_URL}/api/accounts?chain=${chain}&address=${address}&limit=100`);
     
     if (!accountsRes.ok) {
       return NextResponse.json(
@@ -23,14 +22,12 @@ export async function GET(request: NextRequest) {
     
     const accountData = await accountsRes.json();
     
-    // Get validator info if needed
     let validatorsInfo: any = {};
     const validatorAddresses = (accountData.delegations || [])
       .map((del: any) => del.validator)
       .filter(Boolean);
     
     if (validatorAddresses.length > 0) {
-      // Get chain info for API URL
       const chainsRes = await fetch(`${request.nextUrl.origin}/api/chains`);
       const chains = await chainsRes.json();
       const selectedChain = chains.find(
@@ -50,6 +47,8 @@ export async function GET(request: NextRequest) {
               moniker: val.description?.moniker || 'Unknown',
               identity: val.description?.identity || '',
               operatorAddress: val.operator_address,
+              jailed: val.jailed || false,
+              status: val.status || 'BOND_STATUS_BONDED',
             };
           });
         } catch (err) {
@@ -70,6 +69,8 @@ export async function GET(request: NextRequest) {
                   moniker: valData.validator.description?.moniker || 'Unknown',
                   identity: valData.validator.description?.identity || '',
                   operatorAddress: valAddr,
+                  jailed: valData.validator.jailed || false,
+                  status: valData.validator.status || '',
                 };
               }
             } catch (err) {
@@ -77,6 +78,8 @@ export async function GET(request: NextRequest) {
                 moniker: 'Unknown',
                 identity: '',
                 operatorAddress: valAddr,
+                jailed: false,
+                status: '',
               };
             }
           });
@@ -85,13 +88,11 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Enrich delegations with validator info
     const delegations = (accountData.delegations || []).map((del: any) => ({
       ...del,
       validatorInfo: validatorsInfo[del.validator] || null,
     }));
     
-    // Format response to match expected frontend structure
     return NextResponse.json({
       address: accountData.address,
       isValidator: accountData.isValidator || false,
