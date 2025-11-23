@@ -10,12 +10,12 @@ export interface ChainAsset {
 export interface ChainEndpoint {
   address: string;
   provider: string;
-  tx_index?: string; // "on" or "off" - indicates if RPC has transaction indexing enabled
+  tx_index?: string; 
 }
 
 export interface ChainData {
   chain_name: string;
-  chain_id?: string; // Filename without .json for API requests (e.g., "Gitopia" instead of "Gitopia-Mainnet")
+  chain_id?: string; 
   api: ChainEndpoint[];
   rpc: ChainEndpoint[];
   sdk_version: string;
@@ -25,6 +25,12 @@ export interface ChainData {
   addr_prefix: string;
   theme_color: string;
   logo: string;
+  website?: string;
+  github?: string;
+  description?: string;
+  twitter?: string;
+  discord?: string;
+  telegram?: string;
 }
 
 export interface BlockData {
