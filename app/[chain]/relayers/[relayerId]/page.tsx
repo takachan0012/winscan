@@ -68,7 +68,12 @@ export default function RelayerDetailPage() {
   useEffect(() => {
     if (!selectedChain || !params?.relayerId) return;
 
+    let isActive = true;
+    let timeoutId: NodeJS.Timeout;
+
     const fetchRelayerDetail = async (isAutoRefresh = false) => {
+      if (!isActive) return;
+      
       if (isAutoRefresh) {
         setIsRefreshing(true);
       } else {
@@ -77,12 +82,19 @@ export default function RelayerDetailPage() {
       
       try {
         const response = await fetchApi(`/api/relayers/detail?chain=${selectedChain.chain_name}&relayerId=${params.relayerId}`);
+        if (!isActive) return;
+        
         const data = await response.json();
+        if (!isActive) return;
+        
         setRelayerDetail(data);
       } catch (error) {
+        if (!isActive) return;
         console.error('Error fetching relayer detail:', error);
         setRelayerDetail(null);
       } finally {
+        if (!isActive) return;
+        
         if (isAutoRefresh) {
           setIsRefreshing(false);
         } else {
@@ -94,9 +106,22 @@ export default function RelayerDetailPage() {
     fetchRelayerDetail();
     
     // Auto-refresh every 10 minutes
-    const interval = setInterval(() => fetchRelayerDetail(true), 600000);
+    const scheduleRefresh = () => {
+      timeoutId = setTimeout(() => {
+        if (isActive) {
+          fetchRelayerDetail(true).then(() => {
+            if (isActive) scheduleRefresh();
+          });
+        }
+      }, 600000);
+    };
     
-    return () => clearInterval(interval);
+    scheduleRefresh();
+    
+    return () => {
+      isActive = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [selectedChain, params?.relayerId]);
 
   const chainPath = useMemo(() => 

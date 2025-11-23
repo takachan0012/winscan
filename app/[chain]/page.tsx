@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { ChainData } from '@/types/chain';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
-import { Activity, Box, Users, TrendingUp } from 'lucide-react';
+import { Activity, Box, Users, TrendingUp, Globe, Twitter, MessageCircle, Github } from 'lucide-react';
 import TokenomicsChart from '@/components/TokenomicsChart';
 import TransactionHistoryChart from '@/components/TransactionHistoryChart';
 import VotingPowerChart from '@/components/VotingPowerChart';
@@ -34,6 +34,7 @@ export default function ChainOverviewPage() {
   const [totalSupply, setTotalSupply] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [chainRegistry, setChainRegistry] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState({
     network: false,
     blocks: false,
@@ -82,6 +83,62 @@ export default function ChainOverviewPage() {
       })
       .catch(err => console.error('Error loading chains:', err));
   }, [params]);
+
+  // Fetch chain registry data for social links
+  useEffect(() => {
+    if (!selectedChain) return;
+    
+    const fetchChainRegistry = async () => {
+      try {
+        // First check if chain.json already has social links (prioritize local data)
+        if (selectedChain.website || selectedChain.description || selectedChain.github || selectedChain.twitter) {
+          console.log('Using local chain.json social links');
+          setChainRegistry({
+            website: selectedChain.website,
+            description: selectedChain.description,
+            twitter: selectedChain.twitter,
+            codebase: selectedChain.github ? { git_repo: selectedChain.github } : undefined
+          });
+          return;
+        }
+        
+        // Try fetching from Cosmos Chain Registry as fallback
+        let registryData = null;
+        const chainId = selectedChain.chain_id || selectedChain.chain_name;
+        
+        console.log('No local social links, fetching chain registry for:', chainId);
+        
+        try {
+          const response = await fetch(`https://raw.githubusercontent.com/cosmos/chain-registry/master/${chainId}/chain.json`);
+          if (response.ok) {
+            registryData = await response.json();
+            console.log('Registry data found:', registryData);
+          }
+        } catch (error) {
+          console.log('Trying base chain ID...');
+          // Try base chain ID
+          const baseChainId = chainId.replace(/-\d+$/, '').replace(/-mainnet.*$/, '').replace(/-testnet.*$/, '');
+          try {
+            const response = await fetch(`https://raw.githubusercontent.com/cosmos/chain-registry/master/${baseChainId}/chain.json`);
+            if (response.ok) {
+              registryData = await response.json();
+              console.log('Registry data found with base ID:', registryData);
+            }
+          } catch (retryError) {
+            console.log('Chain registry not found for both', chainId, 'and', baseChainId);
+          }
+        }
+        
+        if (registryData) {
+          setChainRegistry(registryData);
+        }
+      } catch (error) {
+        console.error('Error fetching chain registry:', error);
+      }
+    };
+    
+    fetchChainRegistry();
+  }, [selectedChain]);
 
   useEffect(() => {
     if (selectedChain) {
@@ -432,33 +489,121 @@ export default function ChainOverviewPage() {
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
 
         <main className="flex-1 mt-16 p-4 md:p-6 overflow-auto">
-          {/* Header */}
+          {/* Premium Chain Header Banner */}
           <div className="mb-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-4">
-                {selectedChain && (
-                  <img 
-                    src={selectedChain.logo} 
-                    alt={selectedChain.chain_name} 
-                    className="w-12 h-12 md:w-16 md:h-16 rounded-full"
-                  />
-                )}
-                <div>
-                  <h1 className="text-3xl font-bold text-white mb-1">
-                    {selectedChain?.chain_name || t('common.loading')}
-                  </h1>
-                  <p className="text-gray-400">{t('overview.networkOverview')}</p>
+            {chainRegistry && (chainRegistry.website || chainRegistry.description || chainRegistry.codebase?.git_repo || chainRegistry.twitter) ? (
+              <div className="relative overflow-hidden bg-[#1a1a1a] border border-gray-800 rounded-xl shadow-lg">
+                <div className="relative p-4 md:p-6">
+                  {/* Top Section: Logo, Name & Live Status */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-4">
+                      {selectedChain && (
+                        <div className="relative group">
+                          <img 
+                            src={selectedChain.logo} 
+                            alt={selectedChain.chain_name} 
+                            className="relative w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-gray-800 shadow-lg"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
+                          {selectedChain?.chain_name || t('common.loading')}
+                        </h1>
+                        <p className="text-gray-400 text-xs md:text-sm">{t('overview.networkOverview')}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Live indicator */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0a0a0a] border border-gray-800 rounded-full">
+                      <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                      <span className="text-xs text-gray-300 font-medium">
+                        {isRefreshing ? t('overview.updating') : t('overview.live')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {chainRegistry.description && (
+                    <div className="mb-4 p-3 bg-[#0f0f0f] rounded-lg border border-gray-800">
+                      <p className="text-gray-300 text-xs md:text-sm leading-relaxed">{chainRegistry.description}</p>
+                    </div>
+                  )}
+                  
+                  {/* Social Links */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {chainRegistry.website && (
+                      <a
+                        href={chainRegistry.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 px-4 py-2 bg-[#0f0f0f] hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-lg transition-all duration-200 text-xs font-medium"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-colors" />
+                        <span className="text-gray-300 group-hover:text-white transition-colors">Website</span>
+                      </a>
+                    )}
+                    
+                    {chainRegistry.codebase?.git_repo && (
+                      <a
+                        href={chainRegistry.codebase.git_repo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 px-4 py-2 bg-[#0f0f0f] hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-lg transition-all duration-200 text-xs font-medium"
+                      >
+                        <Github className="w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-colors" />
+                        <span className="text-gray-300 group-hover:text-white transition-colors">GitHub</span>
+                      </a>
+                    )}
+                    
+                    {chainRegistry.twitter && (
+                      <a
+                        href={chainRegistry.twitter}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 px-4 py-2 bg-[#0f0f0f] hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-lg transition-all duration-200 text-xs font-medium"
+                      >
+                        <svg 
+                          className="w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-colors" 
+                          fill="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                        <span className="text-gray-300 group-hover:text-white transition-colors">X (Twitter)</span>
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
-              
-              {/* Live indicator */}
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
-                <span className="text-xs text-gray-400">
-                  {isRefreshing ? t('overview.updating') : t('overview.live')}
-                </span>
+            ) : (
+              // Fallback if no social links
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-4">
+                  {selectedChain && (
+                    <img 
+                      src={selectedChain.logo} 
+                      alt={selectedChain.chain_name} 
+                      className="w-12 h-12 md:w-16 md:h-16 rounded-full"
+                    />
+                  )}
+                  <div>
+                    <h1 className="text-3xl font-bold text-white mb-1">
+                      {selectedChain?.chain_name || t('common.loading')}
+                    </h1>
+                    <p className="text-gray-400">{t('overview.networkOverview')}</p>
+                  </div>
+                </div>
+                
+                {/* Live indicator */}
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                  <span className="text-xs text-gray-400">
+                    {isRefreshing ? t('overview.updating') : t('overview.live')}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {loading ? (

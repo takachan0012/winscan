@@ -45,5 +45,11 @@
   "bech32_prefix": "paxi",
   "theme_color": "#812cd6",
   "logo": "https://file.winsnip.xyz/file/uploads/paxi.jpg",
-  "updated": "2025-11-17"
+  "website": "https://paxinet.io",
+  "github": "https://github.com/paxi-web3/paxi",
+  "description": "PAXI is a layer 1, general-purpose blockchain — Powering DeFi, DAOs, cross-chain, and dApps with true validator freedom.",
+  "twitter": "https://x.com/paxiweb3",
+  "ios_app": "https://dl.paxi.pro/appstore",
+  "android_app": "https://dl.paxi.pro/googleplay",
+  "updated": "2025-11-23"
 }

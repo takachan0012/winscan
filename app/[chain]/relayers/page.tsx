@@ -62,7 +62,12 @@ export default function RelayersPage() {
   useEffect(() => {
     if (!selectedChain) return;
 
+    let isActive = true;
+    let timeoutId: NodeJS.Timeout;
+
     const fetchRelayers = async (isAutoRefresh = false) => {
+      if (!isActive) return;
+      
       if (isAutoRefresh) {
         setIsRefreshing(true);
       } else {
@@ -71,12 +76,19 @@ export default function RelayersPage() {
       
       try {
         const response = await fetchApi(`/api/relayers?chain=${selectedChain.chain_name}`);
+        if (!isActive) return;
+        
         const data = await response.json();
+        if (!isActive) return;
+        
         setRelayers(data.relayers || []);
       } catch (error) {
+        if (!isActive) return;
         console.error('Error fetching relayers:', error);
         setRelayers([]);
       } finally {
+        if (!isActive) return;
+        
         if (isAutoRefresh) {
           setIsRefreshing(false);
         } else {
@@ -88,9 +100,22 @@ export default function RelayersPage() {
     fetchRelayers();
     
     // Auto-refresh every 10 minutes
-    const interval = setInterval(() => fetchRelayers(true), 600000);
+    const scheduleRefresh = () => {
+      timeoutId = setTimeout(() => {
+        if (isActive) {
+          fetchRelayers(true).then(() => {
+            if (isActive) scheduleRefresh();
+          });
+        }
+      }, 600000);
+    };
     
-    return () => clearInterval(interval);
+    scheduleRefresh();
+    
+    return () => {
+      isActive = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [selectedChain]);
 
   if (loading && !selectedChain) {
