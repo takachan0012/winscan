@@ -223,7 +223,7 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
                       )}
                     </button>
                     
-                    {!collapsed && isExpanded && (
+                    {!collapsed && isExpanded && item.subItems && (
                       <div className="bg-[#0a0a0a]">
                         {item.subItems.map((subItem) => {
                           const isSubActive = pathname === subItem.path || pathname.startsWith(subItem.path + '/');
