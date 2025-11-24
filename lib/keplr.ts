@@ -5,6 +5,16 @@ import {
   fetchAccountWithEthSupport 
 } from './evmSigning';
 
+// Helper to get gov module type URL based on chain
+function getGovMsgVoteTypeUrl(chainId: string): string {
+  // AtomOne uses custom gov module
+  if (chainId.includes('atomone')) {
+    return '/atomone.gov.v1.MsgVote';
+  }
+  // Default to cosmos standard
+  return '/cosmos.gov.v1beta1.MsgVote';
+}
+
 function calculateFee(chain: ChainData, gasLimit: string): { amount: Array<{ denom: string; amount: string }>; gas: string } {
   const denom = chain.assets?.[0]?.base || 'uatom';
   const exponent = parseInt(String(chain.assets?.[0]?.exponent || '6'));
@@ -1491,8 +1501,11 @@ export async function executeVote(
       clientOptions
     );    console.log('Creating MsgVote transaction...');
 
+    const voteTypeUrl = getGovMsgVoteTypeUrl(chainId);
+    console.log(`Using gov module: ${voteTypeUrl}`);
+
     const voteMsg = {
-      typeUrl: '/cosmos.gov.v1beta1.MsgVote',
+      typeUrl: voteTypeUrl,
       value: {
         proposalId: params.proposalId,
         voter: params.voterAddress,
