@@ -5,6 +5,9 @@ import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { clearChainCache } from '@/lib/apiCache';
 import { clearLoadBalancer } from '@/lib/loadBalancer';
+import { useWallet } from '@/contexts/WalletContext';
+import { disconnectKeplr } from '@/lib/keplr';
+import { disconnectMetaMask } from '@/lib/metamask';
 interface ChainSelectorProps {
   chains: ChainData[];
   selectedChain: ChainData | null;
@@ -15,10 +18,18 @@ export default function ChainSelector({ chains, selectedChain, onSelectChain }: 
   const [switching, setSwitching] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { setAccount } = useWallet();
   const handleChainSelect = async (chain: ChainData) => {
     if (switching) return;
     setSwitching(true);
     if (selectedChain && selectedChain.chain_name !== chain.chain_name) {
+      // Disconnect wallet when switching chains
+      disconnectKeplr();
+      disconnectMetaMask();
+      setAccount(null);
+      window.dispatchEvent(new CustomEvent('keplr_wallet_changed'));
+      
+      // Clear cache
       const oldChainPath = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
       clearChainCache(oldChainPath);
       clearLoadBalancer(oldChainPath);    }

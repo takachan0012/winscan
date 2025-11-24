@@ -1,0 +1,391 @@
+import { SigningStargateClient, defaultRegistryTypes } from '@cosmjs/stargate';
+import { Registry, makeSignDoc } from '@cosmjs/proto-signing';
+import { TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { PubKey } from 'cosmjs-types/cosmos/crypto/secp256k1/keys';
+import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
+import { AuthInfo, TxBody, Fee } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { toBase64, fromBase64 } from '@cosmjs/encoding';
+import Long from 'long';
+
+export async function simulateTransaction(
+  restUrl: string,
+  txRaw: TxRaw
+): Promise<{ gasUsed: string; gasWanted: string }> {
+  try {
+    const txBytes = TxRaw.encode(txRaw).finish();
+    const txBytesBase64 = toBase64(txBytes);
+    
+    console.log('🧪 Simulating transaction...');
+    
+    const response = await fetch(`${restUrl}/cosmos/tx/v1beta1/simulate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tx_bytes: txBytesBase64,
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('❌ Simulation failed:', error);
+      throw new Error(`Simulation failed: ${error}`);
+    }
+    
+    const result = await response.json();
+    
+    console.log('✅ Simulation successful:', {
+      gasUsed: result.gas_info?.gas_used,
+      gasWanted: result.gas_info?.gas_wanted,
+    });
+    
+    return {
+      gasUsed: result.gas_info?.gas_used || '0',
+      gasWanted: result.gas_info?.gas_wanted || '0',
+    };
+  } catch (error: any) {
+    console.error('❌ Simulation error:', error);
+    throw error;
+  }
+}
+
+export function getPubkeyTypeUrl(coinType: number, existingPubKey?: any, chainId?: string): string {
+  // Always prefer existing pubkey type from account
+  if (existingPubKey && existingPubKey['@type']) {
+    return existingPubKey['@type'];
+  }
+  
+  // Check if chain is EVM-compatible by chain_id pattern (contains underscore)
+  const isEvmChain = chainId && chainId.includes('_');
+  
+  // EVM chains (Evmos, Injective, Warden, etc.) use ethsecp256k1
+  if (isEvmChain || coinType === 60) {
+    return '/ethermint.crypto.v1.ethsecp256k1.PubKey';
+  }
+  
+  return '/cosmos.crypto.secp256k1.PubKey';
+}
+
+export function extractBaseAccount(accountData: any): any {
+  let value = accountData;
+  
+  const baseAccount = value.BaseAccount || value.baseAccount || value.base_account;
+  if (baseAccount) {
+    value = baseAccount;
+  }
+  
+  const baseVestingAccount = 
+    value.BaseVestingAccount || 
+    value.baseVestingAccount || 
+    value.base_vesting_account;
+  if (baseVestingAccount) {
+    value = baseVestingAccount;
+    
+    const nestedBase = value.BaseAccount || value.baseAccount || value.base_account;
+    if (nestedBase) {
+      value = nestedBase;
+    }
+  }
+  
+  const nestedAccount = value.account;
+  if (nestedAccount) {
+    value = nestedAccount;
+  }
+  
+  return value;
+}
+
+export async function fetchAccountWithEthSupport(
+  restUrl: string, 
+  address: string
+): Promise<any> {
+  const response = await fetch(`${restUrl}/cosmos/auth/v1beta1/accounts/${address}`);
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Account does not exist on chain');
+    }
+    throw new Error(`Failed to fetch account: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  const account = extractBaseAccount(data.account);
+  
+  console.log('📋 Fetched account:', {
+    address: account.address,
+    accountNumber: account.account_number,
+    sequence: account.sequence,
+    pubKey: account.pub_key
+  });
+  
+  return account;
+}
+
+export async function makeAuthInfoBytesForEvm(
+  account: any,
+  signerPubkey: Uint8Array,
+  fee: { amount: Array<{ denom: string; amount: string }>; gasLimit: string },
+  coinType: number,
+  chainId: string,
+  mode: SignMode = SignMode.SIGN_MODE_DIRECT
+): Promise<Uint8Array> {
+  const pubkeyTypeUrl = getPubkeyTypeUrl(coinType, account.pub_key, chainId);
+  
+  console.log('🔑 Creating AuthInfo with:', {
+    pubkeyType: pubkeyTypeUrl,
+    coinType,
+    chainId,
+    sequence: account.sequence,
+    feeAmount: fee.amount[0]?.amount,
+    feeDenom: fee.amount[0]?.denom,
+    gasLimit: fee.gasLimit
+  });
+  
+  const sequence = parseInt(account.sequence);
+  const sequenceBigInt = BigInt(sequence);
+  const gasLimitBigInt = BigInt(fee.gasLimit);
+  
+  console.log('🔧 Encoding Fee with:', {
+    feeAmountArray: fee.amount,
+    feeAmountValue: fee.amount[0]?.amount,
+    gasLimitBigInt: gasLimitBigInt.toString()
+  });
+  
+  const authInfo = AuthInfo.encode({
+    signerInfos: [
+      {
+        publicKey: {
+          typeUrl: pubkeyTypeUrl,
+          value: PubKey.encode({
+            key: signerPubkey,
+          }).finish(),
+        },
+        sequence: sequenceBigInt,
+        modeInfo: { single: { mode } },
+      },
+    ],
+    fee: Fee.fromPartial({
+      amount: fee.amount,
+      gasLimit: gasLimitBigInt,
+    }),
+  }).finish() as Uint8Array;
+  
+  try {
+    const decodedAuth = AuthInfo.decode(authInfo);
+  } catch (e) {
+    console.warn('Could not verify AuthInfo');
+  }
+  
+  return authInfo;
+}
+
+export function makeBodyBytes(
+  registry: Registry,
+  messages: any[],
+  memo: string = ''
+): Uint8Array {
+  const anyMsgs = messages.map((m) => registry.encodeAsAny(m));
+  return TxBody.encode(
+    TxBody.fromPartial({
+      messages: anyMsgs,
+      memo,
+    })
+  ).finish();
+}
+
+export async function signTransactionForEvm(
+  signer: any,
+  chainId: string,
+  restUrl: string,
+  address: string,
+  messages: any[],
+  fee: { amount: Array<{ denom: string; amount: string }>; gas: string },
+  memo: string,
+  coinType: number,
+  autoSimulate: boolean = true
+): Promise<TxRaw> {
+  const registry = new Registry(defaultRegistryTypes);
+  
+  const account = await fetchAccountWithEthSupport(restUrl, address);
+  
+  const accounts = await signer.getAccounts();
+  if (!accounts || accounts.length === 0) {
+    throw new Error('No accounts found in signer');
+  }
+  const signerAccount = accounts[0];
+  
+  console.log('📝 Signing transaction:', {
+    chainId,
+    accountNumber: account.account_number,
+    sequence: account.sequence,
+    messages: messages.length,
+    memo,
+    fee
+  });
+  
+  const txBodyBytes = makeBodyBytes(registry, messages, memo);
+  
+  // First attempt: try simulation with minimal fee
+  let finalFee = fee;
+  
+  if (autoSimulate) {
+    try {
+      console.log('🔬 Attempting simulation to get actual gas requirement...');
+      
+      // Create temp tx with minimal fee for simulation
+      const tempAuthInfoBytes = await makeAuthInfoBytesForEvm(
+        account,
+        signerAccount.pubkey,
+        {
+          amount: [{ denom: fee.amount[0].denom, amount: '1' }],
+          gasLimit: fee.gas || '300000',
+        },
+        coinType,
+        chainId,
+        SignMode.SIGN_MODE_DIRECT
+      );
+      
+      const tempSignDoc = makeSignDoc(
+        txBodyBytes,
+        tempAuthInfoBytes,
+        chainId,
+        parseInt(account.account_number)
+      );
+      
+      const { signature: tempSig, signed: tempSigned } = await signer.signDirect(address, tempSignDoc);
+      
+      const tempTxRaw = TxRaw.fromPartial({
+        bodyBytes: tempSigned.bodyBytes,
+        authInfoBytes: tempSigned.authInfoBytes,
+        signatures: [fromBase64(tempSig.signature)],
+      });
+      
+      const simResult = await simulateTransaction(restUrl, tempTxRaw);
+      const gasUsed = parseInt(simResult.gasUsed);
+      const gasWithBuffer = Math.ceil(gasUsed * 1.3); // Add 30% buffer
+      
+      console.log('📊 Simulation results:', {
+        gasUsed,
+        gasWithBuffer,
+        originalGasLimit: fee.gas
+      });
+      
+      // Now calculate fee based on actual gas needed
+      // Get minimum gas price from node config
+      try {
+        const configResponse = await fetch(`${restUrl}/cosmos/base/node/v1beta1/config`);
+        if (configResponse.ok) {
+          const configData = await configResponse.json();
+          const minGasPrice = configData.minimum_gas_price || '10award';
+          
+          // Parse minimum gas price (format: "10award")
+          const match = minGasPrice.match(/^([\d.]+)(\w+)$/);
+          if (match) {
+            const pricePerGas = parseFloat(match[1]);
+            const denom = match[2];
+            const calculatedFee = Math.ceil(gasWithBuffer * pricePerGas).toString();
+            
+            console.log('💰 Calculated fee from chain config:', {
+              minGasPrice,
+              pricePerGas,
+              gasWithBuffer,
+              calculatedFee,
+              denom
+            });
+            
+            finalFee = {
+              amount: [{ denom, amount: calculatedFee }],
+              gas: gasWithBuffer.toString()
+            };
+          }
+        }
+      } catch (configError) {
+        console.warn('⚠️ Could not fetch node config, using original fee');
+      }
+      
+    } catch (simError: any) {
+      console.warn('⚠️ Simulation failed, using original fee:', simError.message);
+    }
+  }
+  
+  const authInfoBytes = await makeAuthInfoBytesForEvm(
+    account,
+    signerAccount.pubkey,
+    {
+      amount: finalFee.amount,
+      gasLimit: finalFee.gas || '300000',
+    },
+    coinType,
+    chainId,
+    SignMode.SIGN_MODE_DIRECT
+  );
+  
+  const signDoc = makeSignDoc(
+    txBodyBytes,
+    authInfoBytes,
+    chainId,
+    parseInt(account.account_number)
+  );
+  
+  const { signature, signed } = await signer.signDirect(address, signDoc);
+  
+  console.log('✍️ Transaction signed successfully with final fee:', finalFee);
+  
+  return TxRaw.fromPartial({
+    bodyBytes: signed.bodyBytes,
+    authInfoBytes: signed.authInfoBytes,
+    signatures: [fromBase64(signature.signature)],
+  });
+}
+
+export async function broadcastTransaction(
+  restUrl: string,
+  txRaw: TxRaw
+): Promise<any> {
+  const txBytes = TxRaw.encode(txRaw).finish();
+  const txBytesBase64 = toBase64(txBytes);
+  
+  // Decode AuthInfo to verify fee
+  try {
+    const authInfo = AuthInfo.decode(txRaw.authInfoBytes);
+    console.log('🔍 Decoded AuthInfo fee:', {
+      amount: authInfo.fee?.amount,
+      gasLimit: authInfo.fee?.gasLimit?.toString()
+    });
+  } catch (e) {
+    console.warn('Could not decode AuthInfo:', e);
+  }
+  
+  console.log('📡 Broadcasting transaction...', {
+    txBytesLength: txBytes.length
+  });
+  
+  const response = await fetch(`${restUrl}/cosmos/tx/v1beta1/txs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      tx_bytes: txBytesBase64,
+      mode: 'BROADCAST_MODE_SYNC',
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Broadcast failed: ${error}`);
+  }
+  
+  const result = await response.json();
+  
+  console.log('📨 Broadcast result:', result);
+  
+  if (result.tx_response?.code !== 0) {
+    throw new Error(
+      `Transaction failed with code ${result.tx_response.code}: ${result.tx_response.raw_log}`
+    );
+  }
+  
+  return result.tx_response;
+}

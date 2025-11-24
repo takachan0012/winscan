@@ -63,9 +63,9 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
       subItems: [
         { name: 'Validators', translationKey: 'menu.validators', path: `${chainPath}/validators`, icon: <Users className="w-4 h-4" /> },
         { name: 'Uptime', translationKey: 'menu.uptime', path: `${chainPath}/uptime`, icon: <Activity className="w-4 h-4" /> },
+        { name: 'Proposals', translationKey: 'menu.proposals', path: `${chainPath}/proposals`, icon: <Vote className="w-4 h-4" /> },
       ]
     },
-    { name: 'Proposals', translationKey: 'menu.proposals', path: `${chainPath}/proposals`, icon: <Vote className="w-5 h-5" /> },
     { name: 'Assets', translationKey: 'menu.assets', path: `${chainPath}/assets`, icon: <Coins className="w-5 h-5" /> },
     { name: 'Accounts', translationKey: 'menu.accounts', path: `${chainPath}/accounts`, icon: <Wallet className="w-5 h-5" /> },
     { 
@@ -114,6 +114,8 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
       } else {
         newSet.add(menuName);
       }
+      // Save to localStorage
+      localStorage.setItem('expanded-menus', JSON.stringify(Array.from(newSet)));
       return newSet;
     });
   }, []);
@@ -132,7 +134,28 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
     if (savedState === 'true') {
       setCollapsed(true);
     }
-  }, []);
+    
+    // Load saved expanded menus from localStorage
+    const savedExpandedMenus = localStorage.getItem('expanded-menus');
+    if (savedExpandedMenus) {
+      try {
+        const parsed = JSON.parse(savedExpandedMenus);
+        setExpandedMenus(new Set(parsed));
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    
+    // Auto-expand menus that contain the current active page
+    const newExpandedMenus = new Set<string>(savedExpandedMenus ? JSON.parse(savedExpandedMenus) : []);
+    menuItems.forEach(item => {
+      if (item.subItems && isSubmenuActive(item)) {
+        newExpandedMenus.add(item.name);
+      }
+    });
+    setExpandedMenus(newExpandedMenus);
+    localStorage.setItem('expanded-menus', JSON.stringify(Array.from(newExpandedMenus)));
+  }, [menuItems, isSubmenuActive]);
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);

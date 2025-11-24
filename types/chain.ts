@@ -21,6 +21,7 @@ export interface ChainData {
   sdk_version: string;
   coin_type: string;
   min_tx_fee: string;
+  gas_price?: string;
   assets: ChainAsset[];
   addr_prefix: string;
   theme_color: string;

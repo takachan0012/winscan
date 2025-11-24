@@ -1,21 +1,96 @@
 import { ChainData } from '@/types/chain';
+import { 
+  signTransactionForEvm, 
+  broadcastTransaction,
+  fetchAccountWithEthSupport 
+} from './evmSigning';
 
-async function createEvmRegistry() {
-  // @ts-ignore
-  const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
-  // @ts-ignore
-  const { decodePubkey, encodePubkey } = await import('@cosmjs/proto-signing');
+function calculateFee(chain: ChainData, gasLimit: string): { amount: Array<{ denom: string; amount: string }>; gas: string } {
+  const denom = chain.assets?.[0]?.base || 'uatom';
+  const exponent = parseInt(String(chain.assets?.[0]?.exponent || '6'));
   
-  const registry = new Registry(defaultRegistryTypes);
+  let feeAmount: string;
   
-  try {
-    const originalDecode = decodePubkey;
-    const originalEncode = encodePubkey;
-  } catch (error) {
-    console.warn('Could not register EVM pubkey support:', error);
+  if (chain.gas_price) {
+    const gasPricePerUnit = parseFloat(chain.gas_price);
+    const gasLimitNum = parseFloat(gasLimit);
+    feeAmount = Math.ceil(gasLimitNum * gasPricePerUnit).toString();
+  } else if (exponent >= 18) {
+    const gasLimitNum = parseFloat(gasLimit);
+    feeAmount = Math.ceil(gasLimitNum * 833333333333).toString();
+  } else if (exponent >= 12) {
+    const minFee = parseFloat(chain.min_tx_fee || '0.025');
+    const multiplier = Math.pow(10, exponent - 6);
+    const baseFee = parseFloat(gasLimit) * minFee * multiplier;
+    feeAmount = Math.ceil(baseFee * 2).toString();
+  } else {
+    const minFee = parseFloat(chain.min_tx_fee || '0.025');
+    feeAmount = Math.ceil(parseFloat(gasLimit) * minFee).toString();
   }
   
-  return registry;
+  return {
+    amount: [{ denom, amount: feeAmount }],
+    gas: gasLimit,
+  };
+}
+
+async function createEvmAccountParser() {
+  try {
+    const { accountFromAny } = await import('@cosmjs/stargate');
+    
+    return (input: any) => {
+      try {
+        if (input.typeUrl === '/ethermint.types.v1.EthAccount') {
+          console.log('🔍 Parsing EthAccount (Amino mode - will query from chain)');
+          
+          return {
+            address: '',
+            pubkey: null,
+            accountNumber: 0,
+            sequence: 0,
+          };
+        }
+        
+        return accountFromAny(input);
+      } catch (error) {
+        console.error('Account parser error:', error);
+        try {
+          return accountFromAny(input);
+        } catch (fallbackError) {
+          console.error('Fallback parser also failed:', fallbackError);
+          return {
+            address: '',
+            pubkey: null,
+            accountNumber: 0,
+            sequence: 0,
+          };
+        }
+      }
+    };
+  } catch (error) {
+    console.error('Error creating account parser:', error);
+    return null;
+  }
+}
+
+async function createEvmRegistry() {
+  try {
+    const { Registry } = await import('@cosmjs/proto-signing');
+    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    
+    if (typeof Registry !== 'function') {
+      console.warn('Registry is not a constructor, using default registry');
+      return null;
+    }
+    
+    const registry = new Registry(defaultRegistryTypes);
+    
+    console.log('✅ Created EVM-compatible registry with default types');
+    return registry;
+  } catch (error) {
+    console.error('Error creating EVM registry:', error);
+    return null;
+  }
 }
 
 export interface KeplrChainInfo {
@@ -39,12 +114,14 @@ export interface KeplrChainInfo {
     coinMinimalDenom: string;
     coinDecimals: number;
     coinGeckoId?: string;
+    coinImageUrl?: string;
   }>;
   feeCurrencies: Array<{
     coinDenom: string;
     coinMinimalDenom: string;
     coinDecimals: number;
     coinGeckoId?: string;
+    coinImageUrl?: string;
     gasPriceStep?: {
       low: number;
       average: number;
@@ -56,6 +133,7 @@ export interface KeplrChainInfo {
     coinMinimalDenom: string;
     coinDecimals: number;
     coinGeckoId?: string;
+    coinImageUrl?: string;
   };
   features?: string[];
 }
@@ -65,16 +143,28 @@ export interface KeplrAccount {
   pubKey: Uint8Array;
   isNanoLedger: boolean;
 }
-export function convertChainToKeplr(chain: ChainData, coinType: 118 | 60 = 118): KeplrChainInfo {
+export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): KeplrChainInfo {
+  // Auto-detect coin_type from chain config, fallback to 118 (Cosmos standard)
+  const detectedCoinType = chain.coin_type ? parseInt(chain.coin_type) as (118 | 60) : 118;
+  const finalCoinType = coinType ?? detectedCoinType;
+  
   const prefix = chain.addr_prefix || 'cosmos';
   const primaryAsset = chain.assets?.[0];
+  
+  console.log('🔧 Converting chain to Keplr config:', {
+    chain: chain.chain_name,
+    configCoinType: chain.coin_type,
+    detectedCoinType,
+    finalCoinType
+  });
+  
   return {
     chainId: chain.chain_id || chain.chain_name,
     chainName: chain.chain_name,
     rpc: chain.rpc?.[0]?.address || '',
     rest: chain.api?.[0]?.address || '',
     bip44: {
-      coinType: coinType,
+      coinType: finalCoinType,
     },
     bech32Config: {
       bech32PrefixAccAddr: prefix,
@@ -89,16 +179,18 @@ export function convertChainToKeplr(chain: ChainData, coinType: 118 | 60 = 118):
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
       coinGeckoId: primaryAsset.coingecko_id,
+      coinImageUrl: primaryAsset.logo,
     }] : [],
     feeCurrencies: primaryAsset ? [{
       coinDenom: primaryAsset.symbol,
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
       coinGeckoId: primaryAsset.coingecko_id,
+      coinImageUrl: primaryAsset.logo,
       gasPriceStep: {
-        low: parseFloat(chain.min_tx_fee || '0.01'),
-        average: parseFloat(chain.min_tx_fee || '0.025') * 1.5,
-        high: parseFloat(chain.min_tx_fee || '0.025') * 2,
+        low: chain.gas_price ? parseFloat(chain.gas_price) : parseFloat(chain.min_tx_fee || '0.01'),
+        average: chain.gas_price ? parseFloat(chain.gas_price) * 1.5 : parseFloat(chain.min_tx_fee || '0.025') * 1.5,
+        high: chain.gas_price ? parseFloat(chain.gas_price) * 2 : parseFloat(chain.min_tx_fee || '0.025') * 2,
       },
     }] : [],
     stakeCurrency: primaryAsset ? {
@@ -106,6 +198,7 @@ export function convertChainToKeplr(chain: ChainData, coinType: 118 | 60 = 118):
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
       coinGeckoId: primaryAsset.coingecko_id,
+      coinImageUrl: primaryAsset.logo,
     } : {
       coinDenom: 'ATOM',
       coinMinimalDenom: 'uatom',
@@ -143,7 +236,7 @@ export async function suggestChain(chainInfo: KeplrChainInfo): Promise<void> {
 }
 export async function connectKeplr(
   chain: ChainData, 
-  coinType: 118 | 60 = 118
+  coinType?: 118 | 60
 ): Promise<KeplrAccount> {
   if (!isKeplrInstalled()) {
     throw new Error('Keplr extension is not installed');
@@ -151,12 +244,16 @@ export async function connectKeplr(
   const keplr = getKeplr();
   const chainInfo = convertChainToKeplr(chain, coinType);
   let chainId = chainInfo.chainId;
+  
+  // Auto-detect coinType from chain config if not provided
+  const finalCoinType = coinType ?? (chain.coin_type ? parseInt(chain.coin_type) as (118 | 60) : 118);
 
   console.log('🔍 connectKeplr Debug:', {
     chain_name: chain.chain_name,
     chain_id: chain.chain_id,
     computed_chainId: chainId,
-    coinType: coinType
+    configCoinType: chain.coin_type,
+    finalCoinType
   });
 
   const rpcEndpoint = chain.rpc?.[0]?.address;
@@ -172,8 +269,6 @@ export async function connectKeplr(
         console.log('🔑 Config Chain ID:', chainId);
         
         if (rpcChainId && rpcChainId !== chainId) {
-          console.warn(`⚠️ Chain ID mismatch! Config: ${chainId}, RPC: ${rpcChainId}`);
-          console.log('🔄 Updating to use RPC chain ID:', rpcChainId);
           chainId = rpcChainId;
           chainInfo.chainId = rpcChainId;
         }
@@ -186,10 +281,7 @@ export async function connectKeplr(
   try {
     try {
       await keplr.enable(chainId);
-      console.log('✅ Chain enabled:', chainId);
     } catch (enableError: any) {
-      console.log('Chain not found or enable failed:', enableError.message);
-      console.log('Suggesting chain to Keplr...');
       
       if (coinType === 60 && !chainInfo.features?.includes('eth-address-gen')) {
         chainInfo.features = ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'];
@@ -310,6 +402,7 @@ declare global {
       experimentalSuggestChain: (chainInfo: KeplrChainInfo) => Promise<void>;
       getOfflineSigner: (chainId: string) => any;
       getOfflineSignerAuto: (chainId: string) => Promise<any>;
+      getOfflineSignerOnlyAmino: (chainId: string) => Promise<any>;
     };
   }
 }
@@ -352,7 +445,8 @@ export async function executeStaking(
         const apiEndpoint = chain.api?.[0]?.address || '';
         const coinType = parseInt(chain.coin_type || '118');
         
-        await keplr.experimentalSuggestChain({
+        // For EVM chains with coin_type 60, use special Keplr config
+        const keplrChainInfo: any = {
           chainId: chainId,
           chainName: chain.chain_name,
           rpc: rpcEndpoint,
@@ -392,8 +486,16 @@ export async function executeStaking(
             coinMinimalDenom: chain.assets?.[0]?.base || 'uatom',
             coinDecimals: parseInt(String(chain.assets?.[0]?.exponent || '6')),
           },
-          features: coinType === 60 ? ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'] : ['ibc-transfer'],
-        });
+        };
+        
+        // Add EVM-specific features for coin_type 60
+        if (coinType === 60) {
+          keplrChainInfo.features = ['eth-address-gen', 'eth-key-sign'];
+        } else {
+          keplrChainInfo.features = ['ibc-transfer'];
+        }
+        
+        await keplr.experimentalSuggestChain(keplrChainInfo);
         
         await keplr.enable(chainId);
       } else {
@@ -401,15 +503,19 @@ export async function executeStaking(
       }
     }
     
-    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    // Detect EVM chain for proper signer selection
+    const isEvmChain = chainId.includes('_');
+    const coinType = parseInt(chain.coin_type || '118');
+    
+    // For EVM chains, use getOfflineSigner (Direct mode)
+    const offlineSigner = isEvmChain 
+      ? await keplr.getOfflineSigner(chainId)
+      : await keplr.getOfflineSignerAuto(chainId);
     
     const accounts = await offlineSigner.getAccounts();
     if (accounts.length === 0) {
       throw new Error('No accounts found');
     }
-    
-    console.log('✅ Offline signer created for chain ID:', chainId);
-    console.log('Account address:', accounts[0].address);
     
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
@@ -417,11 +523,7 @@ export async function executeStaking(
     const rpcEndpoint = chain.rpc?.[0]?.address || '';
     if (!rpcEndpoint) {
       throw new Error('No RPC endpoint available');
-    }
-
-    console.log('Connecting to RPC:', rpcEndpoint);
-    
-    let actualSigner = offlineSigner;
+    }    let actualSigner = offlineSigner;
     try {
       const statusResponse = await fetch(`${rpcEndpoint}/status`);
       const statusData = await statusResponse.json();
@@ -441,6 +543,7 @@ export async function executeStaking(
         const correctedAccounts = await actualSigner.getAccounts();
         console.log('✅ Corrected offline signer created for chain ID:', chainId);
         console.log('Corrected account:', correctedAccounts[0].address);
+        console.log('Corrected pubkey:', correctedAccounts[0].pubkey);
       }
     } catch (fetchError) {
       console.warn('Could not fetch chain ID from RPC, continuing with existing chainId:', chainId);
@@ -451,12 +554,22 @@ export async function executeStaking(
       broadcastPollIntervalMs: 3000,
     };
     
-    const isEvmChain = parseInt(chain.coin_type || '118') === 60 || 
-                       chainId.includes('_') || // EVM chains often have underscore in chain_id
-                       chain.chain_id?.includes('_');
-    
+    // Add EVM support if needed
     if (isEvmChain) {
-      console.log('🔧 Detected EVM-compatible chain, using extended config');
+      console.log('🔧 Detected EVM chain, adding EthAccount support');
+      
+      const registry = await createEvmRegistry();
+      const accountParser = await createEvmAccountParser();
+      
+      if (registry) {
+        clientOptions.registry = registry;
+        console.log('✅ Using custom EVM registry');
+      }
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser');
+      }
     }
     
     const client = await SigningStargateClient.connectWithSigner(
@@ -539,11 +652,40 @@ export async function executeStaking(
         throw new Error('Invalid staking type');
     }
 
-    const fee = {
-      amount: [{ denom: denom, amount: '5000' }],
-      gas: gasLimit,
-    };
+    const fee = calculateFee(chain, gasLimit);
 
+    if (isEvmChain) {
+      
+      try {
+        const restEndpoint = chain.api[0]?.address || '';
+        if (!restEndpoint) {
+          throw new Error('No REST endpoint available');
+        }
+        
+        // Sign transaction with EVM support
+        const signedTx = await signTransactionForEvm(
+          offlineSigner,
+          chainId,
+          restEndpoint,
+          params.delegatorAddress,
+          [msg],
+          fee,
+          memo,
+          coinType,
+          false // Disable auto-simulation to avoid double approval
+        );
+        
+        // Broadcast transaction
+        const result = await broadcastTransaction(restEndpoint, signedTx);
+        
+        return { success: true, txHash: result.txhash };
+      } catch (evmError: any) {
+        console.error('❌ EVM signing/broadcast failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
+
+    // Standard Cosmos SDK signing for non-EVM chains
     const result = await client.signAndBroadcast(
       params.delegatorAddress,
       [msg],
@@ -588,7 +730,16 @@ export async function executeWithdrawAll(
     });
     
     await keplr.enable(chainId);
-    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    
+    // Detect EVM chain for proper signer selection
+    const isEvmChain = chainId.includes('_');
+    
+    // Use Direct signing for EVM chains (better ethsecp256k1 support)
+    const offlineSigner = isEvmChain 
+      ? await keplr.getOfflineSigner(chainId)
+      : await keplr.getOfflineSignerAuto(chainId);
+    
+    console.log('✅ Signer type:', isEvmChain ? 'Direct (EVM)' : 'Auto');
     
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
@@ -628,13 +779,31 @@ export async function executeWithdrawAll(
       console.warn('Could not verify chain ID from RPC');
     }
     
+    const clientOptions: any = {
+      broadcastTimeoutMs: 30000,
+      broadcastPollIntervalMs: 3000,
+    };
+
+    // Add EVM support if needed
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain, adding EthAccount support');
+      
+      const registry = await createEvmRegistry();
+      const accountParser = await createEvmAccountParser();      if (registry) {
+        clientOptions.registry = registry;
+        console.log('✅ Using custom EVM registry');
+      }
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser');
+      }
+    }
+    
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint,
       actualSigner,
-      { 
-        broadcastTimeoutMs: 30000, 
-        broadcastPollIntervalMs: 3000,
-      }
+      clientOptions
     );
     
     console.log('✅ Client connected for withdraw all');
@@ -671,13 +840,47 @@ export async function executeWithdrawAll(
 
     console.log('📤 Sending transaction with', messages.length, 'message(s)');
 
+    const fee = calculateFee(chain, gasLimit);
+
+    const coinType = parseInt(chain.coin_type || '118');
+    // Use EVM signing for chains with underscore in chain_id (regardless of coin_type)
+    if (isEvmChain) {
+      console.log('🔥 Using EVM-specific signing for withdraw all (EVM chain detected)');
+      
+      try {
+        const restEndpoint = chain.api[0]?.address || '';
+        if (!restEndpoint) {
+          throw new Error('No REST endpoint available');
+        }
+        
+        const signedTx = await signTransactionForEvm(
+          offlineSigner,
+          chainId,
+          restEndpoint,
+          params.delegatorAddress,
+          messages,
+          fee,
+          memo,
+          coinType,
+          false // Disable simulation
+        );
+        
+        const result = await broadcastTransaction(restEndpoint, signedTx);
+        
+        console.log('✅ EVM transaction successful!');
+        console.log('Transaction hash:', result.txhash);
+        
+        return { success: true, txHash: result.txhash };
+      } catch (evmError: any) {
+        console.error('❌ EVM signing/broadcast failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
+
     const result = await client.signAndBroadcast(
       params.delegatorAddress,
       messages,
-      {
-        amount: [{ denom, amount: String(Math.floor(parseFloat(gasLimit) * 0.025)) }],
-        gas: gasLimit,
-      },
+      fee,
       memo
     );
 
@@ -719,7 +922,16 @@ export async function executeWithdrawAllValidators(
     });
     
     await keplr.enable(chainId);
-    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    
+    // Detect EVM chain for proper signer selection
+    const isEvmChain = chainId.includes('_');
+    
+    // Use Direct signing for EVM chains (better ethsecp256k1 support)
+    const offlineSigner = isEvmChain 
+      ? await keplr.getOfflineSigner(chainId)
+      : await keplr.getOfflineSignerAuto(chainId);
+    
+    console.log('✅ Signer type:', isEvmChain ? 'Direct (EVM)' : 'Auto');
     
     // @ts-ignore
     const { SigningStargateClient } = await import('@cosmjs/stargate');
@@ -753,7 +965,11 @@ export async function executeWithdrawAllValidators(
       if (rpcChainId !== chainId) {
         chainId = rpcChainId;
         await keplr.enable(chainId);
-        actualSigner = await keplr.getOfflineSignerAuto(chainId);
+        // Re-detect if EVM chain after chainId correction
+        const isEvmChainCorrected = chainId.includes('_');
+        actualSigner = isEvmChainCorrected 
+          ? await keplr.getOfflineSigner(chainId)
+          : await keplr.getOfflineSignerAuto(chainId);
       }
     } catch (fetchError) {
       console.warn('Could not verify chain ID from RPC');
@@ -763,6 +979,24 @@ export async function executeWithdrawAllValidators(
       broadcastTimeoutMs: 30000, 
       broadcastPollIntervalMs: 3000,
     };
+    
+    // Add EVM support if needed
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain (executeWithdrawAllValidators), adding EthAccount support');
+      
+      const registry = await createEvmRegistry();
+      const accountParser = await createEvmAccountParser();
+      
+      if (registry) {
+        clientOptions.registry = registry;
+        console.log('✅ Using custom EVM registry');
+      }
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser');
+      }
+    }
     
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint,
@@ -791,13 +1025,47 @@ export async function executeWithdrawAllValidators(
 
     console.log('📤 Sending transaction with', messages.length, 'message(s)');
 
+    const fee = calculateFee(chain, gasLimit);
+
+    const coinType = parseInt(chain.coin_type || '118');
+    // Use EVM signing for chains with underscore in chain_id (regardless of coin_type)
+    if (isEvmChain) {
+      console.log('🔥 Using EVM-specific signing for withdraw all validators (EVM chain detected)');
+      
+      try {
+        const restEndpoint = chain.api[0]?.address || '';
+        if (!restEndpoint) {
+          throw new Error('No REST endpoint available');
+        }
+        
+        const signedTx = await signTransactionForEvm(
+          offlineSigner,
+          chainId,
+          restEndpoint,
+          params.delegatorAddress,
+          messages,
+          fee,
+          memo,
+          coinType,
+          false // Disable simulation
+        );
+        
+        const result = await broadcastTransaction(restEndpoint, signedTx);
+        
+        console.log('✅ EVM transaction successful!');
+        console.log('Transaction hash:', result.txhash);
+        
+        return { success: true, txHash: result.txhash };
+      } catch (evmError: any) {
+        console.error('❌ EVM signing/broadcast failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
+
     const result = await client.signAndBroadcast(
       params.delegatorAddress,
       messages,
-      {
-        amount: [{ denom, amount: String(Math.floor(parseFloat(gasLimit) * 0.025)) }],
-        gas: gasLimit,
-      },
+      fee,
       memo
     );
 
@@ -899,14 +1167,20 @@ export async function executeSend(
       }
     }
     
-    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    // Detect EVM chain for proper signer selection
+    const isEvmChain = chainId.includes('_');
+    
+    // Use Direct signing for EVM chains (better ethsecp256k1 support)
+    const offlineSigner = isEvmChain 
+      ? await keplr.getOfflineSigner(chainId)
+      : await keplr.getOfflineSignerAuto(chainId);
     
     const accounts = await offlineSigner.getAccounts();
     if (accounts.length === 0) {
       throw new Error('No accounts found');
     }
     
-    console.log('✅ Offline signer created for chain ID:', chainId);
+    console.log('✅ Offline signer created for chain ID:', chainId, isEvmChain ? '(Direct for EVM)' : '');
     console.log('Account address:', accounts[0].address);
     
     // @ts-ignore
@@ -959,9 +1233,28 @@ export async function executeSend(
       console.warn('Could not fetch chain ID from RPC status endpoint:', e);
     }
 
+    const clientOptions: any = {};
+
+    // Add EVM support if needed
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain (executeSend), adding EthAccount support');
+      
+      const registry = await createEvmRegistry();
+      const accountParser = await createEvmAccountParser();      if (registry) {
+        clientOptions.registry = registry;
+        console.log('✅ Using custom EVM registry');
+      }
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser');
+      }
+    }
+
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint,
-      actualSigner
+      actualSigner,
+      clientOptions
     );
 
     console.log('✅ SigningStargateClient connected');
@@ -983,13 +1276,45 @@ export async function executeSend(
 
     console.log('📤 Sending transaction:', sendMsg);
 
+    const fee = calculateFee(chain, gasLimit);
+
+    const coinType = parseInt(chain.coin_type || '118');
+    if (isEvmChain) {
+      console.log('🔥 Using EVM-specific signing for send (EVM chain)');
+      
+      try {
+        const restEndpoint = chain.api[0]?.address || '';
+        if (!restEndpoint) {
+          throw new Error('No REST endpoint available');
+        }
+        
+        const signedTx = await signTransactionForEvm(
+          offlineSigner,
+          chainId,
+          restEndpoint,
+          params.fromAddress,
+          [sendMsg],
+          fee,
+          memo,
+          coinType
+        );
+        
+        const result = await broadcastTransaction(restEndpoint, signedTx);
+        
+        console.log('✅ EVM transaction successful!');
+        console.log('Transaction hash:', result.txhash);
+        
+        return { success: true, txHash: result.txhash };
+      } catch (evmError: any) {
+        console.error('❌ EVM signing/broadcast failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
+
     const result = await client.signAndBroadcast(
       params.fromAddress,
       [sendMsg],
-      {
-        amount: [{ denom: params.denom, amount: String(Math.floor(parseFloat(gasLimit) * 0.025)) }],
-        gas: gasLimit,
-      },
+      fee,
       memo
     );
 
@@ -1091,13 +1416,23 @@ export async function executeVote(
       }
     }
     
-    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    // Detect EVM chain for proper signer selection
+    const isEvmChain = chainId.includes('_');
     
+    // Use Direct signing for EVM chains (better ethsecp256k1 support)
+    const offlineSigner = isEvmChain 
+      ? await keplr.getOfflineSigner(chainId)
+      : await keplr.getOfflineSignerAuto(chainId);
+    
+    console.log('✅ Signer type:', isEvmChain ? 'Direct (EVM)' : 'Auto');
+
     const rpcEndpoint = chain.rpc?.[0]?.address || '';
     if (!rpcEndpoint) {
       throw new Error('No RPC endpoint available');
     }
 
+    let actualOfflineSigner = offlineSigner;
+    
     try {
       const rpcResponse = await fetch(`${rpcEndpoint}/status`);
       if (rpcResponse.ok) {
@@ -1107,15 +1442,14 @@ export async function executeVote(
           console.warn(`⚠️ Chain ID mismatch! Config: ${chainId}, RPC: ${rpcChainId}. Using RPC chain ID.`);
           chainId = rpcChainId;
           await keplr.enable(chainId);
-          const newOfflineSigner = await keplr.getOfflineSignerAuto(chainId);
-          Object.assign(offlineSigner, newOfflineSigner);
+          actualOfflineSigner = await keplr.getOfflineSignerAuto(chainId);
         }
       }
     } catch (rpcError) {
       console.warn('Could not verify RPC chain ID:', rpcError);
     }
 
-    const accounts = await offlineSigner.getAccounts();
+    const accounts = await actualOfflineSigner.getAccounts();
     if (accounts.length === 0) {
       throw new Error('No accounts found');
     }
@@ -1133,13 +1467,29 @@ export async function executeVote(
       broadcastPollIntervalMs: 3000,
     };
     
+    // Add EVM support if needed
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain (executeVote), adding EthAccount support');
+      
+      const evmRegistry = await createEvmRegistry();
+      const accountParser = await createEvmAccountParser();
+      
+      if (evmRegistry) {
+        clientOptions.registry = evmRegistry;
+        console.log('✅ Using custom EVM registry');
+      }
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser');
+      }
+    }
+    
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint,
-      offlineSigner,
+      actualOfflineSigner,
       clientOptions
-    );
-
-    console.log('Creating MsgVote transaction...');
+    );    console.log('Creating MsgVote transaction...');
 
     const voteMsg = {
       typeUrl: '/cosmos.gov.v1beta1.MsgVote',
@@ -1152,17 +1502,42 @@ export async function executeVote(
 
     console.log('Vote message:', voteMsg);
 
-    const fee = {
-      amount: [
-        {
-          denom: chain.assets?.[0]?.base || 'uatom',
-          amount: Math.ceil(parseFloat(gasLimit) * parseFloat(chain.min_tx_fee || '0.025')).toString(),
-        },
-      ],
-      gas: gasLimit,
-    };
+    const fee = calculateFee(chain, gasLimit);
 
     console.log('Broadcasting transaction...');
+
+    const coinType = parseInt(chain.coin_type || '118');
+    if (isEvmChain) {
+      console.log('🔥 Using EVM-specific signing for vote (EVM chain)');
+      
+      try {
+        const restEndpoint = chain.api[0]?.address || '';
+        if (!restEndpoint) {
+          throw new Error('No REST endpoint available');
+        }
+        
+        const signedTx = await signTransactionForEvm(
+          actualOfflineSigner,
+          chainId,
+          restEndpoint,
+          params.voterAddress,
+          [voteMsg],
+          fee,
+          memo,
+          coinType
+        );
+        
+        const result = await broadcastTransaction(restEndpoint, signedTx);
+        
+        console.log('✅ EVM transaction successful!');
+        console.log('Transaction hash:', result.txhash);
+        
+        return { success: true, txHash: result.txhash };
+      } catch (evmError: any) {
+        console.error('❌ EVM signing/broadcast failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
 
     const result = await client.signAndBroadcast(
       params.voterAddress,
@@ -1209,7 +1584,16 @@ export async function executeUnjail(
     });
     
     await keplr.enable(chainId);
-    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    
+    // Detect EVM chain for proper signer selection
+    const isEvmChain = chainId.includes('_');
+    
+    // Use Direct signing for EVM chains (better ethsecp256k1 support)
+    const offlineSigner = isEvmChain 
+      ? await keplr.getOfflineSigner(chainId)
+      : await keplr.getOfflineSignerAuto(chainId);
+    
+    console.log('✅ Signer type:', isEvmChain ? 'Direct (EVM)' : 'Auto');
     
     // @ts-ignore - Import required modules
     const { SigningStargateClient } = await import('@cosmjs/stargate');
@@ -1226,7 +1610,12 @@ export async function executeUnjail(
       ['/cosmos.slashing.v1beta1.MsgUnjail', MsgUnjail],
     ]);
     
-    console.log('✅ Custom registry created with MsgUnjail');
+    // Add EVM support for chains like Shido
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain, using Direct signing');
+    }
+    
+    console.log('✅ Custom registry created with MsgUnjail' + (isEvmChain ? ' and EVM support' : ''));
     
     let rpcEndpoint = '';
     const rpcList = chain.rpc || [];
@@ -1255,23 +1644,44 @@ export async function executeUnjail(
       const rpcChainId = statusData.result.node_info.network;
       
       if (rpcChainId !== chainId) {
-        console.log('🔄 Updating chain ID from', chainId, 'to', rpcChainId);
-        chainId = rpcChainId;
-        await keplr.enable(chainId);
+      console.log('🔄 Updating chain ID from', chainId, 'to', rpcChainId);
+      chainId = rpcChainId;
+      await keplr.enable(chainId);
+      
+      // Re-get signer with correct method for chain type
+      if (isEvmChain) {
+        actualSigner = await keplr.getOfflineSigner(chainId);
+        console.log('✅ Got EVM signer for unjail with updated chain ID');
+      } else {
         actualSigner = await keplr.getOfflineSignerAuto(chainId);
       }
-    } catch (fetchError) {
-      console.warn('Could not verify chain ID from RPC');
+    }
+  } catch (fetchError) {
+    console.warn('Could not verify chain ID from RPC');
+  }
+
+    const clientOptions: any = {
+      registry,
+      broadcastTimeoutMs: 30000,
+      broadcastPollIntervalMs: 3000,
+    };
+    
+    // Add EVM account parser if needed
+    if (isEvmChain) {
+      console.log('🔧 Adding EVM account parser for executeUnjail');
+      
+      const accountParser = await createEvmAccountParser();
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser for unjail');
+      }
     }
 
     const client = await SigningStargateClient.connectWithSigner(
       rpcEndpoint, 
       actualSigner,
-      {
-        registry,
-        broadcastTimeoutMs: 30000,
-        broadcastPollIntervalMs: 3000,
-      }
+      clientOptions
     );
     
     console.log('✅ SigningStargateClient connected with custom registry');
@@ -1291,19 +1701,43 @@ export async function executeUnjail(
 
     console.log('📝 Unjail message:', unjailMsg);
 
-    const denom = chain.assets?.[0]?.base || 'stake';
-    const feeAmount = [{
-      denom: denom,
-      amount: '5000',
-    }];
-
-    const fee = {
-      amount: feeAmount,
-      gas: gasLimit,
-    };
+    const fee = calculateFee(chain, gasLimit);
 
     console.log('💰 Fee:', fee);
     console.log('📄 Memo:', memo || 'Unjail via WinScan');
+
+    const coinType = parseInt(chain.coin_type || '118');
+    if (isEvmChain) {
+      console.log('🔥 Using EVM-specific signing for unjail (EVM chain)');
+      
+      try {
+        const restEndpoint = chain.api[0]?.address || '';
+        if (!restEndpoint) {
+          throw new Error('No REST endpoint available');
+        }
+        
+        const signedTx = await signTransactionForEvm(
+          actualSigner,
+          chainId,
+          restEndpoint,
+          signerAddress,
+          [unjailMsg],
+          fee,
+          memo || 'Unjail via WinScan',
+          coinType
+        );
+        
+        const result = await broadcastTransaction(restEndpoint, signedTx);
+        
+        console.log('✅ EVM transaction successful!');
+        console.log('Transaction hash:', result.txhash);
+        
+        return { success: true, txHash: result.txhash };
+      } catch (evmError: any) {
+        console.error('❌ EVM signing/broadcast failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
 
     const result = await client.signAndBroadcast(
       signerAddress,

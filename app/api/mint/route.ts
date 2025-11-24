@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Chain not found' }, { status: 404 });
     }
 
-    const restEndpoint = selectedChain.apis?.rest?.[0]?.address || selectedChain.apis?.lcd?.[0]?.address;
+    const restEndpoint = selectedChain.api?.[0]?.address;
     if (!restEndpoint) {
       return NextResponse.json({ error: 'No REST endpoint available' }, { status: 500 });
     }
