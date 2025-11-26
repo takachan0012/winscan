@@ -16,8 +16,8 @@ interface ChainSnapshot {
 }
 
 const STORAGE_KEY_PREFIX = 'validator_history_';
-const SNAPSHOT_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds (changed from 24h)
-const COMPARISON_INTERVAL = 24 * 60 * 60 * 1000; // Compare with 24h ago
+const SNAPSHOT_INTERVAL = 60 * 60 * 1000;
+const COMPARISON_INTERVAL = 24 * 60 * 60 * 1000;
 
 /**
  * Save current validator snapshot for a chain
@@ -52,8 +52,6 @@ export function saveValidatorSnapshot(
     const filteredSnapshots = snapshots.filter(s => s.timestamp > sevenDaysAgo);
     
     localStorage.setItem(key, JSON.stringify(filteredSnapshots));
-    
-    console.log(`[ValidatorHistory] Saved snapshot for ${chainId} with ${validators.length} validators`);
   } catch (error) {
     console.error('Error saving validator snapshot:', error);
   }
@@ -73,8 +71,7 @@ export function get24hChanges(
     const data = localStorage.getItem(key);
     
     if (!data) {
-      console.log(`[ValidatorHistory] No historical data for ${chainId}, saving first snapshot`);
-      return changes; // No historical data
+      return changes;
     }
     
     const snapshots: ChainSnapshot[] = JSON.parse(data);
@@ -86,7 +83,6 @@ export function get24hChanges(
     const now = Date.now();
     const targetTime = now - COMPARISON_INTERVAL;
     
-    // Find closest snapshot to 24h ago
     let closestSnapshot: ChainSnapshot | null = null;
     let minDiff = Infinity;
     
@@ -98,27 +94,19 @@ export function get24hChanges(
       }
     }
     
-    // If no snapshot from 24h ago, use the oldest available snapshot
     if (!closestSnapshot && snapshots.length > 1) {
       closestSnapshot = snapshots[0];
-      console.log(`[ValidatorHistory] Using oldest snapshot from ${new Date(closestSnapshot.timestamp).toLocaleString()}`);
     }
     
     if (!closestSnapshot) {
       return changes;
     }
     
-    const timeDiff = now - closestSnapshot.timestamp;
-    const hoursDiff = (timeDiff / (60 * 60 * 1000)).toFixed(1);
-    console.log(`[ValidatorHistory] Comparing with snapshot from ${hoursDiff}h ago`);
-    
-    // Create map of old voting powers
     const oldPowers = new Map<string, string>();
     for (const val of closestSnapshot.validators) {
       oldPowers.set(val.address, val.votingPower);
     }
     
-    // Calculate changes
     for (const current of currentValidators) {
       const oldPower = oldPowers.get(current.address);
       if (oldPower) {
@@ -133,14 +121,12 @@ export function get24hChanges(
           console.warn(`Error calculating change for ${current.address}:`, e);
         }
       } else {
-        // New validator, treat as full voting power being added
         if (BigInt(current.votingPower) > BigInt(0)) {
           changes.set(current.address, current.votingPower);
         }
       }
     }
     
-    console.log(`[ValidatorHistory] Found ${changes.size} validators with changes`);
     return changes;
   } catch (error) {
     console.error('Error calculating 24h changes:', error);
@@ -157,7 +143,7 @@ export function shouldSaveSnapshot(chainId: string): boolean {
     const data = localStorage.getItem(key);
     
     if (!data) {
-      return true; // No data, save first snapshot
+      return true;
     }
     
     const snapshots: ChainSnapshot[] = JSON.parse(data);
@@ -165,23 +151,14 @@ export function shouldSaveSnapshot(chainId: string): boolean {
       return true;
     }
     
-    // Get latest snapshot
     const latest = snapshots[snapshots.length - 1];
     const timeSinceLastSnapshot = Date.now() - latest.timestamp;
     
-    // Save if more than 1 hour since last snapshot
     return timeSinceLastSnapshot >= SNAPSHOT_INTERVAL;
   } catch (error) {
     console.error('Error checking snapshot status:', error);
     return false;
   }
-}
-
-/**
- * Force save snapshot immediately (for testing)
- */
-export function forceSaveSnapshot(chainId: string, validators: { address: string; votingPower: string }[]): void {
-  saveValidatorSnapshot(chainId, validators);
 }
 
 /**
@@ -191,7 +168,6 @@ export function clearHistory(chainId: string): void {
   try {
     const key = `${STORAGE_KEY_PREFIX}${chainId}`;
     localStorage.removeItem(key);
-    console.log(`[ValidatorHistory] Cleared history for ${chainId}`);
   } catch (error) {
     console.error('Error clearing history:', error);
   }
