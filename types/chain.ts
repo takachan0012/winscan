@@ -69,6 +69,7 @@ export interface ValidatorData {
   delegatorsCount?: number; // Number of delegators
   uptime?: number; // Validator uptime percentage (0-100)
   consensus_pubkey?: any; // Consensus public key for signing info
+  votingPowerChange24h?: string; // 24h voting power change (real data from API)
 }
 
 export interface ChainStats {

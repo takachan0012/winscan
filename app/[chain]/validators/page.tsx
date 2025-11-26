@@ -10,6 +10,7 @@ import { getCacheKey, setCache, getStaleCache } from '@/lib/cacheUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { fetchValidatorsDirectly, shouldUseDirectFetch, fetchValidatorDelegatorsCount, fetchValidatorUptime } from '@/lib/cosmos-client';
+import { saveValidatorSnapshot, get24hChanges, shouldSaveSnapshot } from '@/lib/validatorHistory';
 
 export default function ValidatorsPage() {
   const params = useParams();
@@ -102,9 +103,24 @@ export default function ValidatorsPage() {
                 consensus_pubkey: v.consensus_pubkey,
               }));
             
+            // Calculate 24h changes using historical data
+            const chainId = selectedChain.chain_id || selectedChain.chain_name;
+            const changes24h = get24hChanges(chainId, formattedValidators);
+            
+            // Add 24h changes to validators
+            const validatorsWithChanges = formattedValidators.map((v: any) => ({
+              ...v,
+              votingPowerChange24h: changes24h.get(v.address) || '0',
+            }));
+            
+            // Save snapshot if needed (once per 24h)
+            if (shouldSaveSnapshot(chainId)) {
+              saveValidatorSnapshot(chainId, formattedValidators);
+            }
+            
             startTransition(() => {
-              setValidators(formattedValidators);
-              setCache(cacheKey, formattedValidators);
+              setValidators(validatorsWithChanges);
+              setCache(cacheKey, validatorsWithChanges);
             });
             
             return; // Success, exit
@@ -155,9 +171,24 @@ export default function ValidatorsPage() {
               return tokensB > tokensA ? 1 : tokensB < tokensA ? -1 : 0; // Sort by tokens descending
             });
           
+          // Calculate 24h changes using historical data
+          const chainId = selectedChain.chain_id || selectedChain.chain_name;
+          const changes24h = get24hChanges(chainId, formattedValidators);
+          
+          // Add 24h changes to validators
+          const validatorsWithChanges = formattedValidators.map((v: any) => ({
+            ...v,
+            votingPowerChange24h: changes24h.get(v.address) || '0',
+          }));
+          
+          // Save snapshot if needed (once per 24h)
+          if (shouldSaveSnapshot(chainId)) {
+            saveValidatorSnapshot(chainId, formattedValidators);
+          }
+          
           startTransition(() => {
-            setValidators(formattedValidators);
-            setCache(cacheKey, formattedValidators);
+            setValidators(validatorsWithChanges);
+            setCache(cacheKey, validatorsWithChanges);
           });
           
           // Fetch delegators count for ALL validators in background
