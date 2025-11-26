@@ -30,7 +30,7 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-    const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
+    const minLoadTime = new Promise(resolve => setTimeout(resolve, 3000));
 
     Promise.all([
       fetchChainsWithCache(),
@@ -143,11 +143,17 @@ export default function Home() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 group">
-              <WinScanLogo size="md" />
-              <div>
-                <h1 className="text-xl font-bold text-white group-hover:text-gray-300 transition-colors">
-                  {t('home.title')}
+              <div className="w-20 h-20 flex items-center justify-center">
+                <img src="/logo.svg" alt="WinScan Logo" className="w-16 h-16" />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-xl font-bold group-hover:text-gray-300 transition-colors">
+                  <span className="text-purple-500">
+                    WinScan
+                  </span>
+                  <span className="text-white"> Explorer</span>
                 </h1>
+                <div className="h-px bg-gradient-to-r from-purple-500 via-blue-500 to-transparent my-1"></div>
                 <p className="text-gray-500 text-xs">{t('home.subtitle')}</p>
               </div>
             </Link>
@@ -167,9 +173,44 @@ export default function Home() {
 
       <main className="flex-1 relative z-10">
         {loading ? (
-          <div className="flex flex-col items-center justify-center min-h-[600px]">
-            <WinScanLogo size="xl" animated={true} />
-            <p className="text-gray-500 mt-6 animate-pulse">{t('home.loading')}</p>
+          <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center overflow-hidden">
+            {/* Subtle background glow */}
+            <div className="absolute inset-0">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse"></div>
+            </div>
+
+            <div className="relative z-10">
+              {/* Single rotating ring */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-40 h-40 border-t border-r border-gray-700 rounded-full animate-spin" style={{ animationDuration: '3s' }}></div>
+              </div>
+              
+              {/* Subtle pulse ring */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-36 h-36 border border-gray-800 rounded-full animate-pulse"></div>
+              </div>
+              
+              {/* Logo container */}
+              <div className="relative z-10 w-28 h-28 flex items-center justify-center">
+                <div className="relative bg-gradient-to-br from-gray-900 to-black rounded-2xl p-6 shadow-2xl border border-gray-800 animate-float">
+                  <img src="/logo.svg" alt="WinScan" className="w-16 h-16" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Loading text */}
+            <div className="mt-16 text-center relative z-10">
+              <h2 className="text-2xl font-semibold text-gray-300 mb-4">
+                {t('home.loading')}
+              </h2>
+              
+              {/* Simple dots */}
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
           </div>
         ) : (
           <>
@@ -202,6 +243,18 @@ export default function Home() {
                     <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
                     <span>Advanced Analytics</span>
                   </div>
+                </div>
+                
+                <div className="mt-8 text-gray-500 text-sm">
+                  Developed by{' '}
+                  <a 
+                    href="https://t.me/winnodexx" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-500 hover:text-purple-400 transition-colors font-semibold"
+                  >
+                    @winnodexx
+                  </a>
                 </div>
               </div>
             </section>
