@@ -1,4 +1,10 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "dev": false
+    }
+  },
   "env": {
     "NEXT_PUBLIC_API_URL": "https://ssl.winsnip.xyz"
   },
