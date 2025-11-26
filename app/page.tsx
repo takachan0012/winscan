@@ -223,7 +223,7 @@ export default function Home() {
                       
                       {/* Cosmostation */}
                       <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/Cosmostation.PNG" alt="Cosmostation" className="max-h-16 max-w-full object-contain" />
+                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-16 max-w-full object-contain" />
                       </div>
                       
                       {/* Leap */}
