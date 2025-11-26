@@ -175,103 +175,125 @@ export default function Home() {
           <>
             {/* Hero Section */}
             <section className="container mx-auto px-6 py-16 lg:py-24 relative">
-              <div className="max-w-4xl mx-auto text-center">
-                <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-white">
+              <div className="max-w-5xl mx-auto text-center">
+                <h2 className="text-5xl lg:text-6xl font-bold mb-8 text-white leading-tight">
                   Blockchain Explorer for
-                  <span className="block mt-2 text-gray-400">Cosmos Ecosystem</span>
+                  <span className="block mt-3 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 text-transparent bg-clip-text">
+                    Cosmos Ecosystem
+                  </span>
                 </h2>
                 
-                <p className="text-gray-500 text-lg mb-12 max-w-2xl mx-auto">
-                  Explore and analyze blockchain data across multiple Cosmos networks
+                <p className="text-gray-400 text-xl lg:text-2xl mb-12 max-w-3xl mx-auto leading-relaxed">
+                  Explore and analyze blockchain data across multiple <span className="text-blue-400 font-semibold">Cosmos networks</span>
                 </p>
+                
+                <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span>Real-time Data</span>
+                  </div>
+                  <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span>Multi-Chain Support</span>
+                  </div>
+                  <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                    <span>Advanced Analytics</span>
+                  </div>
+                </div>
               </div>
             </section>
 
             {/* Partners Marquee Section */}
-            <section className="container mx-auto px-6 py-16 overflow-hidden">
+            <section className="container mx-auto px-6 py-20 overflow-hidden">
               <div className="max-w-7xl mx-auto">
-                <p className="text-center text-gray-600 text-sm mb-12 uppercase tracking-wider">
-                  Powered by Industry Leaders
-                </p>
+                <div className="text-center mb-16">
+                  <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
+                    Powered by Industry Leaders
+                  </h3>
+                  <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-600 mx-auto rounded-full"></div>
+                </div>
                 
-                <div className="relative py-8">
-                  <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-black to-transparent z-10"></div>
-                  <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-black to-transparent z-10"></div>
+                <div className="relative py-12">
+                  <div className="absolute left-0 top-0 bottom-0 w-48 bg-gradient-to-r from-black via-black/80 to-transparent z-10"></div>
+                  <div className="absolute right-0 top-0 bottom-0 w-48 bg-gradient-to-l from-black via-black/80 to-transparent z-10"></div>
                   
                   <div className="flex animate-scroll items-center">
                     {/* First set of logos */}
-                    <div className="flex items-center justify-center gap-24 px-12 flex-shrink-0">
+                    <div className="flex items-center justify-center gap-40 px-20 flex-shrink-0">
                       {/* Netcup */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Hetzner */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* AWS */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/aws.png" alt="AWS" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/aws.png" alt="AWS" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Keplr */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/keplr.png" alt="Keplr" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/keplr.png" alt="Keplr" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Cosmostation */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Leap */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/leap.png" alt="Leap" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/leap.png" alt="Leap" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Paxi */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/paxi.png" alt="Paxi" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/paxi.png" alt="Paxi" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                     </div>
                     
                     {/* Duplicate set for seamless loop */}
-                    <div className="flex items-center justify-center gap-24 px-12 flex-shrink-0">
+                    <div className="flex items-center justify-center gap-40 px-20 flex-shrink-0">
                       {/* Netcup */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Hetzner */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* AWS */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/aws.png" alt="AWS" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/aws.png" alt="AWS" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Keplr */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/keplr.png" alt="Keplr" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/keplr.png" alt="Keplr" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Cosmostation */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/Cosmostation.jpeg" alt="Cosmostation" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Leap */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/leap.png" alt="Leap" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/leap.png" alt="Leap" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Paxi */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-300 opacity-90 hover:opacity-100 w-32 h-20">
-                        <img src="/paxi.png" alt="Paxi" className="max-h-16 max-w-full object-contain" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
+                        <img src="/paxi.png" alt="Paxi" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                     </div>
                   </div>

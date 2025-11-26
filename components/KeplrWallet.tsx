@@ -59,7 +59,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
     };
   }, [isConnected, selectedChain]);
 
-  const handleConnect = async (selectedWalletType: 'keplr' | 'leap' | 'cosmostation' = 'keplr') => {
+  const handleConnect = async (selectedWalletType?: 'keplr' | 'leap' | 'cosmostation') => {
     if (!selectedChain) {
       setError('Please select a chain first');
       return;
@@ -70,34 +70,47 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
     setShowModal(false);
     
     try {
-      // Auto-detect coin_type from chain config
       const detectedCoinType = selectedChain.coin_type ? parseInt(selectedChain.coin_type) as (118 | 60) : 118;
       
-      console.log('🔍 Auto-detected coin_type:', detectedCoinType, 'for chain:', selectedChain.chain_name);
+      let walletToUse: 'keplr' | 'leap' | 'cosmostation' = 'keplr';
       
-      // Check wallet installation
-      if (selectedWalletType === 'leap' && !isLeapInstalled()) {
-        setError('Leap extension is not installed. Please install it from https://www.leapwallet.io/');
-        window.open('https://www.leapwallet.io/', '_blank');
-        return;
+      if (!selectedWalletType) {
+        if (isKeplrInstalled()) {
+          walletToUse = 'keplr';
+        } else if (isLeapInstalled()) {
+          walletToUse = 'leap';
+        } else if (isCosmostationInstalled()) {
+          walletToUse = 'cosmostation';
+        } else {
+          setError('No wallet extension found. Please install Keplr, Leap, or Cosmostation.');
+          window.open('https://www.keplr.app/', '_blank');
+          return;
+        }
+      } else {
+        walletToUse = selectedWalletType;
+        
+        if (selectedWalletType === 'leap' && !isLeapInstalled()) {
+          setError('Leap extension is not installed. Please install it from https://www.leapwallet.io/');
+          window.open('https://www.leapwallet.io/', '_blank');
+          return;
+        }
+        
+        if (selectedWalletType === 'cosmostation' && !isCosmostationInstalled()) {
+          setError('Cosmostation extension is not installed. Please install it from https://cosmostation.io/');
+          window.open('https://cosmostation.io/', '_blank');
+          return;
+        }
+        
+        if (selectedWalletType === 'keplr' && !isKeplrInstalled()) {
+          setError('Keplr extension is not installed. Please install it from https://www.keplr.app/');
+          window.open('https://www.keplr.app/', '_blank');
+          return;
+        }
       }
       
-      if (selectedWalletType === 'cosmostation' && !isCosmostationInstalled()) {
-        setError('Cosmostation extension is not installed. Please install it from https://cosmostation.io/');
-        window.open('https://cosmostation.io/', '_blank');
-        return;
-      }
-      
-      if (selectedWalletType === 'keplr' && !isKeplrInstalled()) {
-        setError('Keplr extension is not installed. Please install it from https://www.keplr.app/');
-        window.open('https://www.keplr.app/', '_blank');
-        return;
-      }
-      
-      // Connect with auto-detected coin_type
-      const connectedAccount = await connectWalletWithType(selectedChain, detectedCoinType, selectedWalletType);
+      const connectedAccount = await connectWalletWithType(selectedChain, detectedCoinType, walletToUse);
       setAccount(connectedAccount);
-      setWalletType(selectedWalletType);
+      setWalletType(walletToUse);
       setCoinType(detectedCoinType);
       const chainId = selectedChain.chain_id || selectedChain.chain_name;
       saveKeplrAccount(connectedAccount, chainId, detectedCoinType);
@@ -105,7 +118,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
       
     } catch (err: any) {
       console.error('Wallet connection error:', err);
-      setError(err.message || `Failed to connect to ${selectedWalletType}`);
+      setError(err.message || `Failed to connect wallet`);
       setAccount(null);
     } finally {
       setIsConnecting(false);
@@ -128,7 +141,13 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
       setError('Please select a chain first');
       return;
     }
-    setShowModal(true);
+    
+    if (isKeplrInstalled() || isLeapInstalled() || isCosmostationInstalled()) {
+      handleConnect();
+    } else {
+      setShowModal(true);
+    }
+    
     setError(null);
   };
   const formatAddress = (address: string) => {
