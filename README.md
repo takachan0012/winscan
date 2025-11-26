@@ -2,210 +2,149 @@
 
 <div align="center">
   <img src="app/icon.svg" alt="WinScan Logo" width="120" height="120" />
-</div>
-
-**WinScan** is a modern, professional multi-chain blockchain explorer built with Next.js 14 and TypeScript. Monitor multiple Cosmos SDK-based blockchains in real-time with an elegant, minimalist interface.
-
-<div align="center">
-
-[![Website](https://img.shields.io/badge/Website-winsnip.xyz-blue?style=for-the-badge&logo=google-chrome)](https://winsnip.xyz)
-[![Twitter](https://img.shields.io/badge/Twitter-@winsnip-1DA1F2?style=for-the-badge&logo=twitter)](https://twitter.com/winsnip)
-[![Telegram](https://img.shields.io/badge/Telegram-WinSnip-26A5E4?style=for-the-badge&logo=telegram)](https://t.me/winsnip)
-[![GitHub](https://img.shields.io/badge/GitHub-winsnip--official-181717?style=for-the-badge&logo=github)](https://github.com/winsnip-official)
-
----
-
-**📖 Documentation**
-
-[![Contributing Guide](https://img.shields.io/badge/📖-Contributing_Guide-green?style=flat-square)](CONTRIBUTING.md)
-[![Chain Configuration](https://img.shields.io/badge/⚙️-Chain_Configuration-orange?style=flat-square)](CHAIN-GUIDELINES.md)
-[![Security Policy](https://img.shields.io/badge/🔒-Security_Policy-red?style=flat-square)](SECURITY.md)
-[![License](https://img.shields.io/badge/📜-MIT_License-blue?style=flat-square)](LICENSE)
-
+  
+  **Modern blockchain explorer for Cosmos ecosystem**
+  
+  [![Website](https://img.shields.io/badge/Website-winsnip.xyz-blue?style=for-the-badge)](https://winsnip.xyz)
+  [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+  [![Twitter](https://img.shields.io/badge/Twitter-@winsnip-1DA1F2?style=for-the-badge)](https://twitter.com/winsnip)
 </div>
 
 ## ✨ Features
 
-- 🌐 **Multi-Chain Support** - Monitor multiple blockchain networks from one dashboard
-- 📊 **Real-Time Monitoring** - Live consensus tracking and validator status
-- 🔍 **Complete Explorer** - Blocks, transactions, validators, proposals, and more
-- 🌍 **Multi-Language** - Support for 7 languages (EN, ID, ZH, JA, HI, RU, VI)
-- 🎨 **Modern UI** - Clean, elegant design with dark theme
-- 📱 **Responsive** - Works perfectly on desktop, tablet, and mobile
-- ⚡ **Fast & Optimized** - Built with performance in mind
-- 🗂️ **Smart Navigation** - Grouped sidebar menu with expandable categories
-- 🔄 **IBC Support** - Complete Inter-Blockchain Communication monitoring
-- 💼 **Keplr Wallet Integration**
-  - 🔄 **Staking Operations** - Delegate, redelegate, and unbond tokens directly from the explorer
-  - 💸 **Withdraw Rewards** - Claim staking rewards and validator commissions
-  - 🗳️ **Governance Voting** - Vote on proposals (Yes, No, Abstain, No With Veto)
-  - 💰 **Token Transfers** - Send tokens to other addresses securely
-  - 🔓 **Unjail Validator** - Unjail your validator after being jailed
-  - 💎 **Account Dashboard** - View balances, delegations, unbonding, and rewards
-- 👨‍⚖️ **Advanced Validator Features**
-  - 📈 **Realtime Uptime Monitoring** - 150-block grid showing signed/missed blocks
-  - 🔄 **Auto-Refresh** - Updates every 15 seconds for live tracking
-  - 📊 **Consensus Address Display** - Shows operator, account, consensus (valcons), and hex addresses
-  - 📜 **Validator Transactions** - Complete transaction history via RPC
-  - 👥 **Delegators List** - View all delegators and unbonding delegations
-  - 💰 **Integrated Stake Management** - Full staking modal directly from validator detail page
+- 🌐 Multi-chain support for Cosmos networks
+- 📊 Real-time blocks, transactions, validators tracking
+- 💼 Keplr wallet integration (stake, vote, transfer)
+- 🗳️ Governance proposals with voting
+- 📈 Validator uptime monitoring
+- 🌍 7 languages support
+- 🎨 Modern dark theme UI
+- 📱 Fully responsive
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-1. **Fork this repository** (Click "Fork" button at top right)
-
-2. **Clone your forked repository**
 ```bash
+# Clone repository
 git clone https://github.com/winsnip-official/winscan.git
 cd winscan
-```
 
-3. **Install dependencies**
-```bash
+# Install dependencies
 npm install
-```
 
-4. **Setup environment variables**
-```bash
-cp .env.example .env
-```
-
-Edit `.env` if you want to use different API endpoint (optional):
-```env
-NEXT_PUBLIC_API_URL=https://ssl.winsnip.xyz
-```
-
-5. **Configure your chains**
-- Add your chain configurations in `Chains/` directory
-- See `Chains/README.md` for chain configuration format
-
-6. **Run development server**
-```bash
+# Run development server
 npm run dev
 ```
 
 Visit http://localhost:3000
 
-## 📁 Project Structure
+## 📖 Documentation
 
-```
-winscan/
-├── app/                    # Next.js app directory
-│   ├── [chain]/           # Dynamic chain routes
-│   ├── api/               # API routes (proxy)
-│   └── page.tsx           # Home page
-├── components/            # React components
-├── Chains/               # Chain configurations
-├── lib/                  # Utility functions
-├── types/                # TypeScript types
-└── public/               # Static assets
-```
-
-## 🔌 API Backend
-
-This explorer uses **WinSnip API** as the backend service:
-- **API URL**: https://ssl.winsnip.xyz
-- Public and free to use
-- Supports multiple Cosmos chains
-- Real-time data sync
-
-### Self-Hosted Backend (Optional)
-
-For advanced users who want to run their own API backend:
-- Backend repository: Coming soon
-- Requires VPS and Node.js
-- Full control over data and endpoints
-
-Default configuration uses our public API, so you don't need to setup backend.
+- **[Chain Configuration Guide](CHAIN-GUIDELINES.md)** - Add your blockchain
+- **[Contributing Guide](CONTRIBUTING.md)** - Contribution guidelines
+- **[Security Policy](SECURITY.md)** - Report vulnerabilities
+- **[License](LICENSE)** - Usage terms and restrictions
 
 ## 🔧 Configuration
 
 ### Adding New Chains
 
-Want to add your blockchain to WinScan? It's easy!
-
-**📖 See [CHAIN-GUIDELINES.md](CHAIN-GUIDELINES.md) for complete instructions**
-
-Quick overview:
-1. Create JSON file in `Chains/` directory (e.g., `yourchain-mainnet.json`)
+1. Create `yourchain-mainnet.json` in `Chains/` directory
 2. Configure RPC, API endpoints, and token details
-3. Test endpoints and push to repository
-
-That's it! The explorer will auto-detect your chain.
+3. See [CHAIN-GUIDELINES.md](CHAIN-GUIDELINES.md) for complete format
 
 ### Environment Variables
 
-**Frontend (.env)**
 ```env
 NEXT_PUBLIC_API_URL=https://ssl.winsnip.xyz
 ```
 
-By default, WinScan uses our public API. You can change this to your own API endpoint if you're running a self-hosted backend.
-
 ## 🚀 Deployment
 
-### Deploy Frontend (Vercel)
+### Vercel (Recommended)
 
-1. **Connect to Vercel**
 ```bash
 npm run build
 vercel --prod
 ```
 
-2. **Set Environment Variable**
-In Vercel dashboard, add:
+Add environment variable in Vercel dashboard:
 ```
 NEXT_PUBLIC_API_URL=https://ssl.winsnip.xyz
 ```
 
-3. **Deploy**
-Every push to main branch will auto-deploy.
-
-### Custom Domain (Optional)
-
-Add your domain in Vercel dashboard → Domains
-
-## 📝 Available Scripts
-
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-```
-
-## 🔐 Security & Permissions
-
-### Repository Protection
-
-This repository is configured with branch protection rules:
-
-- ✅ **Public Repository** - Anyone can view and fork
-- ✅ **Fork to Contribute** - Contributors must fork first
-- ❌ **No Direct Commits** - Main branch is protected
-- ✅ **Pull Request Required** - All changes via PR
-- ✅ **Review Required** - PRs need approval before merge
-
-### How to Contribute
-
-1. **Fork** this repository
-2. **Clone** your fork
-3. Create a **new branch** (`git checkout -b feature/amazing-feature`)
-4. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-5. **Push** to your fork (`git push origin feature/amazing-feature`)
-6. Open a **Pull Request**
-
 ## 🛠️ Tech Stack
 
-### Frontend
 - **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **API**: WinSnip public API
+
+## 📜 License & Copyright
+
+**© 2025 WinSnip Official. All Rights Reserved.**
+
+This project is licensed under **MIT License with Additional Restrictions**:
+
+✅ **ALLOWED:**
+- Use for personal, educational, or commercial purposes
+- Fork and modify the code
+- Distribute and sublicense
+
+❌ **PROHIBITED:**
+- Remove or alter WinSnip branding, logos, or attribution
+- Claim this work as your own
+- Misrepresent the origin of this software
+
+⚠️ **REQUIRED:**
+- Maintain copyright notice and license in all copies
+- Keep visible attribution to WinSnip in public deployments
+- Include "Built on Trusted Infrastructure" or similar attribution
+
+**For full license terms, see [LICENSE](LICENSE) file.**
+
+Violation of these terms may result in legal action and license revocation.
+
+## 🤝 Contributing
+
+We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+**Quick steps:**
+1. Fork this repository
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open Pull Request to `dev` branch
+
+## 📞 Support
+
+- 🌐 Website: [winsnip.xyz](https://winsnip.xyz)
+- 🐦 Twitter: [@winsnip](https://twitter.com/winsnip)
+- 💬 Telegram: [t.me/winsnip](https://t.me/winsnip)
+- 💻 GitHub: [github.com/winsnip-official](https://github.com/winsnip-official)
+
+## 💎 Supported Chains
+
+### Mainnets
+- Paxi Network, Axone, BitBadges, Gitopia, Humans.ai, Shido
+
+### Testnets
+- CNHO-Stables, Safrochain, Lumera
+
+**Want to add your chain?** See [CHAIN-GUIDELINES.md](CHAIN-GUIDELINES.md)
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [WinSnip](https://winsnip.xyz)**
+
+⭐ Star this repo if you find it useful!
+
+[![Website](https://img.shields.io/badge/🌐-winsnip.xyz-blue)](https://winsnip.xyz)
+[![Twitter](https://img.shields.io/badge/🐦-@winsnip-1DA1F2)](https://twitter.com/winsnip)
+[![Telegram](https://img.shields.io/badge/💬-WinSnip-26A5E4)](https://t.me/winsnip)
+
+</div>
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React

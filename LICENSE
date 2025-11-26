@@ -1,6 +1,14 @@
 MIT License
 
-Copyright (c) 2025 WinScan
+Copyright (c) 2025 WinSnip Official (https://winsnip.xyz)
+All Rights Reserved.
+
+IMPORTANT RESTRICTIONS:
+- You MAY use this software for personal, educational, or commercial purposes.
+- You MUST retain this copyright notice and license in all copies.
+- You MAY NOT remove, alter, or obscure any branding, logos, or attribution to WinSnip.
+- You MAY NOT claim this work as your own or misrepresent its origin.
+- Forking and modifications are permitted, but must maintain attribution to WinSnip.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +27,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+ADDITIONAL TERMS:
+By using this software, you acknowledge and agree that:
+1. WinSnip name, logo, and branding are trademarks of WinSnip Official.
+2. Any public deployment must include visible attribution to WinSnip.
+3. Commercial use requires maintaining the "Built on Trusted Infrastructure" 
+   or similar attribution visible to end users.
+4. Violation of these terms may result in legal action and license revocation.
