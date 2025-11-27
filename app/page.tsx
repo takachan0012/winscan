@@ -140,29 +140,29 @@ export default function Home() {
 
       {/* Header */}
       <header className="border-b border-gray-900 bg-black sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-20 h-20 flex items-center justify-center">
-                <img src="/logo.svg" alt="WinScan Logo" className="w-16 h-16" />
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 flex items-center justify-center">
+                <img src="/logo.svg" alt="WinScan Logo" className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16" />
               </div>
               <div className="flex flex-col">
-                <h1 className="text-xl font-bold group-hover:text-gray-300 transition-colors">
+                <h1 className="text-base sm:text-lg lg:text-xl font-bold group-hover:text-gray-300 transition-colors">
                   <span className="text-purple-500">
                     WinScan
                   </span>
                   <span className="text-white"> Explorer</span>
                 </h1>
-                <div className="h-px bg-gradient-to-r from-purple-500 via-blue-500 to-transparent my-1"></div>
-                <p className="text-gray-500 text-xs">{t('home.subtitle')}</p>
+                <div className="h-px bg-gradient-to-r from-purple-500 via-blue-500 to-transparent my-0.5 sm:my-1"></div>
+                <p className="text-gray-500 text-[10px] sm:text-xs">{t('home.subtitle')}</p>
               </div>
             </Link>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {!loading && chains.length > 0 && (
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg">
+                <div className="hidden md:flex items-center gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-900 border border-gray-800 rounded-lg">
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                  <span className="text-gray-400 text-sm">{chains.length} Networks</span>
+                  <span className="text-gray-400 text-xs sm:text-sm">{chains.length} Networks</span>
                 </div>
               )}
               <LanguageSwitcher />
@@ -215,37 +215,37 @@ export default function Home() {
         ) : (
           <>
             {/* Hero Section */}
-            <section className="container mx-auto px-6 py-16 lg:py-24 relative">
+            <section className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16 xl:py-24 relative">
               <div className="max-w-5xl mx-auto text-center">
-                <h2 className="text-5xl lg:text-6xl font-bold mb-8 text-white leading-tight">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 sm:mb-6 lg:mb-8 text-white leading-tight">
                   Blockchain Explorer for
-                  <span className="block mt-3 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 text-transparent bg-clip-text">
+                  <span className="block mt-2 sm:mt-3 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 text-transparent bg-clip-text">
                     Cosmos Ecosystem
                   </span>
                 </h2>
                 
-                <p className="text-gray-400 text-xl lg:text-2xl mb-12 max-w-3xl mx-auto leading-relaxed">
+                <p className="text-gray-400 text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl mb-6 sm:mb-8 lg:mb-12 max-w-3xl mx-auto leading-relaxed px-4">
                   Explore and analyze blockchain data across multiple <span className="text-blue-400 font-semibold">Cosmos networks</span>
                 </p>
                 
-                <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span>Real-time Data</span>
                   </div>
-                  <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
+                  <div className="hidden sm:block w-1 h-1 bg-gray-700 rounded-full"></div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                     <span>Multi-Chain Support</span>
                   </div>
-                  <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
+                  <div className="hidden sm:block w-1 h-1 bg-gray-700 rounded-full"></div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
                     <span>Advanced Analytics</span>
                   </div>
                 </div>
                 
-                <div className="mt-8 text-gray-500 text-sm">
+                <div className="mt-4 sm:mt-6 lg:mt-8 text-gray-500 text-xs sm:text-sm">
                   Developed by{' '}
                   <a 
                     href="https://t.me/winnodexx" 
@@ -260,93 +260,93 @@ export default function Home() {
             </section>
 
             {/* Partners Marquee Section */}
-            <section className="container mx-auto px-6 py-20 overflow-hidden">
+            <section className="container mx-auto px-4 sm:px-6 py-10 sm:py-16 lg:py-20 overflow-hidden">
               <div className="max-w-7xl mx-auto">
-                <div className="text-center mb-16">
-                  <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
+                <div className="text-center mb-8 sm:mb-12 lg:mb-16">
+                  <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-2 sm:mb-3 tracking-tight">
                     Built on Trusted Infrastructure
                   </h3>
-                  <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-600 mx-auto rounded-full"></div>
+                  <div className="w-16 sm:w-20 lg:w-24 h-0.5 sm:h-1 bg-gradient-to-r from-blue-500 to-purple-600 mx-auto rounded-full"></div>
                 </div>
                 
-                <div className="relative py-12">
-                  <div className="absolute left-0 top-0 bottom-0 w-48 bg-gradient-to-r from-black via-black/80 to-transparent z-10"></div>
-                  <div className="absolute right-0 top-0 bottom-0 w-48 bg-gradient-to-l from-black via-black/80 to-transparent z-10"></div>
+                <div className="relative py-6 sm:py-8 lg:py-12">
+                  <div className="absolute left-0 top-0 bottom-0 w-24 sm:w-32 lg:w-48 bg-gradient-to-r from-black via-black/80 to-transparent z-10"></div>
+                  <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-32 lg:w-48 bg-gradient-to-l from-black via-black/80 to-transparent z-10"></div>
                   
                   <div className="flex animate-scroll items-center">
                     {/* First set of logos */}
-                    <div className="flex items-center justify-center gap-40 px-20 flex-shrink-0">
+                    <div className="flex items-center justify-center gap-16 sm:gap-24 md:gap-32 lg:gap-40 px-8 sm:px-12 lg:px-20 flex-shrink-0">
                       {/* Netcup */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Hetzner */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* AWS */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/aws.png" alt="AWS" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/aws.png" alt="AWS" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Keplr */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/keplr.png" alt="Keplr" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/keplr.png" alt="Keplr" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Cosmostation */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Leap */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/leap.png" alt="Leap" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/leap.png" alt="Leap" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Paxi */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/paxi.png" alt="Paxi" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/paxi.png" alt="Paxi" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                     </div>
                     
                     {/* Duplicate set for seamless loop */}
-                    <div className="flex items-center justify-center gap-40 px-20 flex-shrink-0">
+                    <div className="flex items-center justify-center gap-16 sm:gap-24 md:gap-32 lg:gap-40 px-8 sm:px-12 lg:px-20 flex-shrink-0">
                       {/* Netcup */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/netcup.jpeg" alt="Netcup" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Hetzner */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/Hetzner.png" alt="Hetzner" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* AWS */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/aws.png" alt="AWS" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/aws.png" alt="AWS" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Keplr */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/keplr.png" alt="Keplr" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/keplr.png" alt="Keplr" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Cosmostation */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/Cosmostation.png" alt="Cosmostation" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Leap */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/leap.png" alt="Leap" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/leap.png" alt="Leap" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                       
                       {/* Paxi */}
-                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-48 h-32">
-                        <img src="/paxi.png" alt="Paxi" className="max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
+                      <div className="flex items-center justify-center hover:scale-110 transition-all duration-500 opacity-80 hover:opacity-100 w-24 h-20 sm:w-32 sm:h-24 lg:w-48 lg:h-32">
+                        <img src="/paxi.png" alt="Paxi" className="max-h-12 sm:max-h-16 lg:max-h-24 max-w-full object-contain filter brightness-90 hover:brightness-110 transition-all" />
                       </div>
                     </div>
                   </div>
@@ -355,9 +355,9 @@ export default function Home() {
             </section>
 
             {/* Features Section */}
-            <section className="container mx-auto px-6 py-16">
+            <section className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16">
               <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-12">
+                <div className="text-center mb-8 sm:mb-10 lg:mb-12">
                   <h2 className="text-3xl font-bold text-white mb-3">
                     Powerful Features
                   </h2>
@@ -609,42 +609,42 @@ export default function Home() {
             </section>
 
             {/* Networks Grid */}
-            <section className="container mx-auto px-6 pb-16">
-              <div className="space-y-12">
+            <section className="container mx-auto px-4 sm:px-6 pb-8 sm:pb-12 lg:pb-16">
+              <div className="space-y-8 sm:space-y-10 lg:space-y-12">
                 {displayMainnets.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-3 mb-6">
-                      <h2 className="text-2xl font-bold text-white">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                      <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
                         {t('home.mainnetNetworks')}
                       </h2>
-                      <span className="px-3 py-1 bg-gray-900 border border-gray-800 text-gray-400 text-sm rounded-lg">
+                      <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-900 border border-gray-800 text-gray-400 text-xs sm:text-sm rounded-lg">
                         {displayMainnets.length}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3">
                       {displayMainnets.map((chain) => {
                         const chainPath = chain.chain_name.toLowerCase().replace(/\s+/g, '-');
                         return (
                           <Link
                             key={chain.chain_name}
                             href={`/${chainPath}`}
-                            className="group bg-gray-900 border border-gray-800 rounded-lg p-4 hover:bg-gray-800 hover:border-gray-700 transition-all"
+                            className="group bg-gray-900 border border-gray-800 rounded-lg p-3 sm:p-4 hover:bg-gray-800 hover:border-gray-700 transition-all"
                           >
-                            <div className="flex flex-col items-center text-center gap-3">
+                            <div className="flex flex-col items-center text-center gap-2 sm:gap-3">
                               <img 
                                 src={chain.logo} 
                                 alt={chain.chain_name}
-                                className="w-14 h-14 rounded-full"
+                                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="56" height="56"%3E%3Ccircle cx="28" cy="28" r="28" fill="%236b7280"/%3E%3C/svg%3E';
                                 }}
                               />
                               <div className="w-full">
-                                <h3 className="font-medium text-white text-sm truncate group-hover:text-gray-300 transition-colors">
+                                <h3 className="font-medium text-white text-xs sm:text-sm truncate group-hover:text-gray-300 transition-colors">
                                   {getPrettyName(chain.chain_name)}
                                 </h3>
-                                <p className="text-xs text-gray-600 mt-1">{chain.assets[0]?.symbol || 'N/A'}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">{chain.assets[0]?.symbol || 'N/A'}</p>
                               </div>
                             </div>
                           </Link>
@@ -656,38 +656,38 @@ export default function Home() {
 
                 {displayTestnets.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-3 mb-6">
-                      <h2 className="text-2xl font-bold text-white">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                      <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
                         {t('home.testnetNetworks')}
                       </h2>
-                      <span className="px-3 py-1 bg-gray-900 border border-gray-800 text-gray-400 text-sm rounded-lg">
+                      <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-900 border border-gray-800 text-gray-400 text-xs sm:text-sm rounded-lg">
                         {displayTestnets.length}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3">
                       {displayTestnets.map((chain) => {
                         const chainPath = chain.chain_name.toLowerCase().replace(/\s+/g, '-');
                         return (
                           <Link
                             key={chain.chain_name}
                             href={`/${chainPath}`}
-                            className="group bg-gray-900 border border-gray-800 rounded-lg p-4 hover:bg-gray-800 hover:border-gray-700 transition-all"
+                            className="group bg-gray-900 border border-gray-800 rounded-lg p-3 sm:p-4 hover:bg-gray-800 hover:border-gray-700 transition-all"
                           >
-                            <div className="flex flex-col items-center text-center gap-3">
+                            <div className="flex flex-col items-center text-center gap-2 sm:gap-3">
                               <img 
                                 src={chain.logo} 
                                 alt={chain.chain_name}
-                                className="w-14 h-14 rounded-full"
+                                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="56" height="56"%3E%3Ccircle cx="28" cy="28" r="28" fill="%236b7280"/%3E%3C/svg%3E';
                                 }}
                               />
                               <div className="w-full">
-                                <h3 className="font-medium text-white text-sm truncate group-hover:text-gray-300 transition-colors">
+                                <h3 className="font-medium text-white text-xs sm:text-sm truncate group-hover:text-gray-300 transition-colors">
                                   {getPrettyName(chain.chain_name)}
                                 </h3>
-                                <p className="text-xs text-gray-600 mt-1">{chain.assets[0]?.symbol || 'N/A'}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">{chain.assets[0]?.symbol || 'N/A'}</p>
                               </div>
                             </div>
                           </Link>
