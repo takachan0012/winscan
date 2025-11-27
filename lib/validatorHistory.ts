@@ -16,8 +16,9 @@ interface ChainSnapshot {
 }
 
 const STORAGE_KEY_PREFIX = 'validator_history_';
-const SNAPSHOT_INTERVAL = 60 * 60 * 1000;
+const SNAPSHOT_INTERVAL = 5 * 60 * 1000;
 const COMPARISON_INTERVAL = 24 * 60 * 60 * 1000;
+const MAX_SNAPSHOTS = 288;
 
 /**
  * Save current validator snapshot for a chain
@@ -47,11 +48,12 @@ export function saveValidatorSnapshot(
     // Add new snapshot
     snapshots.push(snapshot);
     
-    // Keep only last 7 days of snapshots
-    const sevenDaysAgo = timestamp - (7 * 24 * 60 * 60 * 1000);
-    const filteredSnapshots = snapshots.filter(s => s.timestamp > sevenDaysAgo);
+    // Keep only last 24 hours (288 snapshots at 5-minute intervals)
+    if (snapshots.length > MAX_SNAPSHOTS) {
+      snapshots.splice(0, snapshots.length - MAX_SNAPSHOTS);
+    }
     
-    localStorage.setItem(key, JSON.stringify(filteredSnapshots));
+    localStorage.setItem(key, JSON.stringify(snapshots));
   } catch (error) {
     console.error('Error saving validator snapshot:', error);
   }
@@ -59,6 +61,7 @@ export function saveValidatorSnapshot(
 
 /**
  * Get 24h voting power changes for validators
+ * Uses rolling 24-hour window with 5-minute interval snapshots
  */
 export function get24hChanges(
   chainId: string,
@@ -79,34 +82,38 @@ export function get24hChanges(
       return changes;
     }
     
-    // Find snapshot from ~24 hours ago (or closest available)
+    // Find snapshot closest to 24 hours ago
     const now = Date.now();
     const targetTime = now - COMPARISON_INTERVAL;
     
-    let closestSnapshot: ChainSnapshot | null = null;
-    let minDiff = Infinity;
+    let oldestSnapshot: ChainSnapshot | null = null;
     
+    // If we have snapshots older than 24h, use the one closest to 24h ago
+    // Otherwise, use the oldest available snapshot
     for (const snapshot of snapshots) {
-      const diff = Math.abs(snapshot.timestamp - targetTime);
-      if (diff < minDiff && snapshot.timestamp < now) {
-        minDiff = diff;
-        closestSnapshot = snapshot;
+      if (snapshot.timestamp <= targetTime) {
+        if (!oldestSnapshot || snapshot.timestamp > oldestSnapshot.timestamp) {
+          oldestSnapshot = snapshot;
+        }
       }
     }
     
-    if (!closestSnapshot && snapshots.length > 1) {
-      closestSnapshot = snapshots[0];
+    // If no snapshot older than 24h, use the oldest available
+    if (!oldestSnapshot && snapshots.length > 0) {
+      oldestSnapshot = snapshots[0];
     }
     
-    if (!closestSnapshot) {
+    if (!oldestSnapshot) {
       return changes;
     }
     
+    // Build map of old voting powers
     const oldPowers = new Map<string, string>();
-    for (const val of closestSnapshot.validators) {
+    for (const val of oldestSnapshot.validators) {
       oldPowers.set(val.address, val.votingPower);
     }
     
+    // Calculate changes for each current validator
     for (const current of currentValidators) {
       const oldPower = oldPowers.get(current.address);
       if (oldPower) {
@@ -118,24 +125,29 @@ export function get24hChanges(
             changes.set(current.address, change.toString());
           }
         } catch (e) {
-          console.warn(`Error calculating change for ${current.address}:`, e);
+          // Skip if conversion fails
         }
       } else {
-        if (BigInt(current.votingPower) > BigInt(0)) {
-          changes.set(current.address, current.votingPower);
+        // New validator - show full voting power as increase
+        try {
+          const power = BigInt(current.votingPower);
+          if (power > BigInt(0)) {
+            changes.set(current.address, current.votingPower);
+          }
+        } catch (e) {
+          // Skip if conversion fails
         }
       }
     }
     
     return changes;
   } catch (error) {
-    console.error('Error calculating 24h changes:', error);
     return changes;
   }
 }
 
 /**
- * Check if we should save a new snapshot (every hour)
+ * Check if we should save a new snapshot (every 5 minutes)
  */
 export function shouldSaveSnapshot(chainId: string): boolean {
   try {
@@ -156,7 +168,6 @@ export function shouldSaveSnapshot(chainId: string): boolean {
     
     return timeSinceLastSnapshot >= SNAPSHOT_INTERVAL;
   } catch (error) {
-    console.error('Error checking snapshot status:', error);
     return false;
   }
 }
@@ -169,6 +180,6 @@ export function clearHistory(chainId: string): void {
     const key = `${STORAGE_KEY_PREFIX}${chainId}`;
     localStorage.removeItem(key);
   } catch (error) {
-    console.error('Error clearing history:', error);
+    // Silent fail
   }
 }
