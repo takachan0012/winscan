@@ -45,5 +45,13 @@
   "bech32_prefix": "lumera",
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png",
-  "updated": "2025-11-16"
+  "updated": "2025-11-16",
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "lumeravaloper1h0c98tf2lynxtnp4dqh2wp03z4ca96ley0g2a5",
+      "grantee_address": "lumera1h0c98tf2lynxtnp4dqh2wp03z4ca96leycfsxr",
+      "supported": true
+    }
+  ]
 }

@@ -42,3 +42,9 @@ SYNC-SETUP.md
 
 # VS Code workspace files (local configuration)
 *.code-workspace
+
+# Bot distribution and logs (built files)
+autocompound-bot/dist
+autocompound-bot/logs
+autocompound-bot/node_modules
+autocompound-bot/.env

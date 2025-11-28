@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { useWallet } from '@/contexts/WalletContext';
 import { isAutoCompoundEnabled, saveAutoCompoundStatus, getAutoCompoundValidators, getAutoCompoundStatus } from '@/lib/autoCompoundStorage';
+import { convertAccountToValidatorAddress } from '@/lib/addressConverter';
 
 interface ValidatorsTableProps {
   validators: ValidatorData[];
@@ -468,7 +469,7 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
   const [acFrequency, setAcFrequency] = useState('daily');
   const [acDuration, setAcDuration] = useState('1');
   const [acDurationType, setAcDurationType] = useState<'month' | 'year'>('year');
-  const [acGrantee, setAcGrantee] = useState('');
+  const [acCustomGrantee, setAcCustomGrantee] = useState(''); // For validators to input their own bot address
   const [isEnablingAC, setIsEnablingAC] = useState(false);
   const [acIncludeVote, setAcIncludeVote] = useState(false);
   const [acIncludeCommission, setAcIncludeCommission] = useState(false);
@@ -542,7 +543,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
   useEffect(() => {
     if (account?.address && chain?.addr_prefix && validators.length > 0) {
       try {
-        const { convertAccountToValidatorAddress } = require('@/lib/addressConverter');
         const operatorAddress = convertAccountToValidatorAddress(account.address);
         const isValidator = validators.some(v => v.address === operatorAddress);
         setIsConnectedWalletValidator(isValidator);
@@ -1470,25 +1470,35 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
               </div>
             </div>
 
-            {/* Grantee Address */}
-            <div className="mb-4">
-              <label className="text-white text-sm font-medium mb-2 block">
-                Grantee <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={acGrantee}
-                onChange={(e) => setAcGrantee(e.target.value)}
-                placeholder="e.g., lumera19kja7hhl5z9vc7zxjmd9fmeqapg7v3kh6pk2up"
-                className={`w-full bg-[#111111] border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm ${
-                  !acGrantee ? 'border-red-500/50' : 'border-gray-800'
-                }`}
-                required
-              />
-              <p className="text-gray-500 text-xs mt-1">
-                Required: The bot address that will automatically compound your rewards. Must be different from your wallet address.
-              </p>
-            </div>
+            {/* Grantee Address - Only show for validators */}
+            {(() => {
+              const isValidatorWallet = account?.address && selectedValidatorForAC?.address && 
+                convertAccountToValidatorAddress(account.address) === selectedValidatorForAC.address;
+              
+              if (isValidatorWallet) {
+                return (
+                  <div className="mb-4">
+                    <label className="text-white text-sm font-medium mb-2 block">
+                      Bot Address (Grantee) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={acCustomGrantee}
+                      onChange={(e) => setAcCustomGrantee(e.target.value)}
+                      placeholder="Your bot operator address"
+                      className={`w-full bg-[#111111] border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm ${
+                        !acCustomGrantee ? 'border-red-500/50' : 'border-gray-800'
+                      }`}
+                      required
+                    />
+                    <p className="text-gray-500 text-xs mt-1">
+                      As a validator, enter your bot operator address to run auto-compound for your delegators
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* Minimum Amount */}
             <div className="mb-4">
@@ -1595,7 +1605,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
               if (!account?.address || !selectedValidatorForAC?.address) return false;
               
               try {
-                const { convertAccountToValidatorAddress } = require('@/lib/addressConverter');
                 const myValidatorAddress = convertAccountToValidatorAddress(account.address);
                 return myValidatorAddress === selectedValidatorForAC.address;
               } catch {
@@ -1660,7 +1669,14 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Grantee:</span>
-                  <span className="text-white text-xs truncate ml-2 max-w-[200px] font-mono">{acGrantee || '(default bot)'}</span>
+                  <span className="text-white text-xs truncate ml-2 max-w-[200px] font-mono">
+                    {(() => {
+                      const operator = chain?.autocompound_operators?.find(
+                        (op: any) => op.validator_address === selectedValidatorForAC.address
+                      );
+                      return operator?.grantee_address || 'Not supported';
+                    })()}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Min. Amount:</span>
@@ -1709,13 +1725,31 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                       frequency: acFrequency
                     });
 
+                    // Determine grantee address
+                    let granteeAddress: string | undefined;
+                    
+                    // Priority 1: Custom grantee (for validators running their own bot)
+                    if (acCustomGrantee && acCustomGrantee.trim() !== '') {
+                      granteeAddress = acCustomGrantee.trim();
+                    } else {
+                      // Priority 2: Get from validator operator registry
+                      const operator = (chain as any).autocompound_operators?.find(
+                        (op: any) => op.validator_address === selectedValidatorForAC.address
+                      );
+                      granteeAddress = operator?.grantee_address;
+                    }
+
+                    if (!granteeAddress) {
+                      throw new Error('No grantee address available. This validator may not support auto-compound yet.');
+                    }
+
                     const result = await enableAutoCompound(chain, {
                       validatorAddress: selectedValidatorForAC.address,
                       minAmount: acMinAmount,
                       frequency: acFrequency as 'minutely' | 'hourly' | 'daily' | 'weekly' | 'monthly',
                       duration: parseInt(acDuration),
                       durationUnit: acDurationType as 'month' | 'year',
-                      grantee: acGrantee || undefined,
+                      grantee: granteeAddress,
                       includeVote: acIncludeVote,
                       includeCommission: acIncludeCommission
                     });
@@ -1734,7 +1768,7 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                             duration: parseInt(acDuration),
                             durationUnit: acDurationType as 'month' | 'year'
                           },
-                          acGrantee || undefined // Pass the grantee address used
+                          granteeAddress
                         );
                         // Refresh banner immediately
                         const enabledValidators = getAutoCompoundValidators(chain.chain_id);
@@ -1775,15 +1809,23 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                     setIsEnablingAC(false);
                   }
                 }}
-                disabled={
-                  isEnablingAC || 
-                  !acGrantee || 
-                  acGrantee.trim() === '' ||
-                  !acMinAmount || 
-                  parseFloat(acMinAmount) <= 0 || 
-                  !acDuration || 
-                  parseInt(acDuration) <= 0
-                }
+                disabled={(() => {
+                  if (isEnablingAC) return true;
+                  if (!acMinAmount || parseFloat(acMinAmount) <= 0) return true;
+                  if (!acDuration || parseInt(acDuration) <= 0) return true;
+                  
+                  // Check if validator wallet - if yes, custom grantee required
+                  const isValidatorWallet = account?.address && selectedValidatorForAC?.address && 
+                    convertAccountToValidatorAddress(account.address) === selectedValidatorForAC.address;
+                  
+                  if (isValidatorWallet) {
+                    // Validator must provide custom grantee
+                    return !acCustomGrantee || acCustomGrantee.trim() === '';
+                  } else {
+                    // Regular user - check if chain has operator for this validator
+                    return !(chain as any).autocompound_operators?.find((op: any) => op.validator_address === selectedValidatorForAC.address);
+                  }
+                })()}
                 className="flex-1 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
               >
                 {isEnablingAC ? (
