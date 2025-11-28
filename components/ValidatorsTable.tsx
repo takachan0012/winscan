@@ -1449,7 +1449,7 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
             {/* Grantee Address */}
             <div className="mb-4">
               <label className="text-white text-sm font-medium mb-2 block">
-                Bot/Operator Address (Grantee) <span className="text-red-500">*</span>
+                Grantee <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -1496,8 +1496,8 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
               <label className="text-white text-sm font-medium mb-2 block">
                 Compound Frequency
               </label>
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                {['minutely', 'hourly', 'daily'].map((freq) => (
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {['hourly', 'daily'].map((freq) => (
                   <button
                     key={freq}
                     onClick={() => setAcFrequency(freq)}
@@ -1507,7 +1507,7 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                         : 'bg-[#111111] text-gray-400 hover:text-white border border-gray-800 hover:border-purple-500/50'
                     }`}
                   >
-                    {freq === 'minutely' ? 'Minutely' : freq === 'hourly' ? 'Hourly' : 'Daily'}
+                    {freq === 'hourly' ? 'Hourly' : 'Daily'}
                   </button>
                 ))}
               </div>
