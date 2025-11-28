@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { useWallet } from '@/contexts/WalletContext';
 import { isAutoCompoundEnabled, saveAutoCompoundStatus, getAutoCompoundValidators, getAutoCompoundStatus } from '@/lib/autoCompoundStorage';
+import { convertAccountToValidatorAddress } from '@/lib/addressConverter';
 
 interface ValidatorsTableProps {
   validators: ValidatorData[];
@@ -542,7 +543,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
   useEffect(() => {
     if (account?.address && chain?.addr_prefix && validators.length > 0) {
       try {
-        const { convertAccountToValidatorAddress } = require('@/lib/addressConverter');
         const operatorAddress = convertAccountToValidatorAddress(account.address);
         const isValidator = validators.some(v => v.address === operatorAddress);
         setIsConnectedWalletValidator(isValidator);
@@ -1605,7 +1605,6 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
               if (!account?.address || !selectedValidatorForAC?.address) return false;
               
               try {
-                const { convertAccountToValidatorAddress } = require('@/lib/addressConverter');
                 const myValidatorAddress = convertAccountToValidatorAddress(account.address);
                 return myValidatorAddress === selectedValidatorForAC.address;
               } catch {
