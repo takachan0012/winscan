@@ -39,3 +39,6 @@ next-env.d.ts
 
 # personal documentation (not for public)
 SYNC-SETUP.md
+
+# VS Code workspace files (local configuration)
+*.code-workspace
