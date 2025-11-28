@@ -2006,3 +2006,530 @@ export async function executeUnjail(
     return { success: false, error: error.message || 'Unjail failed' };
   }
 }
+
+export async function enableAutoCompound(
+  chain: ChainData,
+  params: {
+    validatorAddress: string;
+    minAmount?: string;
+    frequency?: 'minutely' | 'hourly' | 'daily' | 'weekly' | 'monthly';
+    duration?: number;
+    durationUnit?: 'month' | 'year';
+    grantee?: string; // Optional custom grantee address
+    includeVote?: boolean; // Grant vote permission (for validators)
+    includeCommission?: boolean; // Grant commission withdrawal permission (for validators)
+  }
+) {
+  try {
+    if (!window.keplr && !window.leap && !window.cosmostation) {
+      throw new Error('Please install Keplr, Leap, or Cosmostation wallet');
+    }
+
+    const chainId = chain.chain_id || chain.chain_name;
+    if (!chainId) {
+      throw new Error('Chain ID is required');
+    }
+
+    const coinType = parseInt(chain.coin_type || '118');
+    const isEvmChain = coinType === 60;
+    
+    // Suggest chain to wallet
+    const chainInfo = convertChainToKeplr(chain);
+    try {
+      if (window.keplr) {
+        await window.keplr.experimentalSuggestChain(chainInfo);
+        await window.keplr.enable(chainId);
+      } else if (window.leap) {
+        await window.leap.experimentalSuggestChain(chainInfo);
+        await window.leap.enable(chainId);
+      } else if (window.cosmostation) {
+        await window.cosmostation.providers.keplr.experimentalSuggestChain(chainInfo);
+        await window.cosmostation.providers.keplr.enable(chainId);
+      }
+    } catch (e) {
+      console.error('Error suggesting chain:', e);
+    }
+
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
+    
+    // Get offline signer
+    let offlineSigner;
+    if (window.keplr) {
+      offlineSigner = isEvmChain 
+        ? await window.keplr.getOfflineSigner(chainId)
+        : await window.keplr.getOfflineSignerAuto(chainId);
+    } else if (window.leap) {
+      offlineSigner = isEvmChain 
+        ? await window.leap.getOfflineSigner(chainId)
+        : await window.leap.getOfflineSignerAuto(chainId);
+    } else if (window.cosmostation) {
+      offlineSigner = window.cosmostation.providers.keplr.getOfflineSigner(chainId);
+    } else {
+      throw new Error('No wallet available');
+    }
+
+    const accounts = await offlineSigner.getAccounts();
+    const delegatorAddress = accounts[0].address;
+
+    // Connect to RPC
+    const rpcEndpoint = chain.rpc[0]?.address;
+    if (!rpcEndpoint) {
+      throw new Error('No RPC endpoint available');
+    }
+
+    const clientOptions: any = {};
+    
+    // Add EVM support if needed
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain, adding EthAccount support for enableAutoCompound');
+      
+      const registry = await createEvmRegistry();
+      const accountParser = await createEvmAccountParser();
+      
+      if (registry) {
+        clientOptions.registry = registry;
+        console.log('✅ Using custom EVM registry');
+      }
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser');
+      }
+    }
+
+    const client = await SigningStargateClient.connectWithSigner(
+      rpcEndpoint,
+      offlineSigner,
+      clientOptions
+    );
+
+    // For EVM chains, fetch account to ensure proper pubkey handling
+    if (isEvmChain) {
+      try {
+        const restEndpoint = chain.api?.[0]?.address || rpcEndpoint.replace(':26657', ':1317');
+        await fetchAccountWithEthSupport(restEndpoint, delegatorAddress);
+        console.log('✅ EVM account fetched successfully for auto-compound');
+      } catch (fetchError) {
+        console.warn('⚠️ Could not fetch EVM account:', fetchError);
+      }
+    }
+
+    // Import auto-compound storage
+    const { saveAutoCompoundStatus } = await import('./autoCompoundStorage');
+
+    // Grant authorization for auto-compound
+    // This allows a bot to claim rewards and redelegate on behalf of user
+    const durationInSeconds = params.duration 
+      ? params.duration * (params.durationUnit === 'year' ? 365 * 24 * 60 * 60 : 30 * 24 * 60 * 60)
+      : 365 * 24 * 60 * 60; // Default 1 year
+
+    // Validate bot address (grantee) is provided and different from wallet
+    if (!params.grantee) {
+      throw new Error('Bot address is required. Please provide the auto-compound bot address.');
+    }
+
+    const grantee = params.grantee;
+    
+    // Validate grantee is different from granter (wallet address)
+    if (grantee === delegatorAddress) {
+      throw new Error('Bot address cannot be the same as your wallet address. Please provide a different bot address.');
+    }
+    
+    // Validate address format matches chain prefix
+    const expectedPrefix = chain.addr_prefix || 'cosmos';
+    if (!grantee.startsWith(expectedPrefix)) {
+      throw new Error(`Invalid bot address format. Address must start with "${expectedPrefix}" for this chain.`);
+    }
+    
+    console.log('✅ Using bot address:', grantee);
+
+    // Use the proper protobuf-encoded grant builder from grantBuilder.ts
+    // If includeVote or includeCommission is true, use the advanced grant builder
+    let grantMsgs: any[];
+    
+    if (params.includeVote || params.includeCommission) {
+      console.log('🔧 Creating grants with additional permissions:', {
+        includeVote: params.includeVote,
+        includeCommission: params.includeCommission
+      });
+      
+      const { createAutoCompoundGrantsWithPermissions } = await import('./grantBuilder');
+      grantMsgs = createAutoCompoundGrantsWithPermissions(
+        delegatorAddress,
+        grantee,
+        params.validatorAddress,
+        durationInSeconds,
+        {
+          includeVote: params.includeVote,
+          includeCommission: params.includeCommission
+        }
+      );
+    } else {
+      const { createSimpleAutoCompoundGrant } = await import('./grantBuilder');
+      const grantMsg = createSimpleAutoCompoundGrant(
+        delegatorAddress,
+        grantee,
+        params.validatorAddress,
+        durationInSeconds
+      );
+      grantMsgs = [grantMsg];
+    }
+
+    // Adjust gas limit based on number of grants
+    const gasLimit = grantMsgs.length > 1 ? `${300000 + (grantMsgs.length - 1) * 150000}` : '300000';
+    const fee = calculateFee(chain, gasLimit);
+    
+    // For EVM chains, use special signing method
+    if (isEvmChain) {
+      try {
+        const restEndpoint = chain.api?.[0]?.address || rpcEndpoint.replace(':26657', ':1317');
+        
+        console.log('🔧 Using EVM signing for auto-compound grant');
+        
+        // Sign transaction for EVM chain
+        const signedTx = await signTransactionForEvm(
+          offlineSigner,
+          chainId,
+          restEndpoint,
+          delegatorAddress,
+          grantMsgs,
+          fee,
+          'Enable Auto-Compound via WinScan',
+          coinType,
+          false
+        );
+        
+        // Broadcast transaction
+        const broadcastResult = await broadcastTransaction(restEndpoint, signedTx);
+        
+        if (broadcastResult.code === 0 || !broadcastResult.code) {
+          // Save to localStorage
+          const { saveAutoCompoundStatus } = await import('./autoCompoundStorage');
+          saveAutoCompoundStatus(
+            chainId,
+            params.validatorAddress,
+            true,
+            coinType,
+            {
+              minAmount: params.minAmount || '0',
+              frequency: params.frequency || 'daily',
+              duration: params.duration || 1,
+              durationUnit: params.durationUnit || 'year'
+            },
+            grantee,
+            delegatorAddress
+          );
+          
+          return {
+            success: true,
+            txHash: broadcastResult.txhash,
+          };
+        } else {
+          return {
+            success: false,
+            error: broadcastResult.raw_log || 'Failed to enable auto-compound',
+          };
+        }
+      } catch (evmError: any) {
+        console.error('❌ EVM auto-compound enable failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
+    
+    // Standard Cosmos SDK signing for non-EVM chains
+    const result = await client.signAndBroadcast(
+      delegatorAddress,
+      grantMsgs,
+      fee,
+      'Enable Auto-Compound via WinScan'
+    );
+
+    if (result.code === 0) {
+      // Save to localStorage with settings (including the grantee address used)
+      saveAutoCompoundStatus(
+        chainId,
+        params.validatorAddress,
+        true,
+        coinType,
+        {
+          minAmount: params.minAmount || '0',
+          frequency: params.frequency || 'daily',
+          duration: params.duration || 1,
+          durationUnit: params.durationUnit || 'year'
+        },
+        grantee, // Store the actual grantee used (custom or default)
+        delegatorAddress // Store the granter (wallet) address
+      );
+
+      return {
+        success: true,
+        txHash: result.transactionHash,
+      };
+    } else {
+      return {
+        success: false,
+        error: result.rawLog || 'Failed to enable auto-compound',
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Enable auto-compound error:', error);
+    return { success: false, error: error.message || 'Failed to enable auto-compound' };
+  }
+}
+
+export async function disableAutoCompound(
+  chain: ChainData,
+  params: {
+    validatorAddress: string;
+  }
+) {
+  try {
+    if (!window.keplr && !window.leap && !window.cosmostation) {
+      throw new Error('Please install Keplr, Leap, or Cosmostation wallet');
+    }
+
+    const chainId = chain.chain_id || chain.chain_name;
+    if (!chainId) {
+      throw new Error('Chain ID is required');
+    }
+
+    const coinType = parseInt(chain.coin_type || '118');
+    const isEvmChain = coinType === 60;
+    
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
+    
+    let offlineSigner;
+    if (window.keplr) {
+      offlineSigner = isEvmChain 
+        ? await window.keplr.getOfflineSigner(chainId)
+        : await window.keplr.getOfflineSignerAuto(chainId);
+    } else if (window.leap) {
+      offlineSigner = isEvmChain 
+        ? await window.leap.getOfflineSigner(chainId)
+        : await window.leap.getOfflineSignerAuto(chainId);
+    } else if (window.cosmostation) {
+      offlineSigner = window.cosmostation.providers.keplr.getOfflineSigner(chainId);
+    } else {
+      throw new Error('No wallet available');
+    }
+
+    const accounts = await offlineSigner.getAccounts();
+    const delegatorAddress = accounts[0].address;
+
+    const rpcEndpoint = chain.rpc[0]?.address;
+    if (!rpcEndpoint) {
+      throw new Error('No RPC endpoint available');
+    }
+
+    const clientOptions: any = {};
+    
+    // Add EVM support if needed
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain, adding EthAccount support for disableAutoCompound');
+      
+      const registry = await createEvmRegistry();
+      const accountParser = await createEvmAccountParser();
+      
+      if (registry) {
+        clientOptions.registry = registry;
+        console.log('✅ Using custom EVM registry');
+      }
+      
+      if (accountParser) {
+        clientOptions.accountParser = accountParser;
+        console.log('✅ Using custom EVM account parser');
+      }
+    }
+
+    const client = await SigningStargateClient.connectWithSigner(
+      rpcEndpoint,
+      offlineSigner,
+      clientOptions
+    );
+
+    // For EVM chains, fetch account to ensure proper pubkey handling
+    if (isEvmChain) {
+      try {
+        const restEndpoint = chain.api?.[0]?.address || rpcEndpoint.replace(':26657', ':1317');
+        await fetchAccountWithEthSupport(restEndpoint, delegatorAddress);
+        console.log('✅ EVM account fetched successfully for auto-compound disable');
+      } catch (fetchError) {
+        console.warn('⚠️ Could not fetch EVM account:', fetchError);
+      }
+    }
+
+    // Revoke authorization
+    // Get the actual grantee that was used when enabling
+    const { getAutoCompoundStatus } = await import('./autoCompoundStorage');
+    const acStatus = getAutoCompoundStatus(chainId, params.validatorAddress);
+    
+    let grantee: string | undefined;
+    if (acStatus && acStatus.granteeAddress && acStatus.granteeAddress !== 'auto') {
+      // Use the custom grantee that was stored when enabled
+      grantee = acStatus.granteeAddress;
+      console.log('✅ Using stored grantee address:', grantee);
+    } else {
+      console.log('⚠️ No stored grantee found, will query blockchain for actual grant');
+    }
+    
+    console.log('🔧 Initial disable auto-compound setup:', {
+      chainId,
+      validator: params.validatorAddress,
+      delegator: delegatorAddress,
+      granteeFromStorage: grantee,
+      storedGrantee: acStatus?.granteeAddress
+    });
+
+    // Query existing grants to find the ACTUAL grantee address
+    let actualGranteeFound = false;
+    try {
+      // Use REST API endpoint instead of RPC
+      const restEndpoint = chain.api?.[0]?.address || rpcEndpoint.replace(':26657', ':1317');
+      
+      console.log(`🔍 Querying all grants for: ${delegatorAddress}`);
+      
+      // First, try to get all grants for this granter
+      const allGrantsQuery = await fetch(`${restEndpoint}/cosmos/authz/v1beta1/grants/granter/${delegatorAddress}`);
+      if (allGrantsQuery.ok) {
+        const allGrantsData = await allGrantsQuery.json();
+        console.log('📋 All grants found:', allGrantsData);
+        
+        // Look for StakeAuthorization grants (for MsgDelegate)
+        const delegateGrants = allGrantsData.grants?.filter((g: any) => {
+          const authType = g.authorization?.['@type'] || '';
+          return authType.includes('StakeAuthorization') || authType.includes('GenericAuthorization');
+        }) || [];
+        
+        if (delegateGrants.length > 0) {
+          console.log(`✅ Found ${delegateGrants.length} staking authorization grant(s)`);
+          
+          // Check if any grant is for the specific validator
+          const validatorGrant = delegateGrants.find((g: any) => {
+            const allowList = g.authorization?.allow_list?.address || [];
+            return allowList.includes(params.validatorAddress);
+          });
+          
+          if (validatorGrant) {
+            // Use the grantee from the validator-specific grant
+            grantee = validatorGrant.grantee;
+            actualGranteeFound = true;
+            console.log(`✅ Found validator-specific grant with grantee: ${grantee}`);
+          } else {
+            // Use the first staking authorization grant
+            grantee = delegateGrants[0].grantee;
+            actualGranteeFound = true;
+            console.log(`✅ Using first staking grant grantee: ${grantee}`);
+          }
+        } else {
+          console.warn('⚠️ No staking authorization grants found');
+          throw new Error('No active auto-compound authorization found. Please enable auto-compound first or the authorization may have expired.');
+        }
+      } else {
+        console.error('❌ Failed to query grants:', await allGrantsQuery.text());
+      }
+    } catch (queryError: any) {
+      console.error('❌ Error querying grants:', queryError);
+      
+      if (!actualGranteeFound) {
+        // If we couldn't find the grant, return error immediately instead of trying to revoke
+        throw new Error(`Could not find active auto-compound authorization. ${queryError.message || 'Please try enabling auto-compound again.'}`);
+      }
+    }
+    
+    if (!actualGranteeFound) {
+      throw new Error('No active auto-compound authorization found for this validator. Please enable auto-compound first.');
+    }
+    
+    if (!grantee) {
+      throw new Error('Unable to determine bot address. Please enable auto-compound again.');
+    }
+    
+    console.log('✅ Final revoke parameters:', {
+      granter: delegatorAddress,
+      grantee: grantee,
+      msgTypeUrl: '/cosmos.staking.v1beta1.MsgDelegate'
+    });
+
+    const revokeMsg = {
+      typeUrl: '/cosmos.authz.v1beta1.MsgRevoke',
+      value: {
+        granter: delegatorAddress,
+        grantee: grantee,
+        msgTypeUrl: '/cosmos.staking.v1beta1.MsgDelegate'
+      }
+    };
+
+    const fee = calculateFee(chain, '200000');
+    
+    // For EVM chains, use special signing method
+    if (isEvmChain) {
+      try {
+        const restEndpoint = chain.api?.[0]?.address || rpcEndpoint.replace(':26657', ':1317');
+        
+        console.log('🔧 Using EVM signing for auto-compound revoke');
+        
+        // Sign transaction for EVM chain
+        const signedTx = await signTransactionForEvm(
+          offlineSigner,
+          chainId,
+          restEndpoint,
+          delegatorAddress,
+          [revokeMsg],
+          fee,
+          'Disable Auto-Compound via WinScan',
+          coinType,
+          false
+        );
+        
+        // Broadcast transaction
+        const broadcastResult = await broadcastTransaction(restEndpoint, signedTx);
+        
+        if (broadcastResult.code === 0 || !broadcastResult.code) {
+          // Update localStorage
+          const { saveAutoCompoundStatus } = await import('./autoCompoundStorage');
+          saveAutoCompoundStatus(chainId, params.validatorAddress, false, coinType);
+          
+          return {
+            success: true,
+            txHash: broadcastResult.txhash,
+          };
+        } else {
+          return {
+            success: false,
+            error: broadcastResult.raw_log || 'Failed to disable auto-compound',
+          };
+        }
+      } catch (evmError: any) {
+        console.error('❌ EVM auto-compound disable failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
+    
+    // Standard Cosmos SDK signing for non-EVM chains
+    const result = await client.signAndBroadcast(
+      delegatorAddress,
+      [revokeMsg],
+      fee,
+      'Disable Auto-Compound via WinScan'
+    );
+
+    if (result.code === 0) {
+      // Update localStorage
+      const { saveAutoCompoundStatus } = await import('./autoCompoundStorage');
+      saveAutoCompoundStatus(chainId, params.validatorAddress, false, coinType);
+
+      return {
+        success: true,
+        txHash: result.transactionHash,
+      };
+    } else {
+      return {
+        success: false,
+        error: result.rawLog || 'Failed to disable auto-compound',
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Disable auto-compound error:', error);
+    return { success: false, error: error.message || 'Failed to disable auto-compound' };
+  }
+}
