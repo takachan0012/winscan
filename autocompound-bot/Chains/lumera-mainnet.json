@@ -1,0 +1,46 @@
+{
+  "chain_name": "lumera-mainnet",
+  "chain_id": "lumera-mainnet-1",
+  "bech32_prefix": "lumera",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://rpc.lumera.io",
+        "provider": "LumeraProtocol"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://lcd.lumera.io",
+        "provider": "LumeraProtocol"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulume"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulume",
+        "fixed_min_gas_price": 0.025,
+        "low_gas_price": 0.025,
+        "average_gas_price": 0.05,
+        "high_gas_price": 0.1
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "lumeravaloper1f88a86nkmcjk9ydx6vjj2txsehptmezs8j6wvg",
+      "grantee_address": "lumera1h0c98tf2lynxtnp4dqh2wp03z4ca96lewmcly9",
+      "supported": true
+    }
+  ]
+}

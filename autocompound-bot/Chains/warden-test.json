@@ -1,0 +1,46 @@
+{
+  "chain_name": "warden-test",
+  "chain_id": "barra_9191-1",
+  "bech32_prefix": "warden",
+  "coin_type": "60",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://warden-testnet-rpc.polkachu.com",
+        "provider": "Polkachu"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://warden-testnet-api.polkachu.com",
+        "provider": "Polkachu"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "award"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "award",
+        "fixed_min_gas_price": 0.025,
+        "low_gas_price": 10,
+        "average_gas_price": 250,
+        "high_gas_price": 300
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "wardenvaloper169s8mrmd2r43uwwpt3prsfsen8mk6932gehva6",
+      "grantee_address": "warden1h8a79xln9gam52c6wzkulz2txyr0rkcr3ysnvl",
+      "supported": true
+    }
+  ]
+}

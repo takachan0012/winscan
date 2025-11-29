@@ -1,0 +1,66 @@
+{
+  "chain_name": "shido-mainnet",
+  "chain_id": "shido_9008-1",
+  "api": [
+    {
+      "address": "https://swagger.shidoscan.com",
+      "provider": "Shido"
+    },
+    {
+      "address": "https://api-shido.onenov.xyz",
+      "provider": "OneNov"
+    },
+    {
+      "address": "https://api-shido.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://api.shidoscan.net",
+      "provider": "Shido"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://tendermint.shidoscan.com",
+      "provider": "Shido"
+    },
+    {
+      "address": "https://rpc-shido.onenov.xyz",
+      "provider": "OneNov"
+    },
+    {
+      "address": "https://rpc-shido.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://rpc.shidoscan.net",
+      "provider": "Shido"
+    }
+  ],
+  "sdk_version": "0.47.4",
+  "coin_type": "60",
+  "min_tx_fee": "250000000",
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "shidovaloper1kv0xh9vmsy8jjr9y680kexs4g6y29gmu9v5qte",
+      "grantee_address": "shido1h8a79xln9gam52c6wzkulz2txyr0rkcrwcuh60",
+      "supported": true
+    }
+  ],
+  "assets": [
+    {
+      "base": "shido",
+      "symbol": "shido",
+      "display": "shido",
+      "exponent": 18,
+      "coingecko_id": "shido",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/shido/images/shido.png"
+    }
+  ],
+  "addr_prefix": "shido",
+  "bech32_prefix": "shido",
+  "theme_color": "#812cd6",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/shido/images/shido.png",
+  "updated": "2025-11-22"
+}

@@ -1,0 +1,44 @@
+{
+  "chain_name": "warden-mainnet",
+  "chain_id": "warden_8765-1",
+  "bech32_prefix": "warden",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://warden-rpc.polkachu.com"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://warden-api.polkachu.com"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "award"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "award",
+        "fixed_min_gas_price": 0.025,
+        "low_gas_price": 100,
+        "average_gas_price": 250,
+        "high_gas_price": 300
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "wardenvaloper1y9u0mhnh8gfklp3nsjdqczh36k2psjr649qm0z",
+      "grantee_address": "warden1y9u0mhnh8gfklp3nsjdqczh36k2psjr6n0kry5",
+      "supported": true
+    }
+  ]
+}

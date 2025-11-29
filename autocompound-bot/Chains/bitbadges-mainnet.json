@@ -1,0 +1,46 @@
+{
+  "chain_name": "bitbadges",
+  "chain_id": "bitbadges-1",
+  "bech32_prefix": "bb",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://rpc.bitbadges.io",
+        "provider": "BitBadges"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://lcd.bitbadges.io",
+        "provider": "BitBadges"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ubadge"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ubadge",
+        "fixed_min_gas_price": 0.00025,
+        "low_gas_price": 0.00025,
+        "average_gas_price": 0.001,
+        "high_gas_price": 0.002
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "bbvaloper1vhk528gum34w2pedszgmvxqpkkayx47x447r68",
+      "grantee_address": "bb1h0c98tf2lynxtnp4dqh2wp03z4ca96le4eshkx",
+      "supported": true
+    }
+  ]
+}

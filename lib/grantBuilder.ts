@@ -12,18 +12,23 @@ export function createSimpleAutoCompoundGrant(
   validatorAddress: string,
   durationSeconds: number
 ) {
-  // Build the StakeAuthorization proto payload
+  const expirationTimestamp = {
+    seconds: Math.floor(Date.now() / 1000) + durationSeconds,
+    nanos: 0,
+  };
+
+  const grants: any[] = [];
+
+  // 1. StakeAuthorization for delegation
   const stakeAuthPayload: any = {
     allowList: {
       address: [validatorAddress],
     },
     authorizationType: 1, // 1 = DELEGATE
   };
+  const stakeEncoded = StakeAuthorizationType.encode(StakeAuthorizationType.fromPartial(stakeAuthPayload)).finish();
 
-  // Encode to protobuf bytes
-  const encoded = StakeAuthorizationType.encode(StakeAuthorizationType.fromPartial(stakeAuthPayload)).finish();
-
-  return {
+  grants.push({
     typeUrl: '/cosmos.authz.v1beta1.MsgGrant',
     value: {
       granter: delegatorAddress,
@@ -31,15 +36,35 @@ export function createSimpleAutoCompoundGrant(
       grant: {
         authorization: {
           typeUrl: '/cosmos.staking.v1beta1.StakeAuthorization',
-          value: encoded,
+          value: stakeEncoded,
         },
-        expiration: {
-          seconds: Math.floor(Date.now() / 1000) + durationSeconds,
-          nanos: 0,
-        },
+        expiration: expirationTimestamp,
       },
     },
+  });
+
+  // 2. GenericAuthorization for MsgWithdrawDelegatorReward (REQUIRED)
+  const withdrawRewardAuthPayload = {
+    msg: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
   };
+  const withdrawRewardEncoded = GenericAuthorization.encode(GenericAuthorization.fromPartial(withdrawRewardAuthPayload)).finish();
+
+  grants.push({
+    typeUrl: '/cosmos.authz.v1beta1.MsgGrant',
+    value: {
+      granter: delegatorAddress,
+      grantee: grantee,
+      grant: {
+        authorization: {
+          typeUrl: '/cosmos.authz.v1beta1.GenericAuthorization',
+          value: withdrawRewardEncoded,
+        },
+        expiration: expirationTimestamp,
+      },
+    },
+  });
+
+  return grants;
 }
 
 /**
@@ -87,7 +112,28 @@ export function createAutoCompoundGrantsWithPermissions(
     },
   });
 
-  // 2. Add GenericAuthorization for MsgVote (governance)
+  // 2. Always include GenericAuthorization for MsgWithdrawDelegatorReward (REQUIRED for auto-compound)
+  const withdrawRewardAuthPayload = {
+    msg: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+  };
+  const withdrawRewardEncoded = GenericAuthorization.encode(GenericAuthorization.fromPartial(withdrawRewardAuthPayload)).finish();
+  
+  grants.push({
+    typeUrl: '/cosmos.authz.v1beta1.MsgGrant',
+    value: {
+      granter: delegatorAddress,
+      grantee: grantee,
+      grant: {
+        authorization: {
+          typeUrl: '/cosmos.authz.v1beta1.GenericAuthorization',
+          value: withdrawRewardEncoded,
+        },
+        expiration: expirationTimestamp,
+      },
+    },
+  });
+
+  // 3. Add GenericAuthorization for MsgVote (governance)
   if (options.includeVote) {
     const voteAuthPayload = {
       msg: '/cosmos.gov.v1beta1.MsgVote',
@@ -110,7 +156,7 @@ export function createAutoCompoundGrantsWithPermissions(
     });
   }
 
-  // 3. Add GenericAuthorization for MsgWithdrawValidatorCommission
+  // 4. Add GenericAuthorization for MsgWithdrawValidatorCommission
   if (options.includeCommission) {
     const commissionAuthPayload = {
       msg: '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission',

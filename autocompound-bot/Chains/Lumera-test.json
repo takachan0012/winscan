@@ -1,0 +1,46 @@
+{
+  "chain_name": "lumera-test",
+  "chain_id": "lumera-testnet-2",
+  "bech32_prefix": "lumera",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://lumera-testnet-rpc.polkachu.com",
+        "provider": "Polkachu"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://lumera-testnet-api.polkachu.com",
+        "provider": "Polkachu"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulume"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulume",
+        "fixed_min_gas_price": 800,
+        "low_gas_price": 800,
+        "average_gas_price": 1000,
+        "high_gas_price": 1500
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "lumeravaloper1gapqwfgz45mw2lrvy5nwks9ndfkdzn6pg0u69s",
+      "grantee_address": "lumera1h0c98tf2lynxtnp4dqh2wp03z4ca96lewmcly9",
+      "supported": true
+    }
+  ]
+}
