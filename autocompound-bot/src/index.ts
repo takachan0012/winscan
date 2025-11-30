@@ -73,6 +73,10 @@ async function initializeBot() {
             continue;
           }
 
+          const defaultFrequency = chainData.autocompound_operators?.[0]?.default_frequency || 'daily';
+          const voteOption = chainData.autocompound_operators?.[0]?.vote_option || 'YES';
+          const granteeAddress = chainData.autocompound_operators?.[0]?.grantee_address;
+          
           const chainConfig = {
             chainId: chainData.chain_id,
             rpc: chainData.apis.rpc[0].address,
@@ -81,6 +85,9 @@ async function initializeBot() {
             denom: chainData.staking?.staking_tokens[0]?.denom || chainData.fees?.fee_tokens[0]?.denom,
             gasPrice: `0.025${chainData.fees?.fee_tokens[0]?.denom || 'stake'}`,
             coinType: chainData.coin_type,
+            defaultFrequency: defaultFrequency as 'hourly' | 'daily' | 'weekly' | 'monthly',
+            voteOption: voteOption as 'YES' | 'NO' | 'ABSTAIN' | 'VETO',
+            granteeAddress: granteeAddress,
           };
 
           console.log(`🔄 Loading tasks from ${chainConfig.chainId}...`);

@@ -294,22 +294,46 @@ export class AutoCompoundBot {
     console.log('✅ Task processing complete\n');
   }
   private shouldRun(task: AutoCompoundTask): boolean {
-    if (!task.lastRun) return true;
+    if (!task.lastRun) {
+      console.log(`✅ Task should run (first time): ${task.chainId} - ${task.granter.substring(0, 12)}...`);
+      return true;
+    }
     const now = new Date();
     const lastRun = task.lastRun;
     const hoursSinceLastRun = (now.getTime() - lastRun.getTime()) / (1000 * 60 * 60);
+    
+    let shouldExecute = false;
+    let requiredHours = 0;
+    
     switch (task.frequency) {
       case 'hourly':
-        return hoursSinceLastRun >= 1;
+        requiredHours = 1;
+        shouldExecute = hoursSinceLastRun >= 1;
+        break;
       case 'daily':
-        return hoursSinceLastRun >= 24;
+        requiredHours = 24;
+        shouldExecute = hoursSinceLastRun >= 24;
+        break;
       case 'weekly':
-        return hoursSinceLastRun >= 24 * 7;
+        requiredHours = 24 * 7;
+        shouldExecute = hoursSinceLastRun >= 24 * 7;
+        break;
       case 'monthly':
-        return hoursSinceLastRun >= 24 * 30;
+        requiredHours = 24 * 30;
+        shouldExecute = hoursSinceLastRun >= 24 * 30;
+        break;
       default:
         return false;
     }
+    
+    if (!shouldExecute) {
+      const hoursRemaining = (requiredHours - hoursSinceLastRun).toFixed(2);
+      console.log(`⏳ Waiting: ${task.chainId} - ${task.granter.substring(0, 12)}... (${hoursRemaining}h remaining, frequency: ${task.frequency})`);
+    } else {
+      console.log(`✅ Task should run: ${task.chainId} - ${task.granter.substring(0, 12)}... (${hoursSinceLastRun.toFixed(2)}h since last run)`);
+    }
+    
+    return shouldExecute;
   }
   private async executeAutoCompound(task: AutoCompoundTask) {
     console.log(`\n${'='.repeat(80)}`);
