@@ -264,8 +264,16 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
   const prefix = chain.addr_prefix || 'cosmos';
   const primaryAsset = chain.assets?.[0];
   
+  // Use unique chainName for Axone mainnet to avoid conflicts with testnet
+  let uniqueChainName = chain.chain_name;
+  if (chain.chain_id === 'axone-1') {
+    uniqueChainName = 'Axone';  // Keplr uses this as unique identifier
+  }
+  
   console.log('🔧 Converting chain to Keplr config:', {
     chain: chain.chain_name,
+    chainId: chain.chain_id,
+    uniqueChainName,
     configCoinType: chain.coin_type,
     detectedCoinType,
     finalCoinType
@@ -273,7 +281,7 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
   
   return {
     chainId: chain.chain_id || chain.chain_name,
-    chainName: chain.chain_name,
+    chainName: uniqueChainName,
     rpc: chain.rpc?.[0]?.address || '',
     rest: chain.api?.[0]?.address || '',
     bip44: {
@@ -425,10 +433,80 @@ async function _connectWalletCore(
     try {
       await wallet.enable(chainId);
     } catch (enableError: any) {
+      // Handle disconnected port error from Keplr extension
+      if (enableError.message?.includes('disconnected port') || enableError.message?.includes('Extension context invalidated')) {
+        console.warn('⚠️ Wallet extension disconnected, waiting for reconnection...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Retry enable after waiting
+        try {
+          await wallet.enable(chainId);
+          console.log('✅ Successfully reconnected after port disconnect');
+        } catch (retryError: any) {
+          throw new Error('Wallet extension disconnected. Please refresh the page and try again.');
+        }
+      }
       
       if (coinType === 60 && !chainInfo.features?.includes('eth-address-gen')) {
         chainInfo.features = ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'];
         console.log('🔧 Added EVM features to chain suggestion');
+      }
+      
+      // Force re-suggest for Axone to fix chain ID mismatch
+      if (chainId === 'axone-1' || chain.chain_name.includes('axone')) {
+        console.log('🔧 [AXONE] Starting Axone-specific connection flow...');
+        console.log('🔧 [AXONE] chainInfo.chainId:', chainInfo.chainId);
+        console.log('🔧 [AXONE] chainInfo.chainName:', chainInfo.chainName);
+        
+        try {
+          // Suggest the chain first to ensure it exists in Keplr
+          console.log('🔧 [AXONE] Suggesting chain to Keplr...');
+          await wallet.experimentalSuggestChain(chainInfo);
+          
+          // Wait for Keplr to process
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
+          // Now enable with the EXACT chainId from chainInfo
+          console.log('🔧 [AXONE] Enabling chain with chainId:', chainInfo.chainId);
+          await wallet.enable(chainInfo.chainId);
+          
+          // Get key using chainId (not chainName)
+          console.log('🔧 [AXONE] Getting key from Keplr...');
+          const testKey = await wallet.getKey(chainInfo.chainId);
+          console.log('✅ [AXONE] Got address from Keplr:', testKey.bech32Address);
+          console.log('✅ [AXONE] PubKey:', Buffer.from(testKey.pubKey).toString('hex'));
+          
+          // CRITICAL: Derive address from PubKey to verify correctness
+          const { pubkeyToAddress } = await import('@cosmjs/amino');
+          const derivedAddress = pubkeyToAddress(
+            {
+              type: 'tendermint/PubKeySecp256k1',
+              value: Buffer.from(testKey.pubKey).toString('base64'),
+            },
+            chain.addr_prefix || 'axone'
+          );
+          console.log('✅ [AXONE] Address derived from PubKey:', derivedAddress);
+          console.log('✅ [AXONE] Addresses match?', testKey.bech32Address === derivedAddress ? 'YES ✅' : 'NO ❌');
+          
+          // Use DERIVED address (from PubKey) instead of Keplr's bech32Address
+          const correctAddress = derivedAddress;
+          
+          // If we got here, skip the normal flow below and return immediately
+          const result = {
+            address: correctAddress,
+            pubKey: testKey.pubKey,
+            algo: testKey.algo as 'secp256k1' | 'eth_secp256k1',
+            isNanoLedger: testKey.isNanoLedger || false,
+          };
+          
+          console.log('✅ [AXONE] Returning Axone account:', result.address);
+          return result;
+          
+        } catch (suggestError: any) {
+          console.error('❌ [AXONE] Force suggest failed:', suggestError);
+          console.error('❌ [AXONE] Error details:', suggestError.message);
+          throw new Error(`Failed to configure Axone: ${suggestError.message}. Please remove Axone from Keplr (Settings → Manage Chain Visibility) and try again.`);
+        }
       }
       
       // Use wallet-specific method for suggesting chain
