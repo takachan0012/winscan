@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { FileText, Hash, Clock, CheckCircle, XCircle, DollarSign, Code, Zap, Copy, Check } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import IBCPacketLifecycle from '@/components/IBCPacketLifecycle';
 
 interface TxDetail {
   hash: string;
@@ -38,8 +39,9 @@ export default function TransactionDetailPage() {
   const [selectedChain, setSelectedChain] = useState<ChainData | null>(null);
   const [transaction, setTransaction] = useState<TxDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'logs' | 'raw'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'logs' | 'raw' | 'ibc'>('overview');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showIBCLifecycle, setShowIBCLifecycle] = useState(false);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -87,9 +89,19 @@ export default function TransactionDetailPage() {
               value: msg
             })),
             logs: data.rawLog || JSON.stringify(data.events || data.logs, null, 2),
-            rawLog: data.rawLog || JSON.stringify(data.events || [], null, 2)
+            rawLog: data.rawLog || JSON.stringify(data.events || [], null, 2),
+            events: data.events || []
           };
           setTransaction(transformedData);
+          
+          const hasIBCMessage = transformedData.messages.some((msg: any) => 
+            msg.type.includes('ibc.') || 
+            msg.type.includes('MsgTransfer') ||
+            msg.type.includes('MsgRecvPacket') ||
+            msg.type.includes('MsgAcknowledgement')
+          );
+          setShowIBCLifecycle(hasIBCMessage);
+          
           setLoading(false);
         })
         .catch(err => {
@@ -544,6 +556,18 @@ export default function TransactionDetailPage() {
                   >
                     {t('txDetail.tabRaw')}
                   </button>
+                  {showIBCLifecycle && (
+                    <button
+                      onClick={() => setActiveTab('ibc')}
+                      className={`px-6 py-3 font-medium transition-colors ${
+                        activeTab === 'ibc'
+                          ? 'bg-purple-500 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      }`}
+                    >
+                      IBC Packet Lifecycle
+                    </button>
+                  )}
                 </div>
 
                 <div className="p-6">
@@ -984,6 +1008,15 @@ export default function TransactionDetailPage() {
                       <pre className="bg-black p-4 rounded text-xs text-gray-300 overflow-x-auto">
                         {transaction.rawLog || 'No raw data available'}
                       </pre>
+                    </div>
+                  )}
+
+                  {activeTab === 'ibc' && showIBCLifecycle && (
+                    <div>
+                      <IBCPacketLifecycle 
+                        chainName={selectedChain?.chain_name || (params.chain as string)}
+                        txHash={transaction.hash}
+                      />
                     </div>
                   )}
                 </div>

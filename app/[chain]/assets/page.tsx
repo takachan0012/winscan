@@ -6,10 +6,11 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { ChainData } from '@/types/chain';
-import { Coins, ExternalLink, Search, TrendingUp, Users, Layers, DollarSign } from 'lucide-react';
+import { Coins, ExternalLink, Search, TrendingUp, Users, Layers, DollarSign, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { getChainRegistryLogoUrl } from '@/lib/chainRegistryLogo';
 
 interface DenomUnit {
   denom: string;
@@ -521,11 +522,22 @@ export default function AssetsPage() {
                               {/* Token Logo */}
                               <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-gray-700 flex-shrink-0 overflow-hidden">
                                 {(() => {
-                                  // For native tokens, use chain logo if available
                                   const isNative = isNativeAsset(asset);
-                                  const logoUrl = isNative && selectedChain?.logo 
-                                    ? selectedChain.logo 
-                                    : (asset.logo || asset.uri || '');
+                                  let logoUrl = '';
+                                  
+                                  // Prioritize API logo/uri for non-registry assets
+                                  if (asset.logo || asset.uri) {
+                                    logoUrl = asset.logo || asset.uri || '';
+                                  } 
+                                  // Try chain registry for known tokens
+                                  else if (asset.symbol) {
+                                    logoUrl = getChainRegistryLogoUrl(chainName, asset.symbol);
+                                  }
+                                  
+                                  // Only use chain logo for native token as last resort
+                                  if (isNative && !logoUrl && selectedChain?.logo) {
+                                    logoUrl = selectedChain.logo;
+                                  }
                                   
                                   return logoUrl ? (
                                     <Image
@@ -535,7 +547,42 @@ export default function AssetsPage() {
                                       height={40}
                                       className="object-cover"
                                       onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
+                                        const img = e.currentTarget;
+                                        const currentSrc = img.src;
+                                        const apiLogo = asset.logo || asset.uri;
+                                        
+                                        // Try API logo/uri first if we were using registry
+                                        if (apiLogo && !currentSrc.includes(apiLogo)) {
+                                          img.src = apiLogo;
+                                          return;
+                                        }
+                                        
+                                        // Try multiple fallback patterns
+                                        if (currentSrc.endsWith('.png') && !currentSrc.includes('_logo.png') && !currentSrc.includes('_circle.png')) {
+                                          // Try pattern 2: {symbol}_logo.png
+                                          const newSrc = currentSrc.replace('.png', '_logo.png');
+                                          img.src = newSrc;
+                                          img.onerror = () => {
+                                            // Try pattern 3: {symbol}_circle.png
+                                            const circleSrc = currentSrc.replace('.png', '_circle.png');
+                                            img.src = circleSrc;
+                                            img.onerror = () => {
+                                              // Final fallback: hide and show icon
+                                              img.style.display = 'none';
+                                              const parent = img.parentElement;
+                                              if (parent) {
+                                                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg></div>';
+                                              }
+                                            };
+                                          };
+                                        } else {
+                                          // Already tried fallbacks, final fallback
+                                          img.style.display = 'none';
+                                          const parent = img.parentElement;
+                                          if (parent) {
+                                            parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg></div>';
+                                          }
+                                        }
                                       }}
                                     />
                                   ) : (
@@ -609,18 +656,16 @@ export default function AssetsPage() {
                           
                           {/* Holders Column */}
                           <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {(asset.holders_count || 0) > 0 ? (
-                                <>
-                                  <Users className="w-4 h-4 text-gray-500" />
-                                  <span className="text-sm font-medium text-white">
-                                    {(asset.holders_count || 0).toLocaleString()}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-sm text-gray-500">-</span>
-                              )}
-                            </div>
+                            <Link 
+                              href={`/${chainName}/assets/${encodeURIComponent(asset.base)}/holders`}
+                              className="flex items-center justify-end gap-2 hover:text-blue-400 transition-colors group/holders"
+                            >
+                              <Users className="w-4 h-4 text-gray-500 group-hover/holders:text-blue-400 transition-colors" />
+                              <span className="text-sm font-medium text-white group-hover/holders:text-blue-400 transition-colors">
+                                View Holders
+                              </span>
+                              <TrendingUp className="w-3 h-3 text-gray-500 group-hover/holders:text-blue-400 transition-colors" />
+                            </Link>
                           </td>
                         </tr>
                       );

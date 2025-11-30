@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import TransferModal from '@/components/TransferModal';
 import Link from 'next/link';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { ChainData, TransactionData } from '@/types/chain';
-import { Wallet, Copy, CheckCircle, XCircle, ArrowLeftRight } from 'lucide-react';
+import { Wallet, Copy, CheckCircle, XCircle, ArrowLeftRight, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
@@ -57,6 +58,8 @@ export default function AccountPage() {
     original: string;
     type: 'bech32' | 'eth' | 'unknown';
   } | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [selectedBalance, setSelectedBalance] = useState<{ denom: string; amount: string; symbol?: string } | null>(null);
 
   useEffect(() => {
 
@@ -181,12 +184,6 @@ export default function AccountPage() {
   const chainPath = selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '';
   const asset = selectedChain?.assets[0];
 
-  const formatAmount = (amount: string, denom?: string) => {
-    if (!asset) return amount;
-    const amountNum = parseFloat(amount) / Math.pow(10, Number(asset.exponent));
-    return `${amountNum.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${denom || asset.symbol}`;
-  };
-
   const copyAddress = () => {
     if (params?.address) {
       navigator.clipboard.writeText(params.address as string);
@@ -198,6 +195,27 @@ export default function AccountPage() {
   const getTypeShortName = (type: string) => {
     const parts = type.split('.');
     return parts[parts.length - 1] || type;
+  };
+
+  const formatAmount = (amount: string, denom: string) => {
+    // Convert from micro units to base units
+    const decimals = 6; // Most Cosmos chains use 6 decimals
+    const numAmount = parseFloat(amount) / Math.pow(10, decimals);
+    
+    // Format with appropriate decimal places
+    const formatted = numAmount < 0.01 
+      ? numAmount.toFixed(6) 
+      : numAmount.toLocaleString('en-US', { 
+          minimumFractionDigits: 2, 
+          maximumFractionDigits: 6 
+        });
+    
+    // Clean up denom (remove 'u' prefix)
+    const cleanDenom = denom.startsWith('u') && denom.length > 2 
+      ? denom.substring(1).toUpperCase() 
+      : denom.toUpperCase();
+    
+    return `${formatted} ${cleanDenom}`;
   };
 
   return (
@@ -370,11 +388,29 @@ export default function AccountPage() {
                 {account.balances && account.balances.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {account.balances.map((balance, idx) => (
-                      <div key={idx} className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
-                        <p className="text-gray-400 text-sm mb-1">{t('accountDetail.available')}</p>
-                        <p className="text-2xl font-bold text-white">
-                          {formatAmount(balance.amount, balance.denom === asset?.base ? asset.symbol : balance.denom)}
-                        </p>
+                      <div key={idx} className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <p className="text-gray-400 text-sm mb-1">{t('accountDetail.available')}</p>
+                            <p className="text-2xl font-bold text-white">
+                              {formatAmount(balance.amount, balance.denom === asset?.base ? asset.symbol : balance.denom)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedBalance({
+                                denom: balance.denom,
+                                amount: balance.amount,
+                                symbol: balance.denom === asset?.base ? asset.symbol : balance.denom
+                              });
+                              setIsTransferModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white text-xs font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40"
+                          >
+                            <Send className="w-3 h-3" />
+                            Transfer
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -450,6 +486,28 @@ export default function AccountPage() {
                                   {formatAmount(amount, denom === asset?.base && asset ? asset.symbol : denom)}
                                 </p>
                               </div>
+                              {walletAccount?.address && (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      alert(`Delegate more to ${validatorInfo?.moniker || validatorAddr}`);
+                                      // TODO: Open DelegateModal
+                                    }}
+                                    className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                                  >
+                                    + Delegate
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      alert(`Undelegate from ${validatorInfo?.moniker || validatorAddr}`);
+                                      // TODO: Open UndelegateModal
+                                    }}
+                                    className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                                  >
+                                    Undelegate
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -458,6 +516,50 @@ export default function AccountPage() {
                   </div>
                 </div>
               )}
+
+              {/* Rewards */}
+              {account.rewards && account.rewards.length > 0 && (() => {
+                // Calculate total rewards
+                const totalRewards = account.rewards.reduce((sum, reward) => {
+                  return sum + parseFloat(reward.amount || '0');
+                }, 0);
+                
+                return (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="text-xl font-bold text-white">
+                          Staking Rewards
+                        </h2>
+                        <p className="text-gray-400 text-sm mt-1">
+                          Total: {formatAmount(totalRewards.toString(), asset?.base || 'stake')}
+                        </p>
+                      </div>
+                      {walletAccount?.address && totalRewards > 0 && (
+                        <button
+                          onClick={() => {
+                            alert(`Claim all rewards: ${formatAmount(totalRewards.toString(), asset?.base || 'stake')}`);
+                            // TODO: Execute claim all rewards
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-lg transition-all shadow-lg shadow-green-500/20 hover:shadow-green-500/40"
+                        >
+                          Claim All Rewards
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {account.rewards.map((reward, idx) => (
+                        <div key={idx} className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
+                          <p className="text-gray-400 text-sm mb-1">Validator {idx + 1}</p>
+                          <p className="text-xl font-bold text-green-400">
+                            {formatAmount(reward.amount, asset?.base || 'stake')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Recent Transactions */}
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
@@ -558,6 +660,24 @@ export default function AccountPage() {
           </div>
         </footer>
       </div>
+      
+      {/* Transfer Modal */}
+      {selectedBalance && selectedChain && (
+        <TransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => {
+            setIsTransferModalOpen(false);
+            setSelectedBalance(null);
+          }}
+          sourceChain={params.chain as string}
+          prefilledToken={{
+            symbol: selectedBalance.symbol || selectedBalance.denom,
+            denom: selectedBalance.denom,
+            balance: selectedBalance.amount,
+          }}
+          rpcEndpoint={selectedChain.rpc?.[0]?.address || ''}
+        />
+      )}
     </div>
   );
 }
