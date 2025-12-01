@@ -664,21 +664,45 @@ export function saveKeplrAccount(account: KeplrAccount, chainId: string, coinTyp
       localStorage.setItem('keplr_coin_type', coinType.toString());
     } catch (error: any) {
       console.warn('⚠️ Failed to save to localStorage (quota exceeded):', error.message);
-      // Fallback: try to clear old data and retry
+      // Aggressive cleanup: remove non-essential items
       try {
-        localStorage.removeItem('keplr_account');
+        // Keep only essential keplr data, clear everything else
+        const keysToKeep = ['keplr_account', 'keplr_chain_id', 'keplr_coin_type'];
+        const keysToRemove: string[] = [];
+        
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && !keysToKeep.includes(key)) {
+            keysToRemove.push(key);
+          }
+        }
+        
+        // Remove non-essential items
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // Now try to save again
         const essentialData = {
           address: account.address,
           chainId: chainId,
           coinType: coinType
         };
         localStorage.setItem('keplr_account', JSON.stringify(essentialData));
+        localStorage.setItem('keplr_chain_id', chainId);
+        localStorage.setItem('keplr_coin_type', coinType.toString());
+        console.log('✅ Saved to localStorage after cleanup');
       } catch (retryError) {
         console.error('❌ Could not save wallet data even after cleanup');
         // Use sessionStorage as last resort
-        sessionStorage.setItem('keplr_account', JSON.stringify({
-          address: account.address
-        }));
+        try {
+          sessionStorage.setItem('keplr_account', JSON.stringify({
+            address: account.address,
+            chainId: chainId,
+            coinType: coinType
+          }));
+          console.log('✅ Saved to sessionStorage as fallback');
+        } catch (sessionError) {
+          console.error('❌ Failed to save to sessionStorage:', sessionError);
+        }
       }
     }
   }
@@ -693,6 +717,16 @@ export function getSavedKeplrAccount(): { account: KeplrAccount; chainId: string
     // Fallback to sessionStorage if not in localStorage
     if (!accountStr) {
       accountStr = sessionStorage.getItem('keplr_account');
+      // Try to get chainId and coinType from sessionStorage account data
+      if (accountStr) {
+        try {
+          const sessionData = JSON.parse(accountStr);
+          chainId = sessionData.chainId || chainId;
+          coinTypeStr = sessionData.coinType?.toString() || coinTypeStr;
+        } catch (e) {
+          console.error('Failed to parse sessionStorage account data');
+        }
+      }
     }
     
     if (accountStr && chainId && coinTypeStr) {
