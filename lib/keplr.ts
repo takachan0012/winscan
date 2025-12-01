@@ -261,8 +261,14 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
   const detectedCoinType = chain.coin_type ? parseInt(chain.coin_type) as (118 | 60) : 118;
   const finalCoinType = coinType ?? detectedCoinType;
   
-  const prefix = chain.addr_prefix || 'cosmos';
+  const prefix = chain.addr_prefix || (chain as any).bech32_prefix || 'cosmos';
   const primaryAsset = chain.assets?.[0];
+  
+  // Get fee token from fees.fee_tokens if available, otherwise use primaryAsset
+  const feeToken = (chain as any).fees?.fee_tokens?.[0];
+  const feeDenom = feeToken?.denom || primaryAsset?.base || 'uatom';
+  const feeSymbol = primaryAsset?.symbol || 'ATOM';
+  const feeDecimals = primaryAsset ? (typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent) : 6;
   
   // Use unique chainName for Axone mainnet to avoid conflicts with testnet
   let uniqueChainName = chain.chain_name;
@@ -276,7 +282,9 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
     uniqueChainName,
     configCoinType: chain.coin_type,
     detectedCoinType,
-    finalCoinType
+    finalCoinType,
+    feeDenom,
+    stakingDenom: primaryAsset?.base
   });
   
   return {
@@ -295,25 +303,31 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
       bech32PrefixConsAddr: `${prefix}valcons`,
       bech32PrefixConsPub: `${prefix}valconspub`,
     },
-    currencies: primaryAsset ? [{
-      coinDenom: primaryAsset.symbol,
-      coinMinimalDenom: primaryAsset.base,
-      coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
-      ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
-      ...(primaryAsset.logo && { coinImageUrl: primaryAsset.logo }),
-    }] : [],
-    feeCurrencies: primaryAsset ? [{
-      coinDenom: primaryAsset.symbol,
-      coinMinimalDenom: primaryAsset.base,
-      coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
-      ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
-      ...(primaryAsset.logo && { coinImageUrl: primaryAsset.logo }),
-      gasPriceStep: {
-        low: chain.gas_price ? parseFloat(chain.gas_price) : parseFloat(chain.min_tx_fee || '0.01'),
-        average: chain.gas_price ? parseFloat(chain.gas_price) * 1.5 : parseFloat(chain.min_tx_fee || '0.025') * 1.5,
-        high: chain.gas_price ? parseFloat(chain.gas_price) * 2 : parseFloat(chain.min_tx_fee || '0.025') * 2,
-      },
-    }] : [],
+    // Map all assets to currencies
+    currencies: chain.assets?.map(asset => ({
+      coinDenom: asset.symbol,
+      coinMinimalDenom: asset.base,
+      coinDecimals: typeof asset.exponent === 'string' ? parseInt(asset.exponent) : asset.exponent,
+      ...(asset.coingecko_id && { coinGeckoId: asset.coingecko_id }),
+      ...(asset.logo && { coinImageUrl: asset.logo }),
+    })) || [],
+    // Map all fee tokens to feeCurrencies with gas prices
+    feeCurrencies: ((chain as any).fees?.fee_tokens || []).map((feeToken: any) => {
+      // Find matching asset for this fee token
+      const matchingAsset = chain.assets?.find(a => a.base === feeToken.denom);
+      return {
+        coinDenom: matchingAsset?.symbol || feeToken.denom.toUpperCase(),
+        coinMinimalDenom: feeToken.denom,
+        coinDecimals: matchingAsset ? (typeof matchingAsset.exponent === 'string' ? parseInt(matchingAsset.exponent) : matchingAsset.exponent) : 6,
+        ...(matchingAsset?.coingecko_id && { coinGeckoId: matchingAsset.coingecko_id }),
+        ...(matchingAsset?.logo && { coinImageUrl: matchingAsset.logo }),
+        gasPriceStep: {
+          low: feeToken.low_gas_price || feeToken.fixed_min_gas_price || 0.01,
+          average: feeToken.average_gas_price || (feeToken.low_gas_price * 1.5) || 0.025,
+          high: feeToken.high_gas_price || (feeToken.low_gas_price * 2) || 0.04,
+        },
+      };
+    }),
     stakeCurrency: primaryAsset ? {
       coinDenom: primaryAsset.symbol,
       coinMinimalDenom: primaryAsset.base,
