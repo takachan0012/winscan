@@ -1,6 +1,35 @@
 {
   "chain_name": "cosmoshub-mainnet",
   "chain_id": "cosmoshub-4",
+  "pretty_name": "Cosmos Hub",
+  "network_type": "mainnet",
+  "bech32_prefix": "cosmos",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uatom",
+        "fixed_min_gas_price": 0.01,
+        "low_gas_price": 0.01,
+        "average_gas_price": 0.025,
+        "high_gas_price": 0.04
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uatom"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/cosmos/gaia",
+    "recommended_version": "v19.0.0",
+    "compatible_versions": ["v19.0.0"],
+    "cosmos_sdk_version": "0.53.3",
+    "tendermint_version": "0.38"
+  },
   "api": [
     {
       "address": "https://rest.lavenderfive.com:443/cosmoshub",
@@ -29,9 +58,6 @@
       "provider": "Polkachu"
     }
   ],
-  "sdk_version": "0.53.3",
-  "coin_type": "118",
-  "min_tx_fee": "0.01",
   "assets": [
     {
       "base": "uatom",
@@ -41,9 +67,13 @@
       "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png"
     }
   ],
-  "addr_prefix": "cosmos",
-  "bech32_prefix": "cosmos",
   "theme_color": "#2E3148",
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
+  "explorers": [
+    {
+      "kind": "winscan",
+      "url": "https://winscan.winsnip.xyz/cosmoshub-mainnet"
+    }
+  ],
   "updated": "2025-11-21"
 }
