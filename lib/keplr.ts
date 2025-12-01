@@ -642,7 +642,6 @@ export function saveKeplrAccount(account: KeplrAccount, chainId: string, coinTyp
       // Only save essential data to avoid quota exceeded
       const essentialData = {
         address: account.address,
-        username: account.username,
         chainId: chainId,
         coinType: coinType
       };
@@ -656,7 +655,6 @@ export function saveKeplrAccount(account: KeplrAccount, chainId: string, coinTyp
         localStorage.removeItem('keplr_account');
         const essentialData = {
           address: account.address,
-          username: account.username,
           chainId: chainId,
           coinType: coinType
         };
@@ -665,8 +663,7 @@ export function saveKeplrAccount(account: KeplrAccount, chainId: string, coinTyp
         console.error('❌ Could not save wallet data even after cleanup');
         // Use sessionStorage as last resort
         sessionStorage.setItem('keplr_account', JSON.stringify({
-          address: account.address,
-          username: account.username
+          address: account.address
         }));
       }
     }
