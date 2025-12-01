@@ -300,14 +300,14 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
       ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
-      coinImageUrl: primaryAsset.logo,
+      ...(primaryAsset.logo && { coinImageUrl: primaryAsset.logo }),
     }] : [],
     feeCurrencies: primaryAsset ? [{
       coinDenom: primaryAsset.symbol,
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
       ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
-      coinImageUrl: primaryAsset.logo,
+      ...(primaryAsset.logo && { coinImageUrl: primaryAsset.logo }),
       gasPriceStep: {
         low: chain.gas_price ? parseFloat(chain.gas_price) : parseFloat(chain.min_tx_fee || '0.01'),
         average: chain.gas_price ? parseFloat(chain.gas_price) * 1.5 : parseFloat(chain.min_tx_fee || '0.025') * 1.5,
@@ -319,7 +319,7 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
       ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
-      coinImageUrl: primaryAsset.logo,
+      ...(primaryAsset.logo && { coinImageUrl: primaryAsset.logo }),
     } : {
       coinDenom: 'ATOM',
       coinMinimalDenom: 'uatom',
