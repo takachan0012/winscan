@@ -2267,7 +2267,7 @@ export async function enableAutoCompound(
     }
     
     // Validate address format matches chain prefix
-    const expectedPrefix = chain.addr_prefix || 'cosmos';
+    const expectedPrefix = chain.addr_prefix || (chain as any).bech32_prefix || 'cosmos';
     if (!grantee.startsWith(expectedPrefix)) {
       throw new Error(`Invalid bot address format. Address must start with "${expectedPrefix}" for this chain.`);
     }

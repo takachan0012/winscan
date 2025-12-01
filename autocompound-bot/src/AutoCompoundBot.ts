@@ -185,12 +185,11 @@ export class AutoCompoundBot {
   }
   private getMnemonicForChain(chainId: string): string {return this.mnemonic;
   }
-  async initialize() {this.operatorWallet = await DirectSecp256k1HdWallet.fromMnemonic(this.mnemonic, {
-      prefix: 'cosmos',
-    });
-    const [firstAccount] = await this.operatorWallet.getAccounts();
-    this.operatorAddress = firstAccount.address;
-    console.log(`✅ Operator Address: ${this.operatorAddress}`);
+  async initialize() {
+    // Initialize operator address with first chain prefix (will be set properly per-chain)
+    // This is just for status display, actual operations use per-chain wallets
+    this.operatorAddress = 'multi-chain-operator';
+    console.log(`✅ Multi-Chain Operator initialized`);
   }
   async start() {
     if (this.isRunning) {
