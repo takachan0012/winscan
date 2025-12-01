@@ -46,8 +46,8 @@
   "autocompound_operators": [
     {
       "moniker": "Winnode",
-      "validator_address": "gitopiavaloper1gapqwfgz45mw2lrvy5nwks9ndfkdzn6pn5cxlk",
-      "grantee_address": "gitopia1h0c98tf2lynxtnp4dqh2wp03z4ca96leqxs5d5",
+      "validator_address": "gitopiavaloper1ugn62kvzv5fs7uh62eyxkjy3n8k4aelt9dyh9d",
+      "grantee_address": "gitopia1h0c98tf2lynxtnp4dqh2wp03z4ca96leguln95",
       "supported": true,
       "default_frequency": "hourly",
       "vote_option": "YES"

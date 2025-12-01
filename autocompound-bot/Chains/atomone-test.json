@@ -31,11 +31,11 @@
   "fees": {
     "fee_tokens": [
       {
-        "denom": "uatone",
-        "fixed_min_gas_price": 0.03,
-        "low_gas_price": 0.03,
-        "average_gas_price": 0.05,
-        "high_gas_price": 0.1
+        "denom": "uphoton",
+        "fixed_min_gas_price": 0.001,
+        "low_gas_price": 0.001,
+        "average_gas_price": 0.0025,
+        "high_gas_price": 0.005
       }
     ]
   },
