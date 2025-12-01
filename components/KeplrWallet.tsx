@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Wallet, X, Check, AlertCircle } from 'lucide-react';
+import { Wallet, X, Check, AlertCircle, Copy, LogOut } from 'lucide-react';
 import { ChainData } from '@/types/chain';
 import { useWallet } from '@/contexts/WalletContext';
 import {
@@ -32,6 +32,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
   const [showModal, setShowModal] = useState(false);
   const [walletType, setWalletType] = useState<'keplr' | 'leap' | 'cosmostation' | 'metamask'>('keplr');
   const [bech32Address, setBech32Address] = useState<string>('');
+  const [copied, setCopied] = useState(false);
 
   const isEvmChain = selectedChain && parseInt(selectedChain.coin_type || '118') === 60;
 
@@ -161,6 +162,19 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
     if (walletType === 'cosmostation') return 'Cosmostation';
     return 'Keplr';
   };
+
+  const handleCopyAddress = async () => {
+    if (account?.address) {
+      try {
+        await navigator.clipboard.writeText(account.address);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+  };
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -174,7 +188,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
             {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
         ) : (
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
               <code className="text-sm text-gray-300 font-mono">
@@ -184,13 +198,26 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
                 {getWalletDisplayName()}
               </span>
             </div>
-            <button
-              onClick={handleDisconnect}
-              className="ml-2 p-1 hover:bg-gray-800 rounded transition-colors"
-              title="Disconnect"
-            >
-              <X className="w-4 h-4 text-gray-400" />
-            </button>
+            <div className="flex items-center gap-1 ml-1">
+              <button
+                onClick={handleCopyAddress}
+                className="p-1.5 hover:bg-gray-800 rounded transition-colors group relative"
+                title="Copy address"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-green-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-300" />
+                )}
+              </button>
+              <button
+                onClick={handleDisconnect}
+                className="p-1.5 hover:bg-gray-800 rounded transition-colors group"
+                title="Disconnect"
+              >
+                <LogOut className="w-3.5 h-3.5 text-gray-400 group-hover:text-red-400" />
+              </button>
+            </div>
           </div>
         )}
       </div>
