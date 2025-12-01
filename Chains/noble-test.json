@@ -1,35 +1,6 @@
 {
   "chain_name": "noble-test",
   "chain_id": "grand-1",
-  "pretty_name": "Noble Testnet",
-  "network_type": "testnet",
-  "bech32_prefix": "noble",
-  "slip44": 118,
-  "fees": {
-    "fee_tokens": [
-      {
-        "denom": "uusdc",
-        "fixed_min_gas_price": 0.1,
-        "low_gas_price": 0.1,
-        "average_gas_price": 0.25,
-        "high_gas_price": 0.5
-      }
-    ]
-  },
-  "staking": {
-    "staking_tokens": [
-      {
-        "denom": "uusdc"
-      }
-    ]
-  },
-  "codebase": {
-    "git_repo": "https://github.com/noble-assets/noble",
-    "recommended_version": "v4.0.0",
-    "compatible_versions": ["v4.0.0"],
-    "cosmos_sdk_version": "0.50.14",
-    "tendermint_version": "0.38.0"
-  },
   "api": [
     {
       "address": "https://noble-testnet-api.polkachu.com",
@@ -42,6 +13,9 @@
       "provider": "Polkachu"
     }
   ],
+  "sdk_version": "0.50.14",
+  "coin_type": "118",
+  "min_tx_fee": "0.1",
   "assets": [
     {
       "base": "uusdc",
@@ -51,8 +25,9 @@
       "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/USDCoin.png"
     }
   ],
+  "addr_prefix": "noble",
+  "bech32_prefix": "noble",
   "theme_color": "#2B2D42",
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/stake.png",
-  "explorers": [],
   "updated": "2025-11-21"
 }

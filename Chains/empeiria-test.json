@@ -1,43 +1,14 @@
 {
   "chain_name": "empeiria-test",
   "chain_id": "empe-testnet-2",
-  "pretty_name": "Empeiria Testnet",
-  "network_type": "testnet",
-  "bech32_prefix": "empe",
-  "slip44": 118,
-  "fees": {
-    "fee_tokens": [
-      {
-        "denom": "uempe",
-        "fixed_min_gas_price": 800,
-        "low_gas_price": 800,
-        "average_gas_price": 1000,
-        "high_gas_price": 1200
-      }
-    ]
-  },
-  "staking": {
-    "staking_tokens": [
-      {
-        "denom": "uempe"
-      }
-    ]
-  },
-  "codebase": {
-    "git_repo": "https://github.com/empe-io/empe-chain",
-    "recommended_version": "v1.0.0",
-    "compatible_versions": ["v1.0.0"],
-    "cosmos_sdk_version": "0.46.1",
-    "tendermint_version": "0.34.0"
-  },
   "api": [
     {
       "address": "https://empeiria-testnet-api.itrocket.net",
       "provider": "ITRocket"
     },
     {
-      "address": "https://lcd-testnet.empe.io",
-      "provider": "foundation"
+      "address": "https://api-empeiria-testnet.cosmos-spaces.cloud",
+      "provider": "Cosmos Spaces"
     }
   ],
   "rpc": [
@@ -46,21 +17,24 @@
       "provider": "ITRocket"
     },
     {
-      "address": "https://rpc-testnet.empe.io",
-      "provider": "foundation"
+      "address": "https://rpc-empeiria-testnet.cosmos-spaces.cloud",
+      "provider": "Cosmos Spaces"
     }
   ],
+  "sdk_version": "0.46.1",
+  "coin_type": "118",
+  "min_tx_fee": "800",
   "assets": [
     {
       "base": "uempe",
       "symbol": "EMPE",
       "exponent": "6",
-      "coingecko_id": "empe",
-      "logo": "https://pbs.twimg.com/profile_images/1887069794798632960/IvxbLJcg_400x400.jpg"
+      "logo": ""
     }
   ],
+  "addr_prefix": "empe",
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1887069794798632960/IvxbLJcg_400x400.jpg",
-  "explorers": [],
+  "bech32_prefix": "empe",
   "updated": "2025-11-17"
 }

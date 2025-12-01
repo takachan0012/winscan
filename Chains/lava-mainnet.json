@@ -1,35 +1,6 @@
 {
   "chain_name": "lava-mainnet",
   "chain_id": "lava-mainnet-1",
-  "pretty_name": "Lava Network Mainnet",
-  "network_type": "mainnet",
-  "bech32_prefix": "lava@",
-  "slip44": 118,
-  "fees": {
-    "fee_tokens": [
-      {
-        "denom": "ulava",
-        "fixed_min_gas_price": 0.025,
-        "low_gas_price": 0.025,
-        "average_gas_price": 0.05,
-        "high_gas_price": 0.1
-      }
-    ]
-  },
-  "staking": {
-    "staking_tokens": [
-      {
-        "denom": "ulava"
-      }
-    ]
-  },
-  "codebase": {
-    "git_repo": "https://github.com/lavanet/lava",
-    "recommended_version": "v3.0.0",
-    "compatible_versions": ["v3.0.0"],
-    "cosmos_sdk_version": "0.47.13",
-    "tendermint_version": "0.37.0"
-  },
   "api": [
     {
       "address": "https://api-lava.onenov.xyz",
@@ -54,6 +25,9 @@
       "provider": "w3coins"
     }
   ],
+  "sdk_version": "0.47.13",
+  "coin_type": "118",
+  "min_tx_fee": "0.025",
   "assets": [
     {
       "base": "ulava",
@@ -63,8 +37,9 @@
       "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png"
     }
   ],
+  "addr_prefix": "lava@",
+  "bech32_prefix": "lava@",
   "theme_color": "#D7002A",
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png",
-  "explorers": [],
   "updated": "2025-11-21"
 }

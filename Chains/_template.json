@@ -1,0 +1,55 @@
+{
+  "chain_name": "CHANGEME-mainnet",
+  "chain_id": "CHANGEME-1",
+  "pretty_name": "CHANGEME Mainnet",
+  "network_type": "mainnet",
+  "bech32_prefix": "CHANGEME",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "utoken",
+        "fixed_min_gas_price": 0.001,
+        "low_gas_price": 0.001,
+        "average_gas_price": 0.0025,
+        "high_gas_price": 0.004
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "utoken"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/CHANGEME/chain",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.47",
+    "tendermint_version": "0.37"
+  },
+  "rpc": [
+    {
+      "address": "https://rpc1.example.com"
+    },
+    {
+      "address": "https://rpc2.example.com"
+    }
+  ],
+  "api": [
+    {
+      "address": "https://api1.example.com"
+    },
+    {
+      "address": "https://api2.example.com"
+    }
+  ],
+  "explorers": [
+    {
+      "kind": "winscan",
+      "url": "https://winscan.winsnip.xyz/CHANGEME-mainnet"
+    }
+  ]
+}

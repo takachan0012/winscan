@@ -33,6 +33,18 @@
       "provider": "Warden Protocol"
     }
   ],
+  "evm_rpc": [
+    {
+      "address": "https://evm.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
+  "evm_wss": [
+    {
+      "address": "wss://evm-ws.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
   "sdk_version": "0.53.4",
   "coin_type": "60",
   "min_tx_fee": "0.025",
@@ -44,6 +56,14 @@
       "exponent": "18",
       "coingecko_id": "warden",
       "logo": "https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg"
+    }
+  ],
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "wardenvaloper1y9u0mhnh8gfklp3nsjdqczh36k2psjr649qm0z",
+      "grantee_address": "warden1h8a79xln9gam52c6wzkulz2txyr0rkcr3ysnvl",
+      "supported": true
     }
   ],
   "addr_prefix": "warden",

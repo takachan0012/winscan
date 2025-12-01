@@ -1,35 +1,6 @@
 {
   "chain_name": "cosmoshub-test",
   "chain_id": "theta-testnet-001",
-  "pretty_name": "Cosmos Hub Testnet",
-  "network_type": "testnet",
-  "bech32_prefix": "cosmos",
-  "slip44": 118,
-  "fees": {
-    "fee_tokens": [
-      {
-        "denom": "uatom",
-        "fixed_min_gas_price": 0.01,
-        "low_gas_price": 0.01,
-        "average_gas_price": 0.025,
-        "high_gas_price": 0.04
-      }
-    ]
-  },
-  "staking": {
-    "staking_tokens": [
-      {
-        "denom": "uatom"
-      }
-    ]
-  },
-  "codebase": {
-    "git_repo": "https://github.com/cosmos/gaia",
-    "recommended_version": "v20.0.0",
-    "compatible_versions": ["v20.0.0"],
-    "cosmos_sdk_version": "0.53.3",
-    "tendermint_version": "0.38.0"
-  },
   "api": [
     {
       "address": "https://rest.sentry-01.theta-testnet.polypore.xyz",
@@ -42,6 +13,9 @@
       "provider": "Lava"
     }
   ],
+  "sdk_version": "0.53.3",
+  "coin_type": "118",
+  "min_tx_fee": "0.01",
   "assets": [
     {
       "base": "uatom",
@@ -51,8 +25,9 @@
       "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png"
     }
   ],
+  "addr_prefix": "cosmos",
+  "bech32_prefix": "cosmos",
   "theme_color": "#2E3148",
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
-  "explorers": [],
   "updated": "2025-11-21"
 }

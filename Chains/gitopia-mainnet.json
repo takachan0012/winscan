@@ -1,35 +1,6 @@
 {
   "chain_name": "gitopia-mainnet",
   "chain_id": "gitopia",
-  "pretty_name": "Gitopia Mainnet",
-  "network_type": "mainnet",
-  "bech32_prefix": "gitopia",
-  "slip44": 118,
-  "fees": {
-    "fee_tokens": [
-      {
-        "denom": "ulore",
-        "fixed_min_gas_price": 0.001,
-        "low_gas_price": 0.001,
-        "average_gas_price": 0.0025,
-        "high_gas_price": 0.005
-      }
-    ]
-  },
-  "staking": {
-    "staking_tokens": [
-      {
-        "denom": "ulore"
-      }
-    ]
-  },
-  "codebase": {
-    "git_repo": "https://github.com/gitopia/gitopia",
-    "recommended_version": "v4.0.0",
-    "compatible_versions": ["v4.0.0"],
-    "cosmos_sdk_version": "0.47.13",
-    "tendermint_version": "0.37.0"
-  },
   "api": [
     {
       "address": "https://gitopia-api.polkachu.com",
@@ -44,8 +15,12 @@
       "provider": "Staketab"
     },
     {
-      "address": "https://api-gitopia.winnode.xyz",
-      "provider": "Winnode"
+      "address": "https://gitopia-api.genznodes.dev",
+      "provider": "Genznodes"
+    },
+    {
+      "address": "https://api-gitopia-m.maouam.xyz",
+      "provider": "MaouamNodelab"
     }
   ],
   "rpc": [
@@ -62,10 +37,17 @@
       "provider": "Staketab"
     },
     {
-      "address": "https://api-gitopia.winnode.xyz",
-      "provider": "Winnode"
+      "address": "https://gitopia-rpc.genznodes.dev",
+      "provider": "Genznodes"
+    },
+    {
+      "address": "https://rpc-gitopia-m.maouam.xyz",
+      "provider": "MaouamNodelab"
     }
   ],
+  "sdk_version": "0.47.13",
+  "coin_type": "118",
+  "min_tx_fee": "0.001",
   "assets": [
     {
       "base": "ulore",
@@ -75,8 +57,9 @@
       "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png"
     }
   ],
+  "addr_prefix": "gitopia",
+  "bech32_prefix": "gitopia",
   "theme_color": "#812cd6",
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png",
-  "explorers": [],
   "updated": "2025-11-17"
 }

@@ -1,66 +1,36 @@
 {
-  "chain_name": "cnho-stables",
-  "chain_id": "cnho-stables-1",
-  "pretty_name": "CNHO Stables",
-  "network_type": "mainnet",
-  "bech32_prefix": "cnho",
-  "slip44": 118,
-  "fees": {
-    "fee_tokens": [
-      {
-        "denom": "ucnho",
-        "fixed_min_gas_price": 0.03,
-        "low_gas_price": 0.03,
-        "average_gas_price": 0.05,
-        "high_gas_price": 0.1
-      }
-    ]
-  },
-  "staking": {
-    "staking_tokens": [
-      {
-        "denom": "ucnho"
-      }
-    ]
-  },
-  "codebase": {
-    "git_repo": "https://github.com/cnho",
-    "recommended_version": "v1.0.0",
-    "compatible_versions": ["v1.0.0"],
-    "cosmos_sdk_version": "0.45.7",
-    "tendermint_version": "0.34.0"
-  },
-  "api": [
-    {
-      "address": "https://api.cnho.io",
-      "provider": "CNHO Official"
-    },
-    {
-      "address": "https://api-cnho.cosmos-spaces.cloud",
-      "provider": "Cosmos Spaces"
-    }
-  ],
-  "rpc": [
-    {
-      "address": "https://rpc.cnho.io",
-      "provider": "CNHO Official"
-    },
-    {
-      "address": "https://rpc-cnho.cosmos-spaces.cloud",
-      "provider": "Cosmos Spaces"
-    }
-  ],
-  "assets": [
-    {
-      "base": "ucnho",
-      "symbol": "CNHO",
-      "exponent": "6",
-      "coingecko_id": "CNHO",
-      "logo": "https://pbs.twimg.com/profile_images/1802555804798857216/ZTqy2yxX_400x400.jpg"
-    }
-  ],
-  "theme_color": "#812cd6",
-  "logo": "https://pbs.twimg.com/profile_images/1802555804798857216/ZTqy2yxX_400x400.jpg",
-  "explorers": [],
-  "updated": "2025-11-17"
+    "chain_name": "CNHO-Stables",
+    "api": [
+        {
+            "address": "https://api.cnho.io",
+            "provider": "CNHO Official"
+        },
+        {
+            "address": "https://api-cnho.cosmos-spaces.cloud",
+            "provider": "Cosmos Spaces"
+        }
+    ],
+    "rpc": [
+        {
+            "address": "https://rpc.cnho.io",
+            "provider": "CNHO Official"
+        },
+        {
+            "address": "https://rpc-cnho.cosmos-spaces.cloud",
+            "provider": "Cosmos Spaces"
+        }
+    ],
+    "sdk_version": "0.45.7",
+    "coin_type": "118",
+    "min_tx_fee": "0.03",
+    "assets": [{
+        "base": "ucnho",
+        "symbol": "CNHO",
+        "exponent": "6",
+        "coingecko_id": "CNHO",
+        "logo": "https://pbs.twimg.com/profile_images/1802555804798857216/ZTqy2yxX_400x400.jpg"
+    }],
+    "addr_prefix": "cnho",
+    "theme_color": "#812cd6",
+    "logo": "https://pbs.twimg.com/profile_images/1802555804798857216/ZTqy2yxX_400x400.jpg"
 }
