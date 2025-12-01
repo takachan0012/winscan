@@ -2166,6 +2166,195 @@ export async function executeUnjail(
   }
 }
 
+export async function executeEditValidatorCommission(
+  chain: ChainData,
+  params: {
+    validatorAddress: string;
+    commissionRate: string; // decimal string (e.g., "0.05" for 5%)
+  },
+  gasLimit: string = '300000',
+  memo: string = ''
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    if (!isKeplrInstalled()) {
+      throw new Error('Keplr extension is not installed');
+    }
+
+    const keplr = window.keplr!;
+    let chainId = (chain.chain_id || chain.chain_name).trim();
+    
+    console.log('📝 executeEditValidatorCommission:', {
+      validatorAddress: params.validatorAddress,
+      commissionRate: params.commissionRate,
+      chainId: chainId
+    });
+    
+    await keplr.enable(chainId);
+    
+    // Detect EVM chain for proper signer selection
+    const isEvmChain = chainId.includes('_');
+    
+    // Use Direct signing for EVM chains (better ethsecp256k1 support)
+    const offlineSigner = isEvmChain 
+      ? await keplr.getOfflineSigner(chainId)
+      : await keplr.getOfflineSignerAuto(chainId);
+    
+    console.log('✅ Signer type:', isEvmChain ? 'Direct (EVM)' : 'Auto');
+    
+    // @ts-ignore - Import required modules
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { Registry } = await import('@cosmjs/proto-signing');
+    // @ts-ignore
+    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { MsgEditValidator } = await import('cosmjs-types/cosmos/staking/v1beta1/tx');
+    
+    // @ts-ignore - Registry types are complex, ignore for custom message
+    const registry = new Registry([
+      ...defaultRegistryTypes,
+      ['/cosmos.staking.v1beta1.MsgEditValidator', MsgEditValidator],
+    ]);
+    
+    if (isEvmChain) {
+      console.log('🔧 Detected EVM chain, using Direct signing');
+    }
+    
+    console.log('✅ Custom registry created with MsgEditValidator' + (isEvmChain ? ' and EVM support' : ''));
+    
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        console.log('✅ Using RPC with tx_index enabled:', rpcEndpoint);
+        break;
+      }
+    }
+    
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+      console.log('⚠️ Using first available RPC (no tx_index info):', rpcEndpoint);
+    }
+    
+    if (!rpcEndpoint) {
+      throw new Error('No RPC endpoint available for this chain');
+    }
+
+    let actualSigner = offlineSigner;
+    try {
+      const statusResponse = await fetch(`${rpcEndpoint}/status`);
+      const statusData = await statusResponse.json();
+      const rpcChainId = statusData.result.node_info.network;
+      
+      if (rpcChainId !== chainId) {
+        console.log('🔄 Updating chain ID from', chainId, 'to', rpcChainId);
+        chainId = rpcChainId;
+        await keplr.enable(chainId);
+        actualSigner = isEvmChain 
+          ? await keplr.getOfflineSigner(chainId)
+          : await keplr.getOfflineSignerAuto(chainId);
+      }
+    } catch (rpcError) {
+      console.warn('⚠️ Could not verify chain ID from RPC, using', chainId);
+    }
+
+    const client = await SigningStargateClient.connectWithSigner(
+      rpcEndpoint,
+      actualSigner,
+      { registry }
+    );
+
+    console.log('✅ SigningStargateClient connected with custom registry');
+
+    const accounts = await actualSigner.getAccounts();
+    const signerAddress = accounts[0].address;
+
+    console.log('👤 Signer address:', signerAddress);
+
+    // Create MsgEditValidator message
+    // Only update commission rate, leave other fields empty (they won't be changed)
+    // Format commission rate to 18 decimal places (Cosmos SDK requirement)
+    // Example: "0.09" -> "0.090000000000000000"
+    const formattedCommissionRate = parseFloat(params.commissionRate).toFixed(18);
+
+    const editValidatorMsg = {
+      typeUrl: '/cosmos.staking.v1beta1.MsgEditValidator',
+      value: {
+        description: undefined, // undefined means "do not update"
+        validatorAddress: params.validatorAddress,
+        commissionRate: formattedCommissionRate,
+        minSelfDelegation: undefined, // undefined means "do not update"
+      },
+    };
+
+    console.log('📝 Edit validator message:', editValidatorMsg);
+
+    const fee = calculateFee(chain, gasLimit);
+
+    console.log('💰 Fee:', fee);
+    console.log('📄 Memo:', memo || 'Edit Commission via WinScan');
+
+    const coinType = parseInt(chain.coin_type || '118');
+    if (isEvmChain) {
+      console.log('🔥 Using EVM-specific signing for edit commission (EVM chain)');
+      
+      try {
+        const restEndpoint = chain.api[0]?.address || '';
+        if (!restEndpoint) {
+          throw new Error('No REST endpoint available');
+        }
+        
+        const signedTx = await signTransactionForEvm(
+          actualSigner,
+          chainId,
+          restEndpoint,
+          signerAddress,
+          [editValidatorMsg],
+          fee,
+          memo || 'Edit Commission via WinScan',
+          coinType
+        );
+        
+        const result = await broadcastTransaction(restEndpoint, signedTx);
+        
+        console.log('✅ EVM transaction successful!');
+        console.log('Transaction hash:', result.txhash);
+        
+        return { success: true, txHash: result.txhash };
+      } catch (evmError: any) {
+        console.error('❌ EVM signing/broadcast failed:', evmError);
+        return { success: false, error: evmError.message };
+      }
+    }
+
+    const result = await client.signAndBroadcast(
+      signerAddress,
+      [editValidatorMsg],
+      fee,
+      memo || 'Edit Commission via WinScan'
+    );
+
+    console.log('✅ Edit commission result:', result);
+
+    if (result.code === 0) {
+      return {
+        success: true,
+        txHash: result.transactionHash,
+      };
+    } else {
+      return {
+        success: false,
+        error: result.rawLog || 'Edit commission transaction failed',
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Edit commission error:', error);
+    return { success: false, error: error.message || 'Edit commission failed' };
+  }
+}
+
 export async function enableAutoCompound(
   chain: ChainData,
   params: {

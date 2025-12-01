@@ -26,6 +26,7 @@ export interface ChainData {
   gas_price?: string;
   assets: ChainAsset[];
   addr_prefix: string;
+  bech32_prefix?: string;
   theme_color: string;
   logo: string;
   website?: string;
@@ -63,6 +64,8 @@ export interface ValidatorData {
   moniker: string;
   votingPower: string;
   commission: string;
+  maxChangeRate?: string; // Max commission change rate per day
+  maxRate?: string; // Max commission rate
   status?: string;
   jailed?: boolean;
   identity?: string;  // Keybase identity (16-char hex)

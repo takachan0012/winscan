@@ -321,4 +321,18 @@ a, button {
     background-size: 200% auto;
     animation: gradient 3s ease infinite;
   }
+
+  /* Uptime blocks animation */
+  .blocks-wrapper.animated {
+    animation: slide-left 0.3s ease-out;
+  }
+
+  @keyframes slide-left {
+    from {
+      transform: translateX(8px);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
 }

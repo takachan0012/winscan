@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Link from 'next/link';
 import { ChainData } from '@/types/chain';
-import { ArrowLeft, Shield, TrendingUp, Users, Award, Clock, DollarSign, FileText } from 'lucide-react';
+import { ArrowLeft, Shield, TrendingUp, Users, Award, Clock, DollarSign, FileText, Send } from 'lucide-react';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { getCacheKey, setCache, getStaleCache } from '@/lib/cacheUtils';
 import { fetchApi } from '@/lib/api';
@@ -21,6 +21,7 @@ interface ValidatorDetail {
   accountAddress?: string;
   consensusAddress?: string;
   hexAddress?: string;
+  consensus_pubkey?: any;
   moniker: string;
   website: string;
   details: string;
@@ -98,7 +99,26 @@ export default function ValidatorDetailPage() {
   const [destinationValidator, setDestinationValidator] = useState<string>('');
   const [showValidatorList, setShowValidatorList] = useState(false);
   const [validatorSearchQuery, setValidatorSearchQuery] = useState('');
+  
+  // Edit Commission States
+  const [showEditCommissionModal, setShowEditCommissionModal] = useState(false);
+  const [newCommissionRate, setNewCommissionRate] = useState('');
+  const [isEditingCommission, setIsEditingCommission] = useState(false);
+  const [commissionTxResult, setCommissionTxResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
   const [validators, setValidators] = useState<any[]>([]);
+  const [validatorBalance, setValidatorBalance] = useState<string>('Loading...');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [pendingCommissionUpdate, setPendingCommissionUpdate] = useState(false);
+  const [showUnjailModal, setShowUnjailModal] = useState(false);
+  const [isUnjailing, setIsUnjailing] = useState(false);
+  const [unjailTxResult, setUnjailTxResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendRecipient, setSendRecipient] = useState('');
+  const [sendAmount, setSendAmount] = useState('');
+  const [sendMemo, setSendMemo] = useState('Integrate WinScan');
+  const [isSending, setIsSending] = useState(false);
+  const [sendTxResult, setSendTxResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
 
   const chainPath = useMemo(() => 
     selectedChain ? selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-') : '',
@@ -172,20 +192,55 @@ export default function ValidatorDetailPage() {
       if (validatorRes.status === 'fulfilled' && validatorRes.value.ok) {
         const validatorData = await validatorRes.value.json();
         if (!validatorData.error) {
-          if (validatorData.consensus_pubkey && selectedChain.addr_prefix) {
+          // Convert validator address to account address if not present
+          if (!validatorData.accountAddress && validatorData.address) {
+            validatorData.accountAddress = convertValidatorToAccountAddress(validatorData.address);
+          }
+          
+          // Convert consensus pubkey to addresses
+          const chainPrefix = selectedChain.bech32_prefix || selectedChain.addr_prefix;
+          if (validatorData.consensus_pubkey && chainPrefix) {
             try {
               const { consensusAddress, hexAddress } = await getConsensusAddressesFromPubkey(
                 validatorData.consensus_pubkey,
-                selectedChain.addr_prefix
+                chainPrefix
               );
-              validatorData.consensusAddress = consensusAddress;
-              validatorData.hexAddress = hexAddress;
+              if (consensusAddress) validatorData.consensusAddress = consensusAddress;
+              if (hexAddress) validatorData.hexAddress = hexAddress;
             } catch (error) {
               console.error('Error converting consensus pubkey:', error);
             }
           }
           setValidator(validatorData);
           setCache(validatorCacheKey, validatorData);
+          
+          // Fetch validator account balance
+          if (validatorData.accountAddress && selectedChain.api?.[0]?.address) {
+            try {
+              const denom = selectedChain.assets?.[0]?.base || 'uatom';
+              const balanceUrl = `${selectedChain.api[0].address}/cosmos/bank/v1beta1/balances/${validatorData.accountAddress}`;
+              const balanceRes = await fetch(balanceUrl);
+              if (balanceRes.ok) {
+                const balanceData = await balanceRes.json();
+                if (balanceData.balances && balanceData.balances.length > 0) {
+                  // Find the native token balance
+                  const nativeBalance = balanceData.balances.find((b: any) => b.denom === denom) || balanceData.balances[0];
+                  const exponent = Number(selectedChain.assets?.[0]?.exponent || 6);
+                  const formattedBalance = (parseFloat(nativeBalance.amount) / Math.pow(10, exponent)).toFixed(2);
+                  setValidatorBalance(`${formattedBalance} ${selectedChain.assets?.[0]?.symbol || 'ATOM'}`);
+                } else {
+                  setValidatorBalance('0');
+                }
+              } else {
+                setValidatorBalance('N/A');
+              }
+            } catch (error) {
+              console.error('Error fetching validator balance:', error);
+              setValidatorBalance('N/A');
+            }
+          } else {
+            setValidatorBalance('N/A');
+          }
         } else if (!cachedValidator) {
           setValidator(null);
         }
@@ -249,7 +304,7 @@ export default function ValidatorDetailPage() {
     const fetchUptimeRealtime = async () => {
       try {
         const uptimeRes = await fetchApi(
-          `/api/uptime/validator?chain=${selectedChain.chain_name}&address=${params.address}&blocks=150`
+          `/api/uptime/validator?chain=${selectedChain.chain_name}&address=${params.address}&blocks=100`
         );
 
         if (uptimeRes.ok) {
@@ -265,7 +320,7 @@ export default function ValidatorDetailPage() {
     };
 
     fetchUptimeRealtime();
-    const uptimeInterval = setInterval(fetchUptimeRealtime, 15000);
+    const uptimeInterval = setInterval(fetchUptimeRealtime, 6000);
 
     return () => clearInterval(uptimeInterval);
   }, [selectedChain, validator?.hexAddress, params.address]);
@@ -816,6 +871,29 @@ export default function ValidatorDetailPage() {
                     </div>
                   </div>
                 </div>
+                
+                {/* Account Balance */}
+                <div className="flex items-start gap-3">
+                  <div className="w-24 flex-shrink-0">
+                    <p className="text-gray-400 text-sm font-medium">Balance</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 bg-[#0a0a0a] rounded px-3 py-2">
+                      <p className="text-green-400 font-semibold text-sm flex-1">
+                        {validatorBalance}
+                      </p>
+                      {validatorBalance !== 'Loading...' && validatorBalance !== 'N/A' && validator?.accountAddress && isConnected && account?.address === validator.accountAddress && (
+                        <button
+                          onClick={() => setShowSendModal(true)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white text-xs font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40"
+                        >
+                          <Send className="w-3 h-3" />
+                          Send
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
                 {/* Operator Address */}
                 <div className="flex items-start gap-3">
@@ -846,7 +924,7 @@ export default function ValidatorDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 bg-[#0a0a0a] rounded px-3 py-2 hover:bg-[#0f0f0f] transition-all duration-200">
                       <p className="text-blue-400 font-mono text-sm break-all flex-1">
-                        {validator.consensusAddress || 'Loading...'}
+                        {validator.consensusAddress || 'N/A'}
                       </p>
                       {validator.consensusAddress && (
                         <button 
@@ -871,13 +949,38 @@ export default function ValidatorDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 bg-[#0a0a0a] rounded px-3 py-2 hover:bg-[#0f0f0f] transition-all duration-200">
                       <p className="text-blue-400 font-mono text-sm break-all flex-1 uppercase">
-                        {validator.hexAddress || 'Loading...'}
+                        {validator.hexAddress || 'N/A'}
                       </p>
                       {validator.hexAddress && (
                         <button 
                           onClick={() => navigator.clipboard.writeText(validator.hexAddress || '')}
                           className="text-gray-400 hover:text-blue-400 transition-all duration-200 flex-shrink-0 hover:scale-110 active:scale-95"
                           title="Copy address"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Consensus Public Key */}
+                <div className="flex items-start gap-3">
+                  <div className="w-24 flex-shrink-0">
+                    <p className="text-gray-400 text-sm font-medium">PubKey</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 bg-[#0a0a0a] rounded px-3 py-2 hover:bg-[#0f0f0f] transition-all duration-200">
+                      <p className="text-blue-400 font-mono text-xs break-all flex-1">
+                        {validator.consensus_pubkey ? JSON.stringify(validator.consensus_pubkey) : 'N/A'}
+                      </p>
+                      {validator.consensus_pubkey && (
+                        <button 
+                          onClick={() => navigator.clipboard.writeText(JSON.stringify(validator.consensus_pubkey))}
+                          className="text-gray-400 hover:text-blue-400 transition-all duration-200 flex-shrink-0 hover:scale-110 active:scale-95"
+                          title="Copy pubkey"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -897,21 +1000,29 @@ export default function ValidatorDetailPage() {
                   {uptimePercentage > 0 ? `${uptimePercentage.toFixed(2)}%` : '99.98%'}
                 </div>
 
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(10px,1fr))] gap-1.5">
-                  {(uptimeBlocks.length > 0 ? uptimeBlocks : Array.from({ length: 150 }, (_, i) => ({ 
-                    height: i, 
-                    signed: Math.random() > 0.001 
-                  }))).map((block, index) => (
-                    <div
-                      key={index}
-                      className={`h-4 rounded-sm transition-all duration-300 ${
-                        block.signed 
-                          ? 'bg-emerald-500 hover:bg-emerald-400' 
-                          : 'bg-red-500 hover:bg-red-400'
-                      }`}
-                      title={`Block ${block.height}: ${block.signed ? 'Signed' : 'Missed'}`}
-                    />
-                  ))}
+                <div className="relative h-10 bg-[#0a0a0a] rounded-md overflow-hidden border border-gray-800">
+                  <div className="blocks-container absolute inset-0">
+                    <div className={`blocks-wrapper ${uptimeBlocks.length === 100 ? 'animated' : ''} flex gap-0 h-full`}>
+                      {(uptimeBlocks.length > 0 ? uptimeBlocks : Array.from({ length: 100 }, (_, i) => ({ 
+                        height: i, 
+                        signed: Math.random() > 0.001 
+                      }))).map((block, index) => (
+                        <div
+                          key={index}
+                          className={`flex-shrink-0 h-full transition-all duration-300 ${
+                            block.signed 
+                              ? 'bg-emerald-500 hover:bg-emerald-400' 
+                              : 'bg-red-500 hover:bg-red-400'
+                          }`}
+                          style={{
+                            width: '1%',
+                            minWidth: '8px'
+                          }}
+                          title={`Block ${block.height}: ${block.signed ? 'Signed' : 'Missed'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1080,6 +1191,41 @@ export default function ValidatorDetailPage() {
                     <p className="text-yellow-400 text-xs">Per day</p>
                   </div>
                 </div>
+                
+                {/* Action Buttons - Only show if connected wallet is the validator */}
+                {isConnected && account?.address && validator?.accountAddress && 
+                 account.address === validator.accountAddress && (
+                  <div className="mt-4 space-y-3">
+                    {/* Edit Commission Button - Only if not jailed */}
+                    {!validator.jailed && (
+                      <button
+                        onClick={() => {
+                          setNewCommissionRate(validator.commission || '0');
+                          setShowEditCommissionModal(true);
+                        }}
+                        className="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Commission Rate
+                      </button>
+                    )}
+                    
+                    {/* Unjail Button - Only if jailed */}
+                    {validator.jailed && (
+                      <button
+                        onClick={() => setShowUnjailModal(true)}
+                        className="w-full px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                        </svg>
+                        Unjail Validator
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1678,6 +1824,709 @@ export default function ValidatorDetailPage() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit Commission Modal */}
+      {showEditCommissionModal && validator && selectedChain && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl max-w-md w-full border border-gray-800 shadow-2xl">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white">Edit Commission</h3>
+                <button
+                  onClick={() => {
+                    setShowEditCommissionModal(false);
+                    setCommissionTxResult(null);
+                  }}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {!commissionTxResult ? (
+                <>
+                  {/* Validator Info */}
+                  <div className="bg-gray-800/50 rounded-xl p-4 mb-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <ValidatorAvatar identity={validator.identity} size="lg" />
+                      <div>
+                        <h4 className="font-semibold text-white">{validator.moniker}</h4>
+                        <p className="text-sm text-gray-400">Current: {(parseFloat(validator.commission || '0') * 100).toFixed(2)}%</p>
+                      </div>
+                    </div>
+                    
+                    {validator.maxChangeRate && (
+                      <div className="flex items-center gap-2 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span>Max change per day: {(parseFloat(validator.maxChangeRate) * 100).toFixed(2)}%</span>
+                      </div>
+                    )}
+                    
+                    {validator.maxCommission && (
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+                        <span>Max commission rate: {(parseFloat(validator.maxCommission) * 100).toFixed(2)}%</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* New Commission Rate Input */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      New Commission Rate (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={(parseFloat(newCommissionRate) * 100).toFixed(2)}
+                      onChange={(e) => {
+                        const percentValue = parseFloat(e.target.value) || 0;
+                        const decimalValue = (percentValue / 100).toString();
+                        setNewCommissionRate(decimalValue);
+                      }}
+                      step="0.01"
+                      min="0"
+                      max={validator.maxCommission ? (parseFloat(validator.maxCommission) * 100).toString() : "100"}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                      placeholder="Enter new commission rate"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Enter the new commission rate as a percentage (e.g., 5 for 5%)
+                    </p>
+                  </div>
+
+                  {/* Validation Warning */}
+                  {validator.maxChangeRate && (
+                    (() => {
+                      const currentRate = parseFloat(validator.commission || '0');
+                      const newRate = parseFloat(newCommissionRate);
+                      const maxChange = parseFloat(validator.maxChangeRate);
+                      const change = Math.abs(newRate - currentRate);
+                      
+                      if (change > maxChange) {
+                        return (
+                          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+                            <p className="font-medium mb-1">⚠️ Change exceeds maximum allowed</p>
+                            <p>
+                              You're trying to change by {(change * 100).toFixed(2)}%, but max allowed is {(maxChange * 100).toFixed(2)}% per day.
+                            </p>
+                          </div>
+                        );
+                      }
+                      
+                      return null;
+                    })()
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowEditCommissionModal(false);
+                        setCommissionTxResult(null);
+                      }}
+                      className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all"
+                      disabled={isEditingCommission}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!selectedChain || !validator) return;
+                        
+                        const currentRate = parseFloat(validator.commission || '0');
+                        const newRate = parseFloat(newCommissionRate);
+                        
+                        // Validate max change rate
+                        if (validator.maxChangeRate) {
+                          const maxChange = parseFloat(validator.maxChangeRate);
+                          const change = Math.abs(newRate - currentRate);
+                          
+                          if (change > maxChange) {
+                            setConfirmMessage(`Commission change of ${(change * 100).toFixed(2)}% exceeds maximum allowed ${(maxChange * 100).toFixed(2)}% per day`);
+                            setShowConfirmModal(true);
+                            return;
+                          }
+                        }
+                        
+                        // Validate max rate
+                        if (validator.maxCommission) {
+                          const maxRate = parseFloat(validator.maxCommission);
+                          if (newRate > maxRate) {
+                            setConfirmMessage(`New commission rate ${(newRate * 100).toFixed(2)}% exceeds maximum allowed ${(maxRate * 100).toFixed(2)}%`);
+                            setShowConfirmModal(true);
+                            return;
+                          }
+                        }
+                        
+                        // Show confirmation
+                        setConfirmMessage(`Change commission from ${(currentRate * 100).toFixed(2)}% to ${(newRate * 100).toFixed(2)}%?`);
+                        setPendingCommissionUpdate(true);
+                        setShowConfirmModal(true);
+                      }}
+                      className="flex-1 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isEditingCommission}
+                    >
+                      {isEditingCommission ? 'Processing...' : 'Update Commission'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Success/Error Result */}
+                  {commissionTxResult.success ? (
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
+                        <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-bold text-white mb-2">Commission Updated!</h4>
+                        <p className="text-gray-400">Your validator commission has been updated successfully</p>
+                      </div>
+                      {commissionTxResult.txHash && (
+                        <div className="bg-gray-800/50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
+                          <p className="text-sm text-purple-400 break-all font-mono">{commissionTxResult.txHash}</p>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          setShowEditCommissionModal(false);
+                          setCommissionTxResult(null);
+                        }}
+                        className="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-lg transition-all"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
+                        <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-bold text-white mb-2">Update Failed</h4>
+                        <p className="text-gray-400">Failed to update commission</p>
+                      </div>
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                        <p className="text-sm text-red-400">{commissionTxResult.error}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowEditCommissionModal(false);
+                          setCommissionTxResult(null);
+                        }}
+                        className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-gray-900 rounded-2xl max-w-md w-full border border-gray-800 shadow-2xl p-6">
+            <div className="text-center space-y-4">
+              <div className={`w-16 h-16 ${pendingCommissionUpdate ? 'bg-blue-500/20' : 'bg-red-500/20'} rounded-full flex items-center justify-center mx-auto`}>
+                <svg className={`w-8 h-8 ${pendingCommissionUpdate ? 'text-blue-400' : 'text-red-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {pendingCommissionUpdate ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  )}
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-white mb-2">
+                  {pendingCommissionUpdate ? 'Confirm Update' : 'Validation Error'}
+                </h4>
+                <p className="text-gray-400 text-sm">{confirmMessage}</p>
+              </div>
+              <div className="flex gap-3 mt-6">
+                {pendingCommissionUpdate ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowConfirmModal(false);
+                        setPendingCommissionUpdate(false);
+                      }}
+                      className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setShowConfirmModal(false);
+                        setIsEditingCommission(true);
+                        
+                        try {
+                          const { executeEditValidatorCommission } = await import('../../../../lib/keplr');
+                          const result = await executeEditValidatorCommission(selectedChain!, {
+                            validatorAddress: validator!.address,
+                            commissionRate: newCommissionRate
+                          });
+                          
+                          setCommissionTxResult(result);
+                          setPendingCommissionUpdate(false);
+                          
+                          if (result.success) {
+                            setTimeout(() => {
+                              window.location.reload();
+                            }, 3000);
+                          }
+                        } catch (error) {
+                          console.error('Edit commission error:', error);
+                          setCommissionTxResult({
+                            success: false,
+                            error: error instanceof Error ? error.message : 'Unknown error'
+                          });
+                          setPendingCommissionUpdate(false);
+                        } finally {
+                          setIsEditingCommission(false);
+                        }
+                      }}
+                      className="flex-1 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-all shadow-md"
+                    >
+                      Confirm
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowConfirmModal(false);
+                      setPendingCommissionUpdate(false);
+                    }}
+                    className="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-all shadow-md"
+                  >
+                    OK
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unjail Modal */}
+      {showUnjailModal && validator && selectedChain && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl max-w-md w-full border border-gray-800 shadow-2xl">
+            {!unjailTxResult ? (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-gray-800">
+                  <h3 className="text-xl font-bold text-white">Unjail Validator</h3>
+                  <button
+                    onClick={() => {
+                      setShowUnjailModal(false);
+                      setUnjailTxResult(null);
+                    }}
+                    className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  {/* Validator Info */}
+                  <div className="bg-gray-800/50 rounded-xl p-4 mb-6">
+                    <div className="flex items-center gap-3">
+                      <ValidatorAvatar identity={validator.identity} size="lg" />
+                      <div>
+                        <h4 className="font-semibold text-white">{validator.moniker}</h4>
+                        <p className="text-sm text-red-400">Currently Jailed</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Warning */}
+                  <div className="flex items-start gap-3 text-sm text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="font-medium mb-1">Important Notice</p>
+                      <p className="text-xs text-yellow-300">
+                        Unjailing your validator will restore it to active status. Make sure your validator node is running properly before unjailing.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowUnjailModal(false);
+                        setUnjailTxResult(null);
+                      }}
+                      className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all"
+                      disabled={isUnjailing}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!selectedChain || !validator) return;
+                        
+                        setIsUnjailing(true);
+                        
+                        try {
+                          const { executeUnjail } = await import('../../../../lib/keplr');
+                          const result = await executeUnjail(selectedChain, {
+                            validatorAddress: validator.address
+                          });
+                          
+                          setUnjailTxResult(result);
+                          
+                          if (result.success) {
+                            setTimeout(() => {
+                              window.location.reload();
+                            }, 3000);
+                          }
+                        } catch (error) {
+                          console.error('Unjail error:', error);
+                          setUnjailTxResult({
+                            success: false,
+                            error: error instanceof Error ? error.message : 'Unknown error'
+                          });
+                        } finally {
+                          setIsUnjailing(false);
+                        }
+                      }}
+                      className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isUnjailing}
+                    >
+                      {isUnjailing ? 'Processing...' : 'Unjail Now'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Success/Error Result */}
+                {unjailTxResult.success ? (
+                  <div className="p-6 text-center space-y-4">
+                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
+                      <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-white mb-2">Validator Unjailed!</h4>
+                      <p className="text-gray-400">Your validator has been successfully unjailed</p>
+                    </div>
+                    {unjailTxResult.txHash && (
+                      <div className="bg-gray-800/50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
+                        <p className="text-sm text-green-400 break-all font-mono">{unjailTxResult.txHash}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        setShowUnjailModal(false);
+                        setUnjailTxResult(null);
+                      }}
+                      className="w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-all"
+                    >
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center space-y-4">
+                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
+                      <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-white mb-2">Unjail Failed</h4>
+                      <p className="text-red-400 text-sm">{unjailTxResult.error || 'Unknown error occurred'}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowUnjailModal(false);
+                        setUnjailTxResult(null);
+                      }}
+                      className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Send Modal */}
+      {showSendModal && selectedChain && validator?.accountAddress && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-2xl max-w-md w-full shadow-2xl animate-scale-in">
+            {!sendTxResult ? (
+              <>
+                <div className="p-6 border-b border-gray-800 flex items-center justify-between sticky top-0 bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] z-10">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Send className="w-5 h-5" />
+                    Send Tokens
+                  </h2>
+                  <button
+                    onClick={() => setShowSendModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Recipient Address</label>
+                    <input
+                      type="text"
+                      value={sendRecipient}
+                      onChange={(e) => setSendRecipient(e.target.value)}
+                      placeholder={`${selectedChain.bech32_prefix || selectedChain.addr_prefix}1...`}
+                      className="w-full bg-[#111111] border border-gray-800 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Amount</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={sendAmount}
+                        onChange={(e) => setSendAmount(e.target.value)}
+                        placeholder="0.00"
+                        step="0.000001"
+                        className="w-full bg-[#111111] border border-gray-800 rounded-lg px-4 py-2.5 pr-20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">
+                        {selectedChain.assets[0]?.symbol}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-xs text-gray-500">
+                        Available: <span className="text-green-400">{validatorBalance}</span>
+                      </p>
+                    </div>
+                    
+                    {/* Percentage Buttons */}
+                    <div className="grid grid-cols-4 gap-2 mt-3">
+                      {[25, 50, 75, 100].map((percentage) => (
+                        <button
+                          key={percentage}
+                          type="button"
+                          onClick={() => {
+                            const numericBalance = parseFloat(validatorBalance.split(' ')[0] || '0');
+                            let amount = numericBalance * (percentage / 100);
+                            
+                            // For 100%, subtract estimated fee (0.01 tokens)
+                            if (percentage === 100) {
+                              amount = Math.max(0, amount - 0.01);
+                            }
+                            
+                            setSendAmount(amount.toFixed(6));
+                          }}
+                          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-all hover:scale-105 active:scale-95"
+                        >
+                          {percentage === 100 ? 'MAX' : `${percentage}%`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <details className="bg-[#111111] rounded-lg border border-gray-800">
+                    <summary className="px-4 py-3 cursor-pointer text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                      Advanced Options
+                    </summary>
+                    <div className="px-4 pb-3 pt-1 space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">Memo (Optional)</label>
+                        <input
+                          type="text"
+                          value={sendMemo}
+                          onChange={(e) => setSendMemo(e.target.value)}
+                          placeholder="Integrate WinScan"
+                          className="w-full bg-[#111111] border border-gray-800 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </details>
+                  
+                  <button
+                    onClick={async () => {
+                        if (!sendRecipient || !sendAmount) return;
+                        
+                        setIsSending(true);
+                        try {
+                          const { executeSend } = await import('../../../../lib/keplr');
+                          const amountInBaseUnit = (parseFloat(sendAmount) * Math.pow(10, Number(selectedChain.assets[0]?.exponent || 6))).toString();
+                          
+                          const result = await executeSend(
+                            selectedChain,
+                            {
+                              fromAddress: validator.accountAddress || '',
+                              toAddress: sendRecipient,
+                              amount: amountInBaseUnit,
+                              denom: selectedChain.assets[0]?.base || 'uatom'
+                            },
+                            '200000',
+                            sendMemo
+                          );
+                          
+                          setSendTxResult(result);
+                          
+                          if (result.success) {
+                            setTimeout(() => {
+                              setShowSendModal(false);
+                              setSendTxResult(null);
+                              window.location.reload();
+                            }, 3000);
+                          }
+                        } catch (error) {
+                          console.error('Send error:', error);
+                          setSendTxResult({
+                            success: false,
+                            error: error instanceof Error ? error.message : 'Unknown error'
+                          });
+                        } finally {
+                          setIsSending(false);
+                        }
+                      }}
+                    disabled={isSending || !sendRecipient || !sendAmount}
+                    className={`w-full font-medium py-3 rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                      isSending || !sendRecipient || !sendAmount
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-white hover:bg-gray-200 text-black'
+                    }`}
+                  >
+                    {isSending ? 'Processing...' : 'Confirm Send'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="p-8 text-center space-y-6 animate-fade-in">
+                {sendTxResult.success ? (
+                  <>
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-green-500/20 rounded-full blur-2xl animate-pulse"></div>
+                      <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto shadow-lg shadow-green-500/50">
+                        <svg className="w-10 h-10 text-white animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold text-white">Transaction Successful!</h3>
+                      <p className="text-gray-400">Your transaction has been broadcast to the network</p>
+                    </div>
+                    
+                    {sendTxResult.txHash && (
+                      <div className="w-full bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 space-y-2">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Transaction Hash</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs text-green-400 font-mono break-all flex-1">
+                            {sendTxResult.txHash}
+                          </code>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(sendTxResult.txHash || '')}
+                            className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                            title="Copy to clipboard"
+                          >
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-3 w-full pt-2">
+                      <button
+                        onClick={() => {
+                          const chainPath = selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '';
+                          window.open(`/${chainPath}/transactions/${sendTxResult.txHash}`, '_blank');
+                        }}
+                        className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/30"
+                      >
+                        View in Explorer
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSendTxResult(null);
+                          setShowSendModal(false);
+                        }}
+                        className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-red-500/20 rounded-full blur-2xl animate-pulse"></div>
+                      <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center mx-auto shadow-lg shadow-red-500/50">
+                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold text-white">Transaction Failed</h3>
+                      <p className="text-gray-400">An error occurred while processing your transaction</p>
+                    </div>
+                    
+                    <div className="w-full bg-[#0a0a0a] border border-red-800/30 rounded-xl p-4">
+                      <p className="text-sm text-red-400">{sendTxResult.error || 'Unknown error occurred'}</p>
+                    </div>
+                    
+                    <div className="flex gap-3 w-full pt-2">
+                      <button
+                        onClick={() => setSendTxResult(null)}
+                        className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
+                      >
+                        Try Again
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSendTxResult(null);
+                          setShowSendModal(false);
+                        }}
+                        className="flex-1 px-4 py-3 bg-red-900/30 hover:bg-red-900/50 text-red-400 font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
