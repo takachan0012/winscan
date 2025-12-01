@@ -30,7 +30,7 @@
     }
   ],
   "sdk_version": "0.53.4",
-  "coin_type": "118",
+  "coin_type": "60",
   "min_tx_fee": "0.025",
   "gas_price": "100",
   "assets": [

@@ -1,32 +1,16 @@
 {
-  "chain_name": "zenrock-mainnet",
-  "chain_id": "diamond-1",
+  "chain_name": "zenrock-testnet",
+  "chain_id": "gardia-9",
   "api": [
     {
-      "address": "https://api.diamond.zenrocklabs.io",
+      "address": "https://api.gardia.zenrocklabs.io",
       "provider": "Zenrock Labs"
-    },
-    {
-      "address": "https://api.zenrock.nodestake.org",
-      "provider": "NodeStake"
-    },
-    {
-      "address": "https://zenrock.api.m.stavr.tech",
-      "provider": "STAVR"
     }
   ],
   "rpc": [
     {
-      "address": "https://rpc.diamond.zenrocklabs.io",
+      "address": "https://rpc.gardia.zenrocklabs.io",
       "provider": "Zenrock Labs"
-    },
-    {
-      "address": "https://rpc.zenrock.nodestake.org",
-      "provider": "NodeStake"
-    },
-    {
-      "address": "https://zenrock.rpc.m.stavr.tech",
-      "provider": "STAVR"
     }
   ],
   "sdk_version": "0.50.13",
@@ -37,7 +21,7 @@
       "base": "urock",
       "symbol": "ROCK",
       "exponent": "6",
-      "coingecko_id": "zenrock",
+      "coingecko_id": "rock",
       "logo": "https://pbs.twimg.com/profile_images/1829585852831285259/EAxFe-gB_400x400.png"
     }
   ],

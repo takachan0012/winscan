@@ -1,6 +1,35 @@
 {
   "chain_name": "kiichain-test",
   "chain_id": "oro_1336-1",
+  "pretty_name": "KiiChain Testnet",
+  "network_type": "testnet",
+  "bech32_prefix": "kii",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "akii",
+        "fixed_min_gas_price": 800,
+        "low_gas_price": 800,
+        "average_gas_price": 1000,
+        "high_gas_price": 1200
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "akii"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/KiiChain/kiichain",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.53.4",
+    "tendermint_version": "0.38.0"
+  },
   "api": [
     {
       "address": "https://api-kiichain.Winnode.xyz",
@@ -17,9 +46,6 @@
       "provider": "KiiValidator"
     }
   ],
-  "sdk_version": "0.53.4",
-  "coin_type": "118",
-  "min_tx_fee": "800",
   "assets": [
     {
       "base": "akii",
@@ -29,9 +55,8 @@
       "logo": "https://pbs.twimg.com/profile_images/1800553180083666944/zZe128CW_400x400.jpg"
     }
   ],
-  "addr_prefix": "kii",
-  "bech32_prefix": "kii",
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1800553180083666944/zZe128CW_400x400.jpg",
+  "explorers": [],
   "updated": "2025-11-21"
 }

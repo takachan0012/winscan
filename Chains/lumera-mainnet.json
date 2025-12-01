@@ -1,6 +1,35 @@
 {
   "chain_name": "lumera-mainnet",
   "chain_id": "lumera-mainnet-1",
+  "pretty_name": "Lumera Mainnet",
+  "network_type": "mainnet",
+  "bech32_prefix": "lumera",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulume",
+        "fixed_min_gas_price": 0.025,
+        "low_gas_price": 0.025,
+        "average_gas_price": 0.05,
+        "high_gas_price": 0.1
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulume"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/lumera-protocol/lumera",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.50.12",
+    "tendermint_version": "0.38.0"
+  },
   "api": [
     {
       "address": "https://lcd.lumera.io",
@@ -29,29 +58,18 @@
       "provider": "StakerHouse"
     }
   ],
-  "sdk_version": "0.50.12",
-  "coin_type": "118",
-  "min_tx_fee": "0.025",
   "assets": [
     {
       "base": "ulume",
       "symbol": "LUME",
+      "display": "LUME",
       "exponent": "6",
       "coingecko_id": "lumera",
       "logo": "https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png"
     }
   ],
-  "addr_prefix": "lumera",
-  "bech32_prefix": "lumera",
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png",
-  "updated": "2025-11-16",
-  "autocompound_operators": [
-    {
-      "moniker": "Winnode",
-      "validator_address": "lumeravaloper1h0c98tf2lynxtnp4dqh2wp03z4ca96ley0g2a5",
-      "grantee_address": "lumera1h0c98tf2lynxtnp4dqh2wp03z4ca96leycfsxr",
-      "supported": true
-    }
-  ]
+  "explorers": [],
+  "updated": "2025-11-16"
 }

@@ -1,6 +1,35 @@
 {
   "chain_name": "humans-mainnet",
   "chain_id": "humans_1089-1",
+  "pretty_name": "Humans.ai Mainnet",
+  "network_type": "mainnet",
+  "bech32_prefix": "human",
+  "slip44": 60,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "aheart",
+        "fixed_min_gas_price": 250000000,
+        "low_gas_price": 250000000,
+        "average_gas_price": 300000000,
+        "high_gas_price": 400000000
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "aheart"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/humansdotai/humans",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.46.11",
+    "tendermint_version": "0.34.0"
+  },
   "api": [
     {
       "address": "https://api.humans.nodestake.org",
@@ -37,9 +66,6 @@
       "provider": "[NODERS]TEAM"
     }
   ],
-  "sdk_version": "0.46.11",
-  "coin_type": "60",
-  "min_tx_fee": "250000000",
   "assets": [
     {
       "base": "aheart",
@@ -49,9 +75,8 @@
       "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/humans/images/heart-dark-mode.svg"
     }
   ],
-  "addr_prefix": "human",
-  "bech32_prefix": "human",
   "theme_color": "#812cd6",
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/humans/images/heart-dark-mode.svg",
+  "explorers": [],
   "updated": "2025-11-17"
 }
