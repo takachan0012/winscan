@@ -299,14 +299,14 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
       coinDenom: primaryAsset.symbol,
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
-      coinGeckoId: primaryAsset.coingecko_id,
+      ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
       coinImageUrl: primaryAsset.logo,
     }] : [],
     feeCurrencies: primaryAsset ? [{
       coinDenom: primaryAsset.symbol,
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
-      coinGeckoId: primaryAsset.coingecko_id,
+      ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
       coinImageUrl: primaryAsset.logo,
       gasPriceStep: {
         low: chain.gas_price ? parseFloat(chain.gas_price) : parseFloat(chain.min_tx_fee || '0.01'),
@@ -318,7 +318,7 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
       coinDenom: primaryAsset.symbol,
       coinMinimalDenom: primaryAsset.base,
       coinDecimals: typeof primaryAsset.exponent === 'string' ? parseInt(primaryAsset.exponent) : primaryAsset.exponent,
-      coinGeckoId: primaryAsset.coingecko_id,
+      ...(primaryAsset.coingecko_id && { coinGeckoId: primaryAsset.coingecko_id }),
       coinImageUrl: primaryAsset.logo,
     } : {
       coinDenom: 'ATOM',
@@ -638,16 +638,52 @@ export function disconnectKeplr(): void {
 }
 export function saveKeplrAccount(account: KeplrAccount, chainId: string, coinType: number): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('keplr_account', JSON.stringify(account));
-    localStorage.setItem('keplr_chain_id', chainId);
-    localStorage.setItem('keplr_coin_type', coinType.toString());
+    try {
+      // Only save essential data to avoid quota exceeded
+      const essentialData = {
+        address: account.address,
+        username: account.username,
+        chainId: chainId,
+        coinType: coinType
+      };
+      localStorage.setItem('keplr_account', JSON.stringify(essentialData));
+      localStorage.setItem('keplr_chain_id', chainId);
+      localStorage.setItem('keplr_coin_type', coinType.toString());
+    } catch (error: any) {
+      console.warn('⚠️ Failed to save to localStorage (quota exceeded):', error.message);
+      // Fallback: try to clear old data and retry
+      try {
+        localStorage.removeItem('keplr_account');
+        const essentialData = {
+          address: account.address,
+          username: account.username,
+          chainId: chainId,
+          coinType: coinType
+        };
+        localStorage.setItem('keplr_account', JSON.stringify(essentialData));
+      } catch (retryError) {
+        console.error('❌ Could not save wallet data even after cleanup');
+        // Use sessionStorage as last resort
+        sessionStorage.setItem('keplr_account', JSON.stringify({
+          address: account.address,
+          username: account.username
+        }));
+      }
+    }
   }
 }
 export function getSavedKeplrAccount(): { account: KeplrAccount; chainId: string; coinType: number } | null {
   if (typeof window !== 'undefined') {
-    const accountStr = localStorage.getItem('keplr_account');
-    const chainId = localStorage.getItem('keplr_chain_id');
-    const coinTypeStr = localStorage.getItem('keplr_coin_type');
+    // Try localStorage first
+    let accountStr = localStorage.getItem('keplr_account');
+    let chainId = localStorage.getItem('keplr_chain_id');
+    let coinTypeStr = localStorage.getItem('keplr_coin_type');
+    
+    // Fallback to sessionStorage if not in localStorage
+    if (!accountStr) {
+      accountStr = sessionStorage.getItem('keplr_account');
+    }
+    
     if (accountStr && chainId && coinTypeStr) {
       return {
         account: JSON.parse(accountStr),

@@ -1,0 +1,56 @@
+{
+  "chain_name": "zenrock-mainnet",
+  "chain_id": "diamond-1",
+  "bech32_prefix": "zen",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://rpc.zenrock.nodestake.org",
+        "provider": "NodeStake"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://api.diamond.zenrocklabs.io",
+        "provider": "Zenrock Labs"
+      },
+      {
+        "address": "https://api.zenrock.nodestake.org",
+        "provider": "NodeStake"
+      },
+      {
+        "address": "https://zenrock.api.m.stavr.tech",
+        "provider": "STAVR"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "urock"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "urock",
+        "fixed_min_gas_price": 2.5,
+        "low_gas_price": 2.5,
+        "average_gas_price": 5,
+        "high_gas_price": 10
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "zenvaloper1gapqwfgz45mw2lrvy5nwks9ndfkdzn6pcu52e0",
+      "grantee_address": "zen1h0c98tf2lynxtnp4dqh2wp03z4ca96le2zwhp7",
+      "supported": true,
+      "default_frequency": "hourly",
+      "vote_option": "YES"
+    }
+  ]
+}

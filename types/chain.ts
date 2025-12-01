@@ -3,7 +3,7 @@ export interface ChainAsset {
   symbol: string;
   display?: string;
   exponent: number | string;
-  coingecko_id: string;
+  coingecko_id?: string; // Optional - not all tokens listed on CoinGecko
   logo: string;
 }
 

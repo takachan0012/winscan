@@ -27,7 +27,6 @@
         "base": "usafro",
         "symbol": "SAF",
         "exponent": "6",
-        "coingecko_id": "unknown",
         "logo": ""
     }],
     "addr_prefix": "addr_safro",

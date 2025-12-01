@@ -1,0 +1,52 @@
+{
+  "chain_name": "atomone-testnet",
+  "chain_id": "atomone-testnet-1",
+  "bech32_prefix": "atone",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://atomone-testnet-rpc.ibs.team",
+        "provider": "Inter Blockchain Services"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://atomone-testnet-api.itrocket.net",
+        "provider": "ITRocket"
+      },
+      {
+        "address": "https://api-testnet-atomone.nodeist.net",
+        "provider": "Nodeist"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uatone"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uatone",
+        "fixed_min_gas_price": 0.03,
+        "low_gas_price": 0.03,
+        "average_gas_price": 0.05,
+        "high_gas_price": 0.1
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "atonevaloper1gapqwfgz45mw2lrvy5nwks9ndfkdzn6ptx2x0p",
+      "grantee_address": "atone1h0c98tf2lynxtnp4dqh2wp03z4ca96le0fz9qm",
+      "supported": true,
+      "default_frequency": "hourly",
+      "vote_option": "YES"
+    }
+  ]
+}

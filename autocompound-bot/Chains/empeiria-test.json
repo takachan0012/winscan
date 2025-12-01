@@ -1,0 +1,48 @@
+{
+  "chain_name": "empeiria-test",
+  "chain_id": "empe-testnet-2",
+  "bech32_prefix": "empe",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://rpc-testnet.empe.io",
+        "provider": "Foundation"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://lcd-testnet.empe.io",
+        "provider": "Foundation"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uempe"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uempe",
+        "fixed_min_gas_price": 0.025,
+        "low_gas_price": 0.025,
+        "average_gas_price": 0.05,
+        "high_gas_price": 0.1
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "empevaloper1xvyxsc26kv2ct6x5khs3yggah09lleg6erdw9v",
+      "grantee_address": "empe1h0c98tf2lynxtnp4dqh2wp03z4ca96lexzuan2",
+      "supported": true,
+      "default_frequency": "hourly",
+      "vote_option": "YES"
+    }
+  ]
+}

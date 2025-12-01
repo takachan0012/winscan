@@ -28,7 +28,6 @@
         "base": "ulume",
         "symbol": "LUME",
         "exponent": "6",
-        "coingecko_id": "unknown",
         "logo": ""
     }],
     "addr_prefix": "lumera",

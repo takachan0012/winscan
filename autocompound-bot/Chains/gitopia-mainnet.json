@@ -1,0 +1,56 @@
+{
+  "chain_name": "gitopia-mainnet",
+  "chain_id": "gitopia",
+  "bech32_prefix": "gitopia",
+  "coin_type": "118",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://gitopia-rpc.polkachu.com",
+        "provider": "Polkachu"
+      },
+      {
+        "address": "https://rpc.lavenderfive.com/gitopia",
+        "provider": "Lavender.Five Nodes"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://gitopia-api.polkachu.com",
+        "provider": "Polkachu"
+      },
+      {
+        "address": "https://rest.lavenderfive.com/gitopia",
+        "provider": "Lavender.Five Nodes"
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulore"
+      }
+    ]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulore",
+        "fixed_min_gas_price": 0.001,
+        "low_gas_price": 0.001,
+        "average_gas_price": 0.0025,
+        "high_gas_price": 0.005
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "gitopiavaloper1gapqwfgz45mw2lrvy5nwks9ndfkdzn6pn5cxlk",
+      "grantee_address": "gitopia1h0c98tf2lynxtnp4dqh2wp03z4ca96leqxs5d5",
+      "supported": true,
+      "default_frequency": "hourly",
+      "vote_option": "YES"
+    }
+  ]
+}
