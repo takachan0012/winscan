@@ -692,10 +692,18 @@ export class AutoCompoundBot {
   }
   private async hasVoted(rest: string, proposalId: string, voter: string): Promise<boolean> {
     try {
+      // Check if granter (validator) has voted, not the bot
       const response = await fetch(
         `${rest}/cosmos/gov/v1beta1/proposals/${proposalId}/votes/${voter}`
       );
-      return response.ok;
+      
+      if (response.ok) {
+        const data: any = await response.json();
+        console.log(`   ✓ ${voter} already voted on proposal #${proposalId}`);
+        return true;
+      }
+      
+      return false;
     } catch (error) {
       return false;
     }
@@ -757,20 +765,36 @@ export class AutoCompoundBot {
         typeUrl: '/cosmos.gov.v1beta1.MsgVote',
         value: MsgVote.fromPartial({
           proposalId: BigInt(proposalId),
-          voter: task.granter,
+          voter: task.granter, // ✅ Voter is the granter (validator)
           option: voteOptionMap[chainConfig.voteOption || 'YES'],
         }),
       };
+      
+      console.log(`   📝 Vote Message:`, {
+        voter: task.granter,
+        option: chainConfig.voteOption || 'YES',
+        proposalId
+      });
+      
+      // Properly encode MsgVote as Any for MsgExec
+      const voteAny = Any.fromPartial({
+        typeUrl: voteMsg.typeUrl,
+        value: MsgVote.encode(voteMsg.value).finish(),
+      });
+      
       const execMsg = {
         typeUrl: '/cosmos.authz.v1beta1.MsgExec',
         value: MsgExec.fromPartial({
-          grantee: operatorAddress,
-          msgs: [{
-            typeUrl: voteMsg.typeUrl,
-            value: MsgVote.encode(voteMsg.value).finish(),
-          }],
+          grantee: operatorAddress, // ✅ Bot executes on behalf of granter
+          msgs: [voteAny], // Use Any wrapped message
         }),
       };
+      
+      console.log(`   🔐 Authz Exec:`, {
+        grantee: operatorAddress,
+        granter: task.granter,
+        method: 'MsgExec with MsgVote (Any wrapped)'
+      });
       if (useEthAddress || chainConfig.coinType === '60') {const readOnlyClient = await StargateClient.connect(chainConfig.rpc);
         const accountResponse = await readOnlyClient.getAccount(operatorAddress);
         if (!accountResponse) {
@@ -883,8 +907,21 @@ export class AutoCompoundBot {
         const txHash = result.result.hash;
         console.log(`✅ Vote successful!`);
         console.log(`   TX Hash: ${txHash}`);
+        console.log(`   Voter: ${task.granter} (via authz)`);
+        console.log(`   Grantee (Bot): ${operatorAddress}`);
         console.log(`   Proposal: #${proposalId}`);
         console.log(`   Vote: ${chainConfig.voteOption}`);
+        
+        // Verify vote was recorded for granter
+        setTimeout(async () => {
+          const verified = await this.hasVoted(chainConfig.rest, proposalId, task.granter);
+          if (verified) {
+            console.log(`   ✓ Verified: Vote recorded for ${task.granter}`);
+          } else {
+            console.warn(`   ⚠ Warning: Could not verify vote for ${task.granter}`);
+          }
+        }, 3000);
+        
         readOnlyClient.disconnect();
       } else {
         const client = await SigningStargateClient.connectWithSigner(
@@ -900,8 +937,23 @@ export class AutoCompoundBot {
           'auto',
           `Auto-vote on proposal #${proposalId}`
         );
-        console.log(`✅ Vote successful!`);console.log(`   Proposal: #${proposalId}`);
+        console.log(`✅ Vote successful!`);
+        console.log(`   TX Hash: ${result.transactionHash}`);
+        console.log(`   Voter: ${task.granter} (via authz)`);
+        console.log(`   Grantee (Bot): ${operatorAddress}`);
+        console.log(`   Proposal: #${proposalId}`);
         console.log(`   Vote: ${chainConfig.voteOption}`);
+        
+        // Verify vote was recorded for granter
+        setTimeout(async () => {
+          const verified = await this.hasVoted(chainConfig.rest, proposalId, task.granter);
+          if (verified) {
+            console.log(`   ✓ Verified: Vote recorded for ${task.granter}`);
+          } else {
+            console.warn(`   ⚠ Warning: Could not verify vote for ${task.granter}`);
+          }
+        }, 3000);
+        
         client.disconnect();
       }
     } catch (error: any) {

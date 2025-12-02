@@ -1981,56 +1981,100 @@ export default function ValidatorDetailPage() {
                 <>
                   {/* Success/Error Result */}
                   {commissionTxResult.success ? (
-                    <div className="text-center space-y-4">
-                      <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
-                        <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="text-xl font-bold text-white mb-2">Commission Updated!</h4>
-                        <p className="text-gray-400">Your validator commission has been updated successfully</p>
-                      </div>
-                      {commissionTxResult.txHash && (
-                        <div className="bg-gray-800/50 rounded-lg p-3">
-                          <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
-                          <p className="text-sm text-purple-400 break-all font-mono">{commissionTxResult.txHash}</p>
+                    <>
+                      {/* Success Icon with glow effect */}
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-green-500/20 rounded-full blur-2xl animate-pulse"></div>
+                        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/50">
+                          <svg className="w-10 h-10 text-white animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
                         </div>
-                      )}
-                      <button
-                        onClick={() => {
-                          setShowEditCommissionModal(false);
-                          setCommissionTxResult(null);
-                        }}
-                        className="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-lg transition-all"
-                      >
-                        Close
-                      </button>
-                    </div>
+                      </div>
+                      
+                      {/* Success Message */}
+                      <div className="space-y-2">
+                        <h3 className="text-2xl font-bold text-white">Transaction Successful!</h3>
+                        <p className="text-gray-400">Your commission has been updated successfully</p>
+                      </div>
+                      
+                      {/* Transaction Hash */}
+                      <div className="w-full bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 space-y-2">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Transaction Hash</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs text-green-400 font-mono break-all flex-1">
+                            {commissionTxResult.txHash}
+                          </code>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(commissionTxResult.txHash || '');
+                            }}
+                            className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                            title="Copy to clipboard"
+                          >
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex gap-3 w-full pt-2">
+                        <button
+                          onClick={() => {
+                            const chainPath = selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '';
+                            window.open(`/${chainPath}/transactions/${commissionTxResult.txHash}`, '_blank');
+                          }}
+                          className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/30"
+                        >
+                          View in Explorer
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCommissionTxResult(null);
+                            setShowEditCommissionModal(false);
+                          }}
+                          className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </>
                   ) : (
-                    <div className="text-center space-y-4">
-                      <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
-                        <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    <>
+                      {/* Error Icon */}
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-red-500/20 rounded-full blur-2xl animate-pulse"></div>
+                        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/50">
+                          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-xl font-bold text-white mb-2">Update Failed</h4>
-                        <p className="text-gray-400">Failed to update commission</p>
+                      
+                      {/* Error Message */}
+                      <div className="space-y-2">
+                        <h3 className="text-2xl font-bold text-white">Transaction Failed</h3>
+                        <p className="text-gray-400">An error occurred while updating commission</p>
                       </div>
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                        <p className="text-sm text-red-400">{commissionTxResult.error}</p>
+                      
+                      {/* Error Details */}
+                      <div className="w-full bg-[#0a0a0a] border border-red-900/50 rounded-xl p-4 space-y-2">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Error Details</p>
+                        <p className="text-sm text-red-400 break-words">
+                          {commissionTxResult.error || 'Unknown error occurred'}
+                        </p>
                       </div>
+                      
+                      {/* Close Button */}
                       <button
-                        onClick={() => {
-                          setShowEditCommissionModal(false);
-                          setCommissionTxResult(null);
-                        }}
-                        className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all"
+                        onClick={() => setCommissionTxResult(null)}
+                        className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
                       >
                         Close
                       </button>
-                    </div>
+                    </>
                   )}
                 </>
               )}
