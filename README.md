@@ -183,7 +183,7 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 | Chain | Logo | Type | Status |
 |-------|------|------|--------|
 | **AtomOne** | <img src="https://pbs.twimg.com/profile_images/1891894823390429185/9swkoZNn_400x400.png" width="24"/> | Cosmos | ✅ Active |
-| **Axone** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/axone/images/axone.png" width="24"/> | Cosmos | ✅ Active |
+| **Axone** | <img src="https://pbs.twimg.com/profile_images/1841523650043772928/EeZIYE7B_400x400.jpg" width="24"/> | Cosmos | ✅ Active |
 | **BitBadges** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/bitbadges/images/bitbadgeslogo.png" width="24"/> | Cosmos | ✅ Active |
 | **CNHO Stables** | <img src="https://pbs.twimg.com/profile_images/1802555804798857216/ZTqy2yxX_400x400.jpg" width="24"/> | Cosmos | ✅ Active |
 | **CosmosHub** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png" width="24"/> | Cosmos | ✅ Active |
@@ -198,8 +198,8 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 | **Sunrise** | <img src="https://pbs.twimg.com/profile_images/1950927820290715648/1HjqE_hD_400x400.jpg" width="24"/> | Cosmos | ✅ Active |
 | **Tellor** | <img src="https://pbs.twimg.com/profile_images/1855433907556044800/_Bo9JjTR_400x400.png" width="24"/> | Cosmos | ✅ Active |
 | **Warden Protocol** | <img src="https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
-| **XRPL EVM Sidechain** | <img src="https://pbs.twimg.com/profile_images/1829585852831285259/EAxFe-gB_400x400.png" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
-| **Zenrock** | <img src="https://pbs.twimg.com/profile_images/1841523650043772928/EeZIYE7B_400x400.jpg" width="24"/> | Cosmos | ✅ Active |
+| **XRPL EVM Sidechain** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/xrplevm/images/xrplevm.png" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
+| **Zenrock** | <img src="https://pbs.twimg.com/profile_images/1829585852831285259/EAxFe-gB_400x400.png" width="24"/> | Cosmos | ✅ Active |
 
 </div>
 
@@ -211,14 +211,14 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 |-------|------|---------|
 | **AtomOne** | <img src="https://pbs.twimg.com/profile_images/1891894823390429185/9swkoZNn_400x400.png" width="24"/> | Testnet |
 | **CosmosHub** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png" width="24"/> | Testnet |
-| **Empeiria** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/empeiriatestnet/images/empeiria.png" width="24"/> | Testnet |
+| **Empeiria** | <img src="https://pbs.twimg.com/profile_images/1887069794798632960/IvxbLJcg_400x400.jpg" width="24"/> | Testnet |
 | **Kiichain** | <img src="https://pbs.twimg.com/profile_images/1800553180083666944/zZe128CW_400x400.jpg" width="24"/> | Testnet |
 | **Lumera** | <img src="https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png" width="24"/> | Testnet |
 | **Noble** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/stake.png" width="24"/> | Testnet |
 | **Osmosis** | <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/12220.png" width="24"/> | Testnet |
 | **Safrochain** | <img src="https://pbs.twimg.com/profile_images/1938593981517955072/vTcJ4t5i_400x400.jpg" width="24"/> | Testnet |
 | **Warden Barra** | <img src="https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg" width="24"/> | Testnet |
-| **Zenrock** | <img src="https://pbs.twimg.com/profile_images/1841523650043772928/EeZIYE7B_400x400.jpg" width="24"/> | Testnet |
+| **Zenrock** | <img src="https://pbs.twimg.com/profile_images/1829585852831285259/EAxFe-gB_400x400.png" width="24"/> | Testnet |
 
 </div>
 
