@@ -176,53 +176,53 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## 💎 Supported Chains
 
-### Mainnets (Cosmos)
+### Mainnets (18 Chains)
 
 <div align="center">
 
-| Chain | Logo | Status |
-|-------|------|--------|
-| **Paxi Network** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/paxi/images/paxi.png" width="24"/> | ✅ Active |
-| **Axone** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/axone/images/axone.png" width="24"/> | ✅ Active |
-| **BitBadges** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/bitbadges/images/bitbadgeslogo.png" width="24"/> | ✅ Active |
-| **Gitopia** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png" width="24"/> | ✅ Active |
-| **Humans.ai** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/humans/images/heart-dark-mode.png" width="24"/> | ✅ Active |
-| **Lumera** | <img src="https://pbs.twimg.com/profile_images/1903755629906006016/Hgmf1MlD_400x400.jpg" width="24"/> | ✅ Active |
-| **Noble** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/noble.png" width="24"/> | ✅ Active |
-| **Osmosis** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.png" width="24"/> | ✅ Active |
-| **Sunrise** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/sunrise/images/sunrise.png" width="24"/> | ✅ Active |
-| **Tellor** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/tellor/images/tellor.png" width="24"/> | ✅ Active |
-| **Zenrock** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/zenrock/images/zenrock.png" width="24"/> | ✅ Active |
+| Chain | Logo | Type | Status |
+|-------|------|------|--------|
+| **AtomOne** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/atomone/images/atone.png" width="24"/> | Cosmos | ✅ Active |
+| **Axone** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/axone/images/axone.png" width="24"/> | Cosmos | ✅ Active |
+| **BitBadges** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/bitbadges/images/bitbadgeslogo.png" width="24"/> | Cosmos | ✅ Active |
+| **CNHO Stables** | <img src="https://explorer.winsnip.xyz/_next/image?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcosmos%2Fchain-registry%2Fmaster%2Ftestnets%2Fcnhostablestestnet%2Fimages%2Fcnho.png&w=48&q=75" width="24"/> | Cosmos | ✅ Active |
+| **CosmosHub** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png" width="24"/> | Cosmos | ✅ Active |
+| **Gitopia** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png" width="24"/> | Cosmos | ✅ Active |
+| **Humans.ai** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/humans/images/heart-dark-mode.png" width="24"/> | Cosmos | ✅ Active |
+| **Lava Network** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png" width="24"/> | Cosmos | ✅ Active |
+| **Lumera** | <img src="https://pbs.twimg.com/profile_images/1903755629906006016/Hgmf1MlD_400x400.jpg" width="24"/> | Cosmos | ✅ Active |
+| **Noble** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/noble.png" width="24"/> | Cosmos | ✅ Active |
+| **Osmosis** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.png" width="24"/> | Cosmos | ✅ Active |
+| **Paxi Network** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/paxi/images/paxi.png" width="24"/> | Cosmos | ✅ Active |
+| **Shido** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/shido/images/shido.png" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
+| **Sunrise** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/sunrise/images/sunrise.png" width="24"/> | Cosmos | ✅ Active |
+| **Tellor** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/tellor/images/tellor.png" width="24"/> | Cosmos | ✅ Active |
+| **Warden Protocol** | <img src="https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
+| **XRPL EVM Sidechain** | <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/52.png" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
+| **Zenrock** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/zenrock/images/zenrock.png" width="24"/> | Cosmos | ✅ Active |
 
 </div>
 
-### Mainnets (EVM Compatible) ⚡
-
-<div align="center">
-
-| Chain | Logo | Cosmos | EVM | WebSocket |
-|-------|------|--------|-----|-----------|
-| **Shido** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/shido/images/shido.png" width="24"/> | ✅ | ✅ | ✅ |
-| **Warden Protocol** | <img src="https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg" width="24"/> | ✅ | ✅ | ✅ |
-| **XRPL EVM Sidechain** | <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/52.png" width="24"/> | ✅ | ✅ | ✅ |
-
-</div>
-
-### Testnets
+### Testnets (10 Chains)
 
 <div align="center">
 
 | Chain | Logo | Network |
 |-------|------|---------|
 | **AtomOne** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/atomone/images/atone.png" width="24"/> | Testnet |
-| **CNHO-Stables** | <img src="https://explorer.winsnip.xyz/_next/image?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcosmos%2Fchain-registry%2Fmaster%2Ftestnets%2Fcnhostablestestnet%2Fimages%2Fcnho.png&w=48&q=75" width="24"/> | Testnet |
+| **CosmosHub** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png" width="24"/> | Testnet |
 | **Empeiria** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/empeiriatestnet/images/empeiria.png" width="24"/> | Testnet |
 | **Kiichain** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/kiichainkiiextension/images/kii.png" width="24"/> | Testnet |
 | **Lumera** | <img src="https://pbs.twimg.com/profile_images/1903755629906006016/Hgmf1MlD_400x400.jpg" width="24"/> | Testnet |
+| **Noble** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/noble.png" width="24"/> | Testnet |
+| **Osmosis** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.png" width="24"/> | Testnet |
 | **Safrochain** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/safrotestnet/images/safro.png" width="24"/> | Testnet |
 | **Warden Barra** | <img src="https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg" width="24"/> | Testnet |
+| **Zenrock** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/zenrock/images/zenrock.png" width="24"/> | Testnet |
 
 </div>
+
+**⚡ EVM Compatible Chains:** Shido, Warden Protocol, XRPL EVM Sidechain support both Cosmos and EVM transactions with WebSocket
 
 **Want to add your chain?** See [CHAIN-GUIDELINES.md](CHAIN-GUIDELINES.md)
 
