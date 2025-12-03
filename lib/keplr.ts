@@ -2274,19 +2274,35 @@ export async function executeEditValidatorCommission(
     console.log('👤 Signer address:', signerAddress);
 
     // Create MsgEditValidator message
-    // Only update commission rate, leave other fields empty (they won't be changed)
-    // Format commission rate to 18 decimal places (Cosmos SDK requirement)
-    // Example: "0.09" -> "0.090000000000000000"
-    const formattedCommissionRate = parseFloat(params.commissionRate).toFixed(18);
+    // Convert commission rate to integer (multiply by 10^18)
+    // Example: "0.09" -> "90000000000000000"
+    // The SDK expects an integer representation, not decimal string
+    const rateStr = params.commissionRate.trim();
+    let rateFloat: number;
+    
+    if (rateStr.includes('.')) {
+      rateFloat = parseFloat(rateStr);
+    } else {
+      rateFloat = parseFloat(rateStr);
+    }
+    
+    // Multiply by 10^18 and convert to string (no decimal point)
+    const rateInteger = Math.round(rateFloat * 1e18).toString();
 
+    // Send with description object (cannot be empty/omitted)
     const editValidatorMsg = {
       typeUrl: '/cosmos.staking.v1beta1.MsgEditValidator',
-      value: {
-        description: undefined, // undefined means "do not update"
+      value: MsgEditValidator.fromPartial({
+        description: {
+          moniker: '[do-not-modify]',
+          identity: '[do-not-modify]',
+          website: '[do-not-modify]',
+          securityContact: '[do-not-modify]',
+          details: '[do-not-modify]',
+        },
         validatorAddress: params.validatorAddress,
-        commissionRate: formattedCommissionRate,
-        minSelfDelegation: undefined, // undefined means "do not update"
-      },
+        commissionRate: rateInteger,
+      }),
     };
 
     console.log('📝 Edit validator message:', editValidatorMsg);
