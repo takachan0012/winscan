@@ -17,6 +17,18 @@
       "provider": "KiiValidator"
     }
   ],
+  "evm_rpc": [
+    {
+      "address": "https://rpc-evm-kiichain.winnode.xyz",
+      "provider": "Winnode"
+    }
+  ],
+  "evm_wss": [
+    {
+      "address": "wss://wss-evm-kiichain.winnode.xyz",
+      "provider": "Winnode"
+    }
+  ],
   "sdk_version": "0.53.4",
   "coin_type": "118",
   "min_tx_fee": "800",
@@ -33,5 +45,5 @@
   "bech32_prefix": "kii",
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1800553180083666944/zZe128CW_400x400.jpg",
-  "updated": "2025-11-21"
+  "updated": "2025-12-04"
 }
