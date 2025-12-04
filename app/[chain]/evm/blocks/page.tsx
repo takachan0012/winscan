@@ -60,11 +60,34 @@ export default function EVMBlocksPage() {
     if (!selectedChain) return;
 
     const fetchBlocks = async () => {
+      const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
+      const cacheKey = `evm_blocks_${chainName}`;
+      
+      // Read from cache first
       try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Array.isArray(data) && data.length > 0) {
+            setBlocks(data);
+            // Skip fetch if cache is fresh (< 10 seconds)
+            if (Date.now() - timestamp < 10000) {
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Cache read error:', e);
+      }
+      
+      // Only show loading if no cached data
+      if (blocks.length === 0) {
         setLoading(true);
+      }
+      
+      try {
         setError(null);
-        
-        const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
         
         // Try backend first
         let response = await fetch(
@@ -86,17 +109,38 @@ export default function EVMBlocksPage() {
           throw new Error('Failed to fetch EVM blocks');
         }
         
-        setBlocks(data.blocks || []);
-      } catch (err) {
+        if (Array.isArray(data.blocks) && data.blocks.length > 0) {
+          setBlocks(data.blocks);
+          
+          // Save to cache
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              data: data.blocks,
+              timestamp: Date.now()
+            }));
+          } catch (e) {
+            console.warn('Cache write error:', e);
+          }
+        }
+      } catch (err: any) {
         console.error('Error fetching EVM blocks:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load EVM blocks');
+        // Keep showing cached data if available
+        if (blocks.length === 0) {
+          setError(err instanceof Error ? err.message : 'Failed to load EVM blocks');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchBlocks();
+    
+    // Auto-refresh every 12 seconds
+    const interval = setInterval(fetchBlocks, 12000);
+    
+    return () => clearInterval(interval);
   }, [selectedChain]);
+
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString();
