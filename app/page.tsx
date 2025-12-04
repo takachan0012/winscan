@@ -51,7 +51,11 @@ export default function Home() {
       .then(data => {
         console.log('Contributors data:', data); // Debug log
         if (Array.isArray(data)) {
-          setContributors(data.slice(0, 12)); // Get top 12 contributors
+          // Filter out invalid contributors and get top 12
+          const validContributors = data
+            .filter(c => c && c.login && c.avatar_url && c.html_url && c.contributions)
+            .slice(0, 12);
+          setContributors(validContributors);
         } else {
           console.error('Contributors API response is not an array:', data);
         }
@@ -82,7 +86,7 @@ export default function Home() {
   const displayChains = searchQuery 
     ? chains.filter(c => 
         getPrettyName(c.chain_name).toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.assets[0]?.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
+        c.assets?.[0]?.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : chains;
 
@@ -644,7 +648,7 @@ export default function Home() {
                                 <h3 className="font-medium text-white text-xs sm:text-sm truncate group-hover:text-gray-300 transition-colors">
                                   {getPrettyName(chain.chain_name)}
                                 </h3>
-                                <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">{chain.assets[0]?.symbol || 'N/A'}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">{chain.assets?.[0]?.symbol || 'N/A'}</p>
                               </div>
                             </div>
                           </Link>
@@ -687,7 +691,7 @@ export default function Home() {
                                 <h3 className="font-medium text-white text-xs sm:text-sm truncate group-hover:text-gray-300 transition-colors">
                                   {getPrettyName(chain.chain_name)}
                                 </h3>
-                                <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">{chain.assets[0]?.symbol || 'N/A'}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">{chain.assets?.[0]?.symbol || 'N/A'}</p>
                               </div>
                             </div>
                           </Link>
@@ -738,40 +742,42 @@ export default function Home() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 max-w-5xl mx-auto">
                   {contributors.length > 0 ? (
                     contributors.map((contributor, index) => (
-                      <div key={contributor.login} className="relative group">
-                        <div className={`absolute inset-0 bg-gradient-to-br ${
-                          index % 7 === 0 ? 'from-blue-500/10 to-purple-500/10' :
-                          index % 7 === 1 ? 'from-purple-500/10 to-pink-500/10' :
-                          index % 7 === 2 ? 'from-pink-500/10 to-orange-500/10' :
-                          index % 7 === 3 ? 'from-cyan-500/10 to-blue-500/10' :
-                          index % 7 === 4 ? 'from-green-500/10 to-emerald-500/10' :
-                          index % 7 === 5 ? 'from-yellow-500/10 to-orange-500/10' :
-                          'from-amber-500/10 to-red-500/10'
-                        } rounded-xl opacity-0 group-hover:opacity-100 blur-xl transition-all`}></div>
-                        <a 
-                          href={contributor.html_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="relative block bg-gray-900 border border-gray-800 rounded-xl p-4 hover:bg-gray-800 hover:border-gray-700 transition-all"
-                        >
-                          <div className="relative w-14 h-14 rounded-full mb-3 mx-auto ring-2 ring-gray-800 group-hover:ring-gray-700 transition-all overflow-hidden bg-gray-800">
-                            <Image 
-                              src={contributor.avatar_url}
-                              alt={contributor.login}
-                              width={56}
-                              height={56}
-                              className="object-cover"
-                              unoptimized
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contributor.login)}&background=1f2937&color=9ca3af&size=56`;
-                              }}
-                            />
-                          </div>
-                          <h3 className="text-white font-semibold text-center mb-1 text-sm truncate">{contributor.login}</h3>
-                          <p className="text-gray-500 text-xs text-center">{contributor.contributions} commits</p>
-                        </a>
-                      </div>
+                      contributor && contributor.login && contributor.avatar_url ? (
+                        <div key={contributor.login} className="relative group">
+                          <div className={`absolute inset-0 bg-gradient-to-br ${
+                            index % 7 === 0 ? 'from-blue-500/10 to-purple-500/10' :
+                            index % 7 === 1 ? 'from-purple-500/10 to-pink-500/10' :
+                            index % 7 === 2 ? 'from-pink-500/10 to-orange-500/10' :
+                            index % 7 === 3 ? 'from-cyan-500/10 to-blue-500/10' :
+                            index % 7 === 4 ? 'from-green-500/10 to-emerald-500/10' :
+                            index % 7 === 5 ? 'from-yellow-500/10 to-orange-500/10' :
+                            'from-amber-500/10 to-red-500/10'
+                          } rounded-xl opacity-0 group-hover:opacity-100 blur-xl transition-all`}></div>
+                          <a 
+                            href={contributor.html_url || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="relative block bg-gray-900 border border-gray-800 rounded-xl p-4 hover:bg-gray-800 hover:border-gray-700 transition-all"
+                          >
+                            <div className="relative w-14 h-14 rounded-full mb-3 mx-auto ring-2 ring-gray-800 group-hover:ring-gray-700 transition-all overflow-hidden bg-gray-800">
+                              <Image 
+                                src={contributor.avatar_url}
+                                alt={contributor.login}
+                                width={56}
+                                height={56}
+                                className="object-cover"
+                                unoptimized
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contributor.login)}&background=1f2937&color=9ca3af&size=56`;
+                                }}
+                              />
+                            </div>
+                            <h3 className="text-white font-semibold text-center mb-1 text-sm truncate">{contributor.login}</h3>
+                            <p className="text-gray-500 text-xs text-center">{contributor.contributions || 0} commits</p>
+                          </a>
+                        </div>
+                      ) : null
                     ))
                   ) : (
                     // Loading skeleton

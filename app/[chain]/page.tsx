@@ -68,8 +68,18 @@ export default function ChainOverviewPage() {
   };
 
   useEffect(() => {
+    // Force clear cache for chain data
+    const clearChainCache = () => {
+      try {
+        sessionStorage.removeItem('chains_data_v3');
+        sessionStorage.removeItem('chains_version_v3');
+      } catch (e) {}
+    };
+    
+    clearChainCache();
 
-    fetchChainsWithCache()
+    fetch('/api/chains', { cache: 'no-store' })
+      .then(res => res.json())
       .then(data => {
         setChains(data);
         const chainName = (params?.chain as string)?.trim(); // Remove leading/trailing spaces

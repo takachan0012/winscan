@@ -1,7 +1,7 @@
 
-const CACHE_KEY = 'chains_data_v2';
-const CACHE_VERSION_KEY = 'chains_version_v2';
-const CACHE_TTL = 60 * 1000;
+const CACHE_KEY = 'chains_data_v3';
+const CACHE_VERSION_KEY = 'chains_version_v3';
+const CACHE_TTL = 30 * 1000; // Reduced to 30 seconds
 
 export function getCachedChains() {
   try {
@@ -37,17 +37,24 @@ export function setCachedChains(chains: any[], count?: number) {
 
 export function clearChainsCache() {
   try {
-
+    // Clear all versions of chains cache
     sessionStorage.removeItem(CACHE_KEY);
     sessionStorage.removeItem(CACHE_VERSION_KEY);
-
     sessionStorage.removeItem('chains');
     sessionStorage.removeItem('chains_data');
     sessionStorage.removeItem('chains_version');
     sessionStorage.removeItem('chains_data_v1');
     sessionStorage.removeItem('chains_version_v1');
+    sessionStorage.removeItem('chains_data_v2');
+    sessionStorage.removeItem('chains_version_v2');
+    
+    // Clear localStorage as well
+    localStorage.removeItem('chains_data_v3');
+    localStorage.removeItem('chains_version_v3');
+    localStorage.removeItem('chains_data_v2');
+    localStorage.removeItem('chains_version_v2');
   } catch {
-
+    // Ignore errors
   }
 }
 
