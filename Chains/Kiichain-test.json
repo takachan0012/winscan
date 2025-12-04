@@ -7,6 +7,10 @@
       "provider": "Winnode"
     },
     {
+      "address": "https://lcd.uno.sentry.testnet.v3.kiivalidator.com",
+      "provider": "KiiValidator"
+    },
+    {
       "address": "https://lcd.dos.sentry.testnet.v3.kiivalidator.com",
       "provider": "KiiValidator"
     }
@@ -14,13 +18,35 @@
   "rpc": [
     {
       "address": "https://rpc-kiichain.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://rpc.uno.sentry.testnet.v3.kiivalidator.com",
+      "provider": "KiiValidator"
+    },
+    {
+      "address": "https://rpc.dos.sentry.testnet.v3.kiivalidator.com",
+      "provider": "KiiValidator"
+    }
+  ],
+  "grpc": [
+    {
+      "address": "grpc.uno.sentry.testnet.v3.kiivalidator.com:443",
+      "provider": "KiiValidator"
+    },
+    {
+      "address": "grpc.dos.sentry.testnet.v3.kiivalidator.com:443",
       "provider": "KiiValidator"
     }
   ],
   "evm_rpc": [
     {
-      "address": "https://rpc-evm-kiichain.winnode.xyz",
-      "provider": "Winnode"
+      "address": "https://json-rpc.uno.sentry.testnet.v3.kiivalidator.com",
+      "provider": "KiiValidator"
+    },
+    {
+      "address": "https://json-rpc.dos.sentry.testnet.v3.kiivalidator.com",
+      "provider": "KiiValidator"
     }
   ],
   "evm_wss": [
@@ -29,9 +55,32 @@
       "provider": "Winnode"
     }
   ],
+  "peers": [
+    {
+      "id": "5b6aa55124c0fd28e47d7da091a69973964a9fe1",
+      "address": "uno.sentry.testnet.v3.kiivalidator.com:26656",
+      "provider": "KiiValidator"
+    },
+    {
+      "id": "5e6b283c8879e8d1b0866bda20949f9886aff967",
+      "address": "dos.sentry.testnet.v3.kiivalidator.com:26656",
+      "provider": "KiiValidator"
+    }
+  ],
   "sdk_version": "0.53.4",
-  "coin_type": "118",
+  "coin_type": "60",
   "min_tx_fee": "800",
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "akii",
+        "fixed_min_gas_price": 0,
+        "low_gas_price": 0.001,
+        "average_gas_price": 0.0025,
+        "high_gas_price": 0.004
+      }
+    ]
+  },
   "assets": [
     {
       "base": "akii",

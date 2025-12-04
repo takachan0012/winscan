@@ -339,7 +339,16 @@ export function convertChainToKeplr(chain: ChainData, coinType?: 118 | 60): Kepl
       coinMinimalDenom: 'uatom',
       coinDecimals: 6,
     },
-    features: coinType === 60 ? ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'] : ['ibc-transfer'],
+    features: (() => {
+      const baseFeatures = coinType === 60 ? ['eth-address-gen', 'eth-key-sign'] : [];
+      
+      // Kiichain uses ethsecp256k1 even with coin_type 118
+      if (chain.chain_id === 'oro_1336-1' || chain.chain_name === 'kiichain-test') {
+        return ['eth-address-gen', 'eth-key-sign'];
+      }
+      
+      return baseFeatures;
+    })(),
   };
 }
 export function isKeplrInstalled(): boolean {

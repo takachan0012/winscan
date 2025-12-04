@@ -61,7 +61,17 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
       
       router.push(`/${chainPath}/blocks/${query}`);
     } 
-    // Check if it's a transaction hash
+    // Check if it's an EVM transaction hash (0x + 64 hex chars)
+    else if (/^0x[a-fA-F0-9]{64}$/.test(query)) {
+      if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
+        router.push(`/${chainPath}/evm/transactions/${query}`);
+        setSearchQuery('');
+        return;
+      }
+      // If no EVM support, treat as Cosmos tx hash
+      router.push(`/${chainPath}/transactions/${query.substring(2)}`); // Remove 0x prefix
+    }
+    // Check if it's a transaction hash (64 hex chars, no 0x)
     else if (/^[A-F0-9]{64}$/i.test(query)) {
       // Try Cosmos transaction first
       try {

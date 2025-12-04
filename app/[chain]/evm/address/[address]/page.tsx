@@ -60,41 +60,61 @@ export default function EVMAddressDetailPage() {
     if (!selectedChain || !params.address) return;
 
     const fetchAddressDetail = async () => {
+      const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
+      const address = params.address as string;
+      const cacheKey = `evm_address_${chainName}_${address}`;
+
+      // Read from cache first
       try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (data && data.address) {
+            setAddressData({
+              address: data.address,
+              balance: data.balance,
+              transactionCount: data.transactionCount,
+              transactions: data.transactions || []
+            });
+            // Skip fetch if cache is fresh (< 15 seconds)
+            if (Date.now() - timestamp < 15000) {
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Cache read error:', e);
+      }
+
+      // Only show loading if no cached data
+      if (!addressData) {
         setLoading(true);
+      }
+
+      try {
         setError(null);
-
-        const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
-        const address = params.address as string;
-
-        let useLocalScan = false;
         let data: any = null;
 
-        // Try backend first
+        // Try backend first (without timeout constraint)
         try {
           const response = await fetch(
-            `https://ssl.winsnip.xyz/api/evm/address/${address}?chain=${chainName}`,
-            { 
-              signal: AbortSignal.timeout(5000) // 5 second timeout
-            }
+            `https://ssl.winsnip.xyz/api/evm/address/${address}?chain=${chainName}`
           );
-          
           data = await response.json();
           
           // If backend returns error or no data, fallback to local scan
           if (data.error || !data.address) {
             console.log('[Address Detail] Backend returned error/no data, using local scan...');
-            useLocalScan = true;
+            data = null;
           }
         } catch (fetchError) {
           console.log('[Address Detail] Backend fetch failed, using local scan...', fetchError);
-          useLocalScan = true;
+          data = null;
         }
         
-        if (useLocalScan) {
-          console.log('[Address Detail] Using local API fallback...');
-          
-          // Use local Next.js API as fallback
+        // Fallback to local API if backend failed
+        if (!data) {
           const localResponse = await fetch(
             `/api/evm/address?chain=${chainName}&address=${address}`
           );
@@ -106,13 +126,12 @@ export default function EVMAddressDetailPage() {
           data = await localResponse.json();
         }
 
-        // Use the fetched data (either from backend or local API)
-        console.log('[Address Detail] Setting address data:', data);
-        setAddressData({
+        // Set address data
+        const formattedData = {
           address: data.address,
           balance: data.balance,
           transactionCount: data.transactionCount,
-          transactions: data.transactions.map((tx: any) => ({
+          transactions: (data.transactions || []).map((tx: any) => ({
             hash: tx.hash,
             blockNumber: tx.blockNumber,
             timestamp: tx.timestamp,
@@ -122,11 +141,26 @@ export default function EVMAddressDetailPage() {
             gasUsed: tx.gasUsed || '0',
             gasPrice: tx.gasPrice || '0'
           }))
-        });
+        };
+
+        setAddressData(formattedData);
+
+        // Save to cache
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            data: formattedData,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('Cache write error:', e);
+        }
 
       } catch (err) {
         console.error('Error fetching address:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load address');
+        // Keep showing cached data if available
+        if (!addressData) {
+          setError(err instanceof Error ? err.message : 'Failed to load address');
+        }
       } finally {
         setLoading(false);
       }

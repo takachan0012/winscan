@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import TransactionsTable from '@/components/TransactionsTable';
@@ -13,6 +13,8 @@ import { getTranslation } from '@/lib/i18n';
 
 export default function TransactionsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { language } = useLanguage();
   const t = (key: string) => getTranslation(language, key);
   const [chains, setChains] = useState<ChainData[]>([]);
@@ -22,6 +24,18 @@ export default function TransactionsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const txsPerPage = 200;
+
+  // Auto-redirect to EVM transactions if query is EVM hash
+  useEffect(() => {
+    const query = searchParams.get('q');
+    if (query && query.startsWith('0x') && query.length === 66) {
+      // This is an EVM transaction hash (0x + 64 hex chars)
+      const chainSlug = params?.chain as string;
+      if (chainSlug && selectedChain?.evm_rpc && selectedChain.evm_rpc.length > 0) {
+        router.push(`/${chainSlug}/evm/transactions?q=${query}`);
+      }
+    }
+  }, [searchParams, params, router, selectedChain]);
 
   useEffect(() => {
 

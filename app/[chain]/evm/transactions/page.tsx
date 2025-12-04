@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { ChainData } from '@/types/chain';
@@ -23,6 +23,8 @@ interface EVMTransaction {
 
 export default function EVMTransactionsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { language } = useLanguage();
   const t = (key: string) => getTranslation(language, key);
   const [chains, setChains] = useState<ChainData[]>([]);
@@ -31,6 +33,16 @@ export default function EVMTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Get query from URL
+  const urlQuery = searchParams.get('q') || '';
+
+  useEffect(() => {
+    if (urlQuery) {
+      setSearchQuery(urlQuery);
+    }
+  }, [urlQuery]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -68,11 +80,34 @@ export default function EVMTransactionsPage() {
     if (!selectedChain) return;
 
     const fetchTransactions = async () => {
+      const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
+      const cacheKey = `evm_txs_${chainName}`;
+      
+      // Read from cache first
       try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Array.isArray(data) && data.length > 0) {
+            setTransactions(data);
+            // Skip fetch if cache is fresh (< 10 seconds)
+            if (Date.now() - timestamp < 10000) {
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Cache read error:', e);
+      }
+      
+      // Only show loading if no cached data
+      if (transactions.length === 0) {
         setLoading(true);
+      }
+      
+      try {
         setError(null);
-        
-        const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
         
         // Try backend first
         let response = await fetch(
@@ -94,16 +129,36 @@ export default function EVMTransactionsPage() {
           throw new Error('Failed to fetch EVM transactions');
         }
         
-        setTransactions(data.transactions || []);
-      } catch (err) {
+        if (Array.isArray(data.transactions) && data.transactions.length > 0) {
+          setTransactions(data.transactions);
+          
+          // Save to cache
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              data: data.transactions,
+              timestamp: Date.now()
+            }));
+          } catch (e) {
+            console.warn('Cache write error:', e);
+          }
+        }
+      } catch (err: any) {
         console.error('Error fetching EVM transactions:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load EVM transactions');
+        // Keep showing cached data if available
+        if (transactions.length === 0) {
+          setError(err instanceof Error ? err.message : 'Failed to load EVM transactions');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchTransactions();
+    
+    // Auto-refresh every 12 seconds
+    const interval = setInterval(fetchTransactions, 12000);
+    
+    return () => clearInterval(interval);
   }, [selectedChain]);
 
   const formatValue = (value: string) => {
@@ -198,6 +253,22 @@ export default function EVMTransactionsPage() {
               </div>
             </div>
 
+            {/* Search Box */}
+            <div className="mb-6">
+              <input
+                type="text"
+                placeholder="Search by transaction hash, address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              />
+              {searchQuery && (
+                <p className="text-sm text-gray-400 mt-2">
+                  Showing results for: <span className="text-blue-400 font-mono">{searchQuery}</span>
+                </p>
+              )}
+            </div>
+
             {loading ? (
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-8">
                 <div className="animate-pulse space-y-4">
@@ -237,14 +308,28 @@ export default function EVMTransactionsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-[#1a1a1a] divide-y divide-gray-800">
-                      {transactions.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                            No transactions found
-                          </td>
-                        </tr>
-                      ) : (
-                        transactions.map((tx) => (
+                      {(() => {
+                        const filteredTxs = transactions.filter(tx => {
+                          if (!searchQuery) return true;
+                          const query = searchQuery.toLowerCase();
+                          return (
+                            tx.hash.toLowerCase().includes(query) ||
+                            tx.from.toLowerCase().includes(query) ||
+                            (tx.to && tx.to.toLowerCase().includes(query))
+                          );
+                        });
+
+                        if (filteredTxs.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                                {searchQuery ? `No transactions found matching "${searchQuery}"` : 'No transactions found'}
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filteredTxs.map((tx) => (
                           <tr key={tx.hash} className="hover:bg-gray-800/50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                               <div className="flex items-center gap-2">
@@ -288,8 +373,8 @@ export default function EVMTransactionsPage() {
                               {tx.gasUsed ? parseInt(tx.gasUsed).toLocaleString() : '-'}
                             </td>
                           </tr>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
