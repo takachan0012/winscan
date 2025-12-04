@@ -85,7 +85,7 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         subItems: [
           { name: 'EVM Blocks', translationKey: 'menu.evm.blocks', path: `${chainPath}/evm/blocks`, icon: <Box className="w-4 h-4" /> },
           { name: 'EVM Transactions', translationKey: 'menu.evm.transactions', path: `${chainPath}/evm/transactions`, icon: <FileText className="w-4 h-4" /> },
-          { name: 'EVM Contracts', translationKey: 'menu.evm.contracts', path: `${chainPath}/evm/contracts`, icon: <FileText className="w-4 h-4" /> },
+          // { name: 'EVM Contracts', translationKey: 'menu.evm.contracts', path: `${chainPath}/evm/contracts`, icon: <FileText className="w-4 h-4" /> },
         ]
       });
     }
