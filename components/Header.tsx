@@ -128,7 +128,8 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
   return (
     <header className="fixed top-0 right-0 left-0 md:left-64 h-16 bg-[#0f0f0f] border-b border-gray-800 z-20 flex items-center px-2 sm:px-4 md:px-6">
       <div className="flex items-center justify-between w-full ml-14 sm:ml-16 md:ml-0 gap-2 sm:gap-4 min-w-0">
-        <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+        {/* Left Side: Home, Latest Blocks, Price Tracker */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Home Button */}
           <button
             onClick={handleHomeClick}
@@ -150,8 +151,8 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
           </div>
         </div>
         
-        {/* Search Bar */}
-        <form onSubmit={handleSearch} className="flex-1 max-w-2xl hidden lg:block">
+        {/* Center: Search Bar */}
+        <form onSubmit={handleSearch} className="flex-1 max-w-md hidden lg:block ml-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input

@@ -2,7 +2,7 @@
 import { TransactionData, ChainAsset } from '@/types/chain';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, FileText, Copy, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Activity, Copy, Check } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { useState } from 'react';
@@ -70,7 +70,7 @@ export default function TransactionsTable({
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <Activity className="w-4 h-4 text-blue-400 flex-shrink-0" />
                       <Link 
                         href={`/${chainPath}/transactions/${tx.hash}`}
                         className="text-blue-500 hover:text-blue-400 font-mono text-sm"

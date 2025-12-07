@@ -379,7 +379,7 @@ export default function EVMTransactionsPage() {
                           <tr key={tx.hash} className="hover:bg-gray-800/50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                               <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                                <Activity className="w-4 h-4 text-blue-400 flex-shrink-0" />
                                 <a 
                                   href={`/${selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-')}/evm/transactions/${tx.hash}`}
                                   className="text-blue-400 hover:text-blue-300 transition-colors"

@@ -1,0 +1,85 @@
+{
+  "chain_name": "republicai-test",
+  "chain_id": "republic_77701-1",
+  "evm_chain_id": 77701,
+  "pretty_name": "Republic AI",
+  "network_type": "test",
+  "status": "live",
+  "bech32_prefix": "republic",
+  "addr_prefix": "republic",
+  "slip44": 60,
+  "sdk_version": "0.47.0",
+  "coin_type": "60",
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "arai",
+        "fixed_min_gas_price": 10000000000,
+        "low_gas_price": 10000000000,
+        "average_gas_price": 25000000000,
+        "high_gas_price": 40000000000
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "arai"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/republicai/republic",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.47.0",
+    "consensus": {
+      "type": "cometbft",
+      "version": "v0.37.0"
+    }
+  },
+  "api": [
+    {
+      "address": "https://rpc.republicai.io:1317",
+      "provider": "Republic AI Official"
+    }
+  ],
+  "evm_rpc": [
+    {
+      "address": "https://rpc.republicai.io:8545",
+      "provider": "Republic AI Official"
+    }
+  ],
+  "evm_wss": [
+    {
+      "address": "wss://rpc.republicai.io:8546",
+      "provider": "Republic AI Official"
+    }
+  ],
+  "grpc": [
+    {
+      "address": "rpc.republicai.io:9090",
+      "provider": "Republic AI Official"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc.republicai.io:26657",
+      "provider": "Republic AI Official",
+      "tx_index": "on"
+    }
+  ],
+  "assets": [
+    {
+      "base": "arai",
+      "symbol": "RAI",
+      "exponent": "18",
+      "coingecko_id": "republic-ai",
+      "logo": "https://file.winsnip.xyz/file/uploads/arai.png"
+    }
+  ],
+  "theme_color": "#1a1a2e",
+  "logo": "https://file.winsnip.xyz/file/uploads/arai.png",
+  "startBlock": 1,
+  "updated": "2025-12-07"
+}
