@@ -18,25 +18,32 @@
 - 💼 **Wallet Integration** - Keplr, Leap, Cosmostation support
 - 🔗 **IBC Tracking** - Cross-chain transfer monitoring
 - 🗳️ **Governance** - View and vote on proposals
-- 📈 **Validator Analytics** - Uptime, commission, voting power tracking
+- 📈 **Validator Analytics** - Uptime tracking, commission, voting power, 24h/7d/30d stats
 - 🌍 **Multi-Language** - 7 languages support (EN, ID, JP, KR, CN, ES, RU)
 - 🎨 **Modern UI** - Dark theme, responsive design
+- 📱 **PWA Ready** - Installable Progressive Web App with offline support
 
 ### EVM Support
 - ⚡ **EVM Explorer** - Native support for Cosmos chains with EVM sidechain
-- 🔍 **EVM Blocks** - Real-time EVM block tracking
-- 💸 **EVM Transactions** - Transaction details with gas info
-- 👛 **EVM Addresses** - Balance, transaction history
+- 🔍 **EVM Blocks** - Real-time block tracking with gas statistics
+- 💸 **EVM Transactions** - Transaction details with gas info & hash copy
+- 👛 **EVM Addresses** - Balance, transaction history, token holdings
 - 🔗 **Dual Chain** - Seamless navigation between Cosmos & EVM
-- 🌐 **CORS-Free** - Server-side API with automatic fallback
+- 🌐 **WebSocket Support** - Real-time updates via EVM WSS endpoints
+- ⚡ **Parallel Fetching** - Race condition for fastest API response
+- 📊 **Gas Analytics** - Average gas used, gas limit tracking
 
 ### Advanced Features
 - 🤖 **Auto-Compound Bot** - Automated staking rewards compounding
-- 📊 **Token Analytics** - Price tracking, supply metrics
+- 📊 **Token Analytics** - Real-time price tracking, supply metrics
 - 💰 **Asset Management** - Multi-asset support, holder tracking
 - 🔄 **State Sync** - Fast node synchronization endpoints
-- 🚀 **Performance** - Optimized with caching and CDN
-- 📱 **PWA Ready** - Progressive Web App capabilities
+- 🚀 **Performance** - Optimized with caching, CDN, and stale-while-revalidate
+- 📦 **Smart Caching** - 5-minute cache with background refresh
+- 🔄 **Auto-Refresh** - 4-second background updates for real-time data
+- 🎯 **Copy to Clipboard** - One-click copy for hashes, addresses
+- 📋 **Transaction Icons** - Visual indicators for blocks, transactions
+- 🔐 **Secure** - Server-side API with CORS handling
 
 ## 🚀 Quick Start
 
@@ -176,7 +183,7 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## 💎 Supported Chains
 
-### Mainnets (18 Chains)
+### Mainnets (19 Chains)
 
 <div align="center">
 
@@ -197,13 +204,14 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 | **Shido** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/shido/images/shido.png" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
 | **Sunrise** | <img src="https://pbs.twimg.com/profile_images/1950927820290715648/1HjqE_hD_400x400.jpg" width="24"/> | Cosmos | ✅ Active |
 | **Tellor** | <img src="https://pbs.twimg.com/profile_images/1855433907556044800/_Bo9JjTR_400x400.png" width="24"/> | Cosmos | ✅ Active |
+| **Uptick Network** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/uptick/images/uptick.png" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
 | **Warden Protocol** | <img src="https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
 | **XRPL EVM Sidechain** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/xrplevm/images/xrplevm.png" width="24"/> | Cosmos+EVM ⚡ | ✅ Active |
 | **Zenrock** | <img src="https://pbs.twimg.com/profile_images/1829585852831285259/EAxFe-gB_400x400.png" width="24"/> | Cosmos | ✅ Active |
 
 </div>
 
-### Testnets (10 Chains)
+### Testnets (11 Chains)
 
 <div align="center">
 
@@ -218,11 +226,12 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 | **Osmosis** | <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/12220.png" width="24"/> | Testnet |
 | **Safrochain** | <img src="https://pbs.twimg.com/profile_images/1938593981517955072/vTcJ4t5i_400x400.jpg" width="24"/> | Testnet |
 | **Warden Barra** | <img src="https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg" width="24"/> | Testnet |
+| **XRPL EVM** | <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/xrplevm/images/xrplevm.png" width="24"/> | Testnet |
 | **Zenrock** | <img src="https://pbs.twimg.com/profile_images/1829585852831285259/EAxFe-gB_400x400.png" width="24"/> | Testnet |
 
 </div>
 
-**⚡ EVM Compatible Chains:** Shido, Warden Protocol, XRPL EVM Sidechain support both Cosmos and EVM transactions with WebSocket
+**⚡ EVM Compatible Chains:** Shido, Uptick Network, Warden Protocol, XRPL EVM Sidechain support both Cosmos and EVM transactions with WebSocket real-time updates
 
 **Want to add your chain?** See [CHAIN-GUIDELINES.md](CHAIN-GUIDELINES.md)
 

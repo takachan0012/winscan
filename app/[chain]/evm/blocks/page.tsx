@@ -57,6 +57,40 @@ export default function EVMBlocksPage() {
     }
   }, [params]);
 
+  // Helper function to process blocks data
+  const processBlocksData = (blocksData: EVMBlock[], cacheKey: string) => {
+    // Smooth update: only update if data actually changed
+    setBlocks(prev => {
+      // If initial load or empty, replace all
+      if (prev.length === 0) {
+        return blocksData;
+      }
+      
+      // Check for new blocks
+      const newBlocks = blocksData.filter(
+        (newBlock: EVMBlock) => !prev.some(b => b.number === newBlock.number)
+      );
+      
+      if (newBlocks.length > 0) {
+        // Add new blocks at the beginning, keep max 50 blocks
+        return [...newBlocks, ...prev].slice(0, 50);
+      }
+      
+      // No changes, return previous state
+      return prev;
+    });
+    
+    // Save to cache
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        data: blocksData,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Cache write error:', e);
+    }
+  };
+
   useEffect(() => {
     if (!selectedChain) return;
 
@@ -94,57 +128,44 @@ export default function EVMBlocksPage() {
       try {
         setError(null);
         
-        // Try backend first
-        let response = await fetch(
-          `https://ssl.winsnip.xyz/api/evm/blocks?chain=${chainName}`
-        );
-        
-        let data = await response.json();
-        
-        // If backend returns null/empty or error, fallback to local API
-        if (!data.blocks || data.blocks.length === 0 || data.error) {
-          console.log('Backend returned null/error, trying local API...');
-          response = await fetch(
-            `/api/evm/blocks?chain=${chainName}`
-          );
-          data = await response.json();
-        }
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch EVM blocks');
-        }
-        
-        if (Array.isArray(data.blocks) && data.blocks.length > 0) {
-          // Smooth update: only update if data actually changed
-          setBlocks(prev => {
-            // If initial load or empty, replace all
-            if (prev.length === 0) {
-              return data.blocks;
-            }
-            
-            // Check for new blocks
-            const newBlocks = data.blocks.filter(
-              (newBlock: EVMBlock) => !prev.some(b => b.number === newBlock.number)
-            );
-            
-            if (newBlocks.length > 0) {
-              // Add new blocks at the beginning, keep max 50 blocks
-              return [...newBlocks, ...prev].slice(0, 50);
-            }
-            
-            // No changes, return previous state
-            return prev;
-          });
+        // Parallel fetch: Race between backend and local API
+        const fetchPromises = [
+          // Backend API with 4s timeout
+          fetch(`https://ssl.winsnip.xyz/api/evm/blocks?chain=${chainName}`, {
+            signal: AbortSignal.timeout(4000)
+          }).then(r => r.json()).catch(() => ({ blocks: [], error: 'backend_timeout' })),
           
-          // Save to cache
-          try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({
-              data: data.blocks,
-              timestamp: Date.now()
-            }));
-          } catch (e) {
-            console.warn('Cache write error:', e);
+          // Local API with 5s timeout
+          fetch(`/api/evm/blocks?chain=${chainName}`, {
+            signal: AbortSignal.timeout(5000)
+          }).then(r => r.json()).catch(() => ({ blocks: [], error: 'local_timeout' }))
+        ];
+        
+        // Use Promise.race to get the fastest response
+        const data = await Promise.race(fetchPromises);
+        
+        // If first response is empty/error, wait for second one
+        if (!data.blocks || data.blocks.length === 0 || data.error) {
+          const allResults = await Promise.allSettled(fetchPromises);
+          const validResult = allResults.find(
+            r => r.status === 'fulfilled' && 
+            r.value.blocks && 
+            r.value.blocks.length > 0
+          );
+          
+          if (validResult && validResult.status === 'fulfilled') {
+            const validData = validResult.value;
+            if (Array.isArray(validData.blocks) && validData.blocks.length > 0) {
+              processBlocksData(validData.blocks, cacheKey);
+              return;
+            }
           }
+          throw new Error('No valid data from any source');
+        }
+        
+        // Process valid data
+        if (Array.isArray(data.blocks) && data.blocks.length > 0) {
+          processBlocksData(data.blocks, cacheKey);
         }
       } catch (err: any) {
         console.error('Error fetching EVM blocks:', err);
@@ -161,8 +182,8 @@ export default function EVMBlocksPage() {
     // Initial load
     fetchBlocks(true);
     
-    // Auto-refresh every 6 seconds (silent background refresh)
-    const interval = setInterval(() => fetchBlocks(false), 6000);
+    // Auto-refresh every 4 seconds (silent background refresh)
+    const interval = setInterval(() => fetchBlocks(false), 4000);
     
     return () => clearInterval(interval);
   }, [selectedChain]);
@@ -238,8 +259,8 @@ export default function EVMBlocksPage() {
                   <Zap className="w-5 h-5 text-blue-500" />
                 </div>
                 <p className="text-2xl font-bold text-white">
-                  {blocks.length > 0 
-                    ? `${(blocks.reduce((sum, b) => sum + (parseInt(b.gasUsed) || 0), 0) / blocks.length / 1000000).toFixed(2)}M`
+                  {blocks.filter(b => b.gasUsed).length > 0
+                    ? (blocks.filter(b => b.gasUsed).reduce((sum, b) => sum + parseInt(b.gasUsed), 0) / blocks.filter(b => b.gasUsed).length).toLocaleString(undefined, {maximumFractionDigits: 0})
                     : '-'
                   }
                 </p>
@@ -310,8 +331,9 @@ export default function EVMBlocksPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <a 
                                 href={`/${selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-')}/evm/blocks/${block.number}`}
-                                className="text-blue-400 hover:text-blue-300 transition-colors"
+                                className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
                               >
+                                <Box className="w-4 h-4 text-blue-400 flex-shrink-0" />
                                 {block.number}
                               </a>
                             </td>

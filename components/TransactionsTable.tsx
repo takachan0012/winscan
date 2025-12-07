@@ -2,9 +2,10 @@
 import { TransactionData, ChainAsset } from '@/types/chain';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, FileText, Copy, Check } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { useState } from 'react';
 interface TransactionsTableProps {
   transactions: TransactionData[];
   chainName: string;
@@ -23,6 +24,13 @@ export default function TransactionsTable({
   const { language } = useLanguage();
   const t = (key: string) => getTranslation(language, key);
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const [copiedHash, setCopiedHash] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedHash(text);
+    setTimeout(() => setCopiedHash(null), 2000);
+  };
   const formatFee = (fee: string) => {
     if (!asset) return fee;
     const feeNum = parseFloat(fee) / Math.pow(10, Number(asset.exponent));
@@ -61,12 +69,26 @@ export default function TransactionsTable({
                   className="border-b border-gray-800 hover:bg-[#0f0f0f] transition-colors"
                 >
                   <td className="px-6 py-4">
-                    <Link 
-                      href={`/${chainPath}/transactions/${tx.hash}`}
-                      className="text-blue-500 hover:text-blue-400 font-mono text-sm"
-                    >
-                      {tx.hash.slice(0, 8)}...{tx.hash.slice(-8)}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <Link 
+                        href={`/${chainPath}/transactions/${tx.hash}`}
+                        className="text-blue-500 hover:text-blue-400 font-mono text-sm"
+                      >
+                        {tx.hash.slice(0, 8)}...{tx.hash.slice(-8)}
+                      </Link>
+                      <button
+                        onClick={() => copyToClipboard(tx.hash)}
+                        className="text-gray-400 hover:text-blue-400 transition-colors"
+                        title="Copy hash"
+                      >
+                        {copiedHash === tx.hash ? (
+                          <Check className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500">

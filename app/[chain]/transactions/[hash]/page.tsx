@@ -120,6 +120,92 @@ export default function TransactionDetailPage() {
     return `${feeNum.toFixed(6)} ${asset.symbol}`;
   };
 
+  const getMessageCategory = (msgType: string) => {
+    const type = msgType.toLowerCase();
+    
+    // Token operations
+    if (type.includes('burn')) return { category: '🔥 Burn', color: 'text-orange-400' };
+    if (type.includes('mint')) return { category: '⚡ Mint', color: 'text-green-400' };
+    if (type.includes('send') || type.includes('transfer') || type.includes('msgsend')) {
+      return { category: '💸 Transfer', color: 'text-blue-400' };
+    }
+    if (type.includes('multisend')) return { category: '💸 Multi Send', color: 'text-blue-400' };
+    
+    // Staking operations
+    if (type.includes('delegate') && !type.includes('undelegate')) {
+      return { category: '🔗 Delegate', color: 'text-purple-400' };
+    }
+    if (type.includes('undelegate')) return { category: '🔓 Undelegate', color: 'text-yellow-400' };
+    if (type.includes('redelegate') || type.includes('beginredelegate')) {
+      return { category: '🔄 Redelegate', color: 'text-cyan-400' };
+    }
+    if (type.includes('withdraw') && type.includes('reward')) {
+      return { category: '💰 Claim Rewards', color: 'text-green-400' };
+    }
+    if (type.includes('withdraw') && type.includes('commission')) {
+      return { category: '💵 Withdraw Commission', color: 'text-emerald-400' };
+    }
+    if (type.includes('createvalidator')) return { category: '🎯 Create Validator', color: 'text-purple-500' };
+    if (type.includes('editvalidator')) return { category: '✏️ Edit Validator', color: 'text-purple-300' };
+    if (type.includes('unjail')) return { category: '🔓 Unjail', color: 'text-yellow-500' };
+    
+    // Governance
+    if (type.includes('vote')) return { category: '🗳️ Vote', color: 'text-indigo-400' };
+    if (type.includes('submitproposal')) return { category: '📋 Submit Proposal', color: 'text-pink-400' };
+    if (type.includes('deposit')) return { category: '💳 Deposit', color: 'text-teal-400' };
+    
+    // IBC operations
+    if (type.includes('msgtransfer') && type.includes('ibc')) {
+      return { category: '🌉 IBC Transfer', color: 'text-blue-300' };
+    }
+    if (type.includes('recvpacket')) return { category: '📥 IBC Receive', color: 'text-blue-300' };
+    if (type.includes('acknowledgement')) return { category: '✅ IBC Ack', color: 'text-green-300' };
+    if (type.includes('timeout')) return { category: '⏱️ IBC Timeout', color: 'text-red-300' };
+    if (type.includes('channel') || type.includes('connection') || type.includes('client')) {
+      return { category: '🌐 IBC', color: 'text-blue-300' };
+    }
+    
+    // Contract operations (CosmWasm)
+    if (type.includes('storeCode')) return { category: '📦 Store Code', color: 'text-purple-300' };
+    if (type.includes('instantiate')) return { category: '🚀 Instantiate', color: 'text-purple-400' };
+    if (type.includes('execute')) return { category: '⚙️ Execute', color: 'text-cyan-300' };
+    if (type.includes('migrate')) return { category: '🔄 Migrate', color: 'text-orange-300' };
+    if (type.includes('updateadmin')) return { category: '👤 Update Admin', color: 'text-yellow-300' };
+    if (type.includes('clearadmin')) return { category: '🚫 Clear Admin', color: 'text-red-300' };
+    
+    // EVM operations
+    if (type.includes('msgethereumtx') || type.includes('msgevmtransaction')) {
+      return { category: '🔷 EVM Transaction', color: 'text-blue-500' };
+    }
+    if (type.includes('msgconvertcoin')) return { category: '🔀 Convert Coin', color: 'text-cyan-400' };
+    if (type.includes('msgconverterc20')) return { category: '🔀 Convert ERC20', color: 'text-cyan-400' };
+    
+    // Authz operations
+    if (type.includes('msggrant')) return { category: '🔑 Grant', color: 'text-green-300' };
+    if (type.includes('msgrevoke')) return { category: '🔒 Revoke', color: 'text-red-300' };
+    if (type.includes('msgexec')) return { category: '▶️ Execute (Authz)', color: 'text-purple-300' };
+    
+    // Feegrant
+    if (type.includes('grantallowance')) return { category: '🎁 Grant Fee', color: 'text-green-300' };
+    if (type.includes('revokeallowance')) return { category: '❌ Revoke Fee', color: 'text-red-300' };
+    
+    // Vesting
+    if (type.includes('createvestingaccount')) return { category: '🔐 Create Vesting', color: 'text-indigo-300' };
+    if (type.includes('createperiodicvestingaccount')) {
+      return { category: '🔐 Periodic Vesting', color: 'text-indigo-300' };
+    }
+    
+    // Distribution
+    if (type.includes('fundcommunitypool')) return { category: '🏦 Fund Pool', color: 'text-teal-300' };
+    if (type.includes('setwithdrawaddress')) return { category: '📍 Set Withdraw Address', color: 'text-cyan-300' };
+    
+    // Slashing
+    if (type.includes('unjail')) return { category: '🔓 Unjail', color: 'text-yellow-500' };
+    
+    // Default
+    return { category: '📄 Transaction', color: 'text-gray-400' };
+  };
+
   const getTransferInfo = (msg: any) => {
     const msgType = msg.type;
     const msgValue = msg.value;
@@ -410,6 +496,103 @@ export default function TransactionDetailPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Message Details */}
+                {transaction.messages.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-700">
+                    <h3 className="text-lg font-bold text-white mb-4">Message Details</h3>
+                    <div className="space-y-4">
+                      {transaction.messages.map((msg, idx) => (
+                        <div key={idx} className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
+                          <div className="grid grid-cols-1 gap-4">
+                            {/* Message Type with Category */}
+                            <div>
+                              <p className="text-gray-400 text-xs mb-2">Message Type</p>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-semibold ${getMessageCategory(msg.type).color}`}>
+                                    {getMessageCategory(msg.type).category}
+                                  </span>
+                                </div>
+                                <p className="text-gray-500 text-xs font-mono break-all">{msg.type}</p>
+                              </div>
+                            </div>
+
+                            {/* Sender */}
+                            {(msg.value.sender || msg.value.from_address || msg.value.delegator_address) && (
+                              <div>
+                                <p className="text-gray-400 text-xs mb-1">Sender</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-white text-sm font-mono break-all">
+                                    {msg.value.sender || msg.value.from_address || msg.value.delegator_address}
+                                  </p>
+                                  <button
+                                    onClick={() => copyToClipboard(
+                                      msg.value.sender || msg.value.from_address || msg.value.delegator_address,
+                                      `sender-${idx}`
+                                    )}
+                                    className="p-1 hover:bg-gray-800 rounded"
+                                  >
+                                    {copiedField === `sender-${idx}` ? (
+                                      <Check className="w-3 h-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3 text-gray-400" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Amount */}
+                            {msg.value.amount && Array.isArray(msg.value.amount) && msg.value.amount.length > 0 && (
+                              <div>
+                                <p className="text-gray-400 text-xs mb-1">Amount</p>
+                                <div className="space-y-1">
+                                  {msg.value.amount.map((coin: any, coinIdx: number) => (
+                                    <div key={coinIdx} className="text-white text-sm">
+                                      <span className="font-bold">
+                                        {(parseFloat(coin.amount) / Math.pow(10, Number(asset?.exponent || 6))).toLocaleString()}
+                                      </span>
+                                      {' '}
+                                      <span className="text-gray-400">{coin.denom.replace('u', '').toUpperCase()}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Recipient (if exists) */}
+                            {(msg.value.to_address || msg.value.receiver || msg.value.validator_address) && (
+                              <div>
+                                <p className="text-gray-400 text-xs mb-1">
+                                  {msg.value.validator_address ? 'Validator' : 'Recipient'}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-white text-sm font-mono break-all">
+                                    {msg.value.to_address || msg.value.receiver || msg.value.validator_address}
+                                  </p>
+                                  <button
+                                    onClick={() => copyToClipboard(
+                                      msg.value.to_address || msg.value.receiver || msg.value.validator_address,
+                                      `recipient-${idx}`
+                                    )}
+                                    className="p-1 hover:bg-gray-800 rounded"
+                                  >
+                                    {copiedField === `recipient-${idx}` ? (
+                                      <Check className="w-3 h-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3 text-gray-400" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Transaction Actions */}
                 {transaction.messages.some(msg => getTransferInfo(msg)) && (

@@ -70,9 +70,9 @@ export default function LatestBlocksHeader({ selectedChain }: LatestBlocksHeader
   const chainPath = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
 
   return (
-    <div className="hidden xl:flex items-center gap-3 px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
+    <div className="hidden xl:flex items-center gap-3 px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg h-[40px]">
       <div className="flex items-center gap-2">
-        <Box className="w-4 h-4 text-blue-400" />
+        <Box className="w-5 h-5 text-blue-400" />
         <span className="text-sm font-semibold text-gray-300">Latest Blocks</span>
         {isLoading && (
           <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>

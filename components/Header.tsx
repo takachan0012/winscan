@@ -127,12 +127,12 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
   }, [router]);
   return (
     <header className="fixed top-0 right-0 left-0 md:left-64 h-16 bg-[#0f0f0f] border-b border-gray-800 z-20 flex items-center px-2 sm:px-4 md:px-6">
-      <div className="flex items-center justify-between w-full ml-14 sm:ml-16 md:ml-0 gap-2 sm:gap-4">
-        <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto">
+      <div className="flex items-center justify-between w-full ml-14 sm:ml-16 md:ml-0 gap-2 sm:gap-4 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide flex-1 min-w-0">
           {/* Home Button */}
           <button
             onClick={handleHomeClick}
-            className="flex items-center gap-2 px-2 sm:px-3 py-2 bg-[#1a1a1a] hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors duration-200 min-h-[44px] flex-shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors duration-200 flex-shrink-0 h-[40px]"
             title="Back to Home"
           >
             <Home className="w-5 h-5 text-gray-400" />
@@ -140,12 +140,12 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
           </button>
           
           {/* Latest Blocks Header - Real-time */}
-          <div className="hidden sm:block">
+          <div className="hidden sm:block flex-shrink-0">
             <LatestBlocksHeader selectedChain={selectedChain} />
           </div>
           
           {/* Price Tracker */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block flex-shrink-0">
             <PriceTracker selectedChain={selectedChain} />
           </div>
         </div>

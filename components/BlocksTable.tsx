@@ -2,7 +2,7 @@
 import { BlockData } from '@/types/chain';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Box } from 'lucide-react';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -65,8 +65,9 @@ export default function BlocksTable({ blocks, chainName, currentPage, onPageChan
                   <td className="px-6 py-4">
                     <Link 
                       href={`/${chainPath}/blocks/${block.height}`}
-                      className="text-blue-400 hover:text-blue-300 font-mono font-medium transition-colors"
+                      className="flex items-center gap-2 text-blue-400 hover:text-blue-300 font-mono font-medium transition-colors"
                     >
+                      <Box className="w-4 h-4 text-blue-400 flex-shrink-0" />
                       {block.height.toLocaleString()}
                     </Link>
                   </td>

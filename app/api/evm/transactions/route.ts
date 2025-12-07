@@ -69,6 +69,27 @@ export async function GET(request: NextRequest) {
 
       if (block && block.transactions && block.transactions.length > 0) {
         for (const tx of block.transactions.slice(0, 10)) { // Take first 10 tx per block
+          // Fetch receipt to get actual gasUsed
+          let actualGasUsed = '0';
+          try {
+            const receiptRes = await fetch(evmRpc, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'eth_getTransactionReceipt',
+                params: [tx.hash],
+                id: 1
+              })
+            });
+            const receiptData = await receiptRes.json();
+            if (receiptData.result && receiptData.result.gasUsed) {
+              actualGasUsed = parseInt(receiptData.result.gasUsed, 16).toString();
+            }
+          } catch (e) {
+            console.warn('Failed to get receipt for tx:', tx.hash);
+          }
+          
           transactions.push({
             hash: tx.hash,
             blockNumber: parseInt(tx.blockNumber, 16),
@@ -76,7 +97,7 @@ export async function GET(request: NextRequest) {
             to: tx.to,
             value: parseInt(tx.value, 16).toString(),
             gasPrice: parseInt(tx.gasPrice, 16).toString(),
-            gasUsed: tx.gas ? parseInt(tx.gas, 16).toString() : '0',
+            gasUsed: actualGasUsed,
             timestamp: parseInt(block.timestamp, 16)
           });
 

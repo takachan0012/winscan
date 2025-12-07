@@ -1,0 +1,134 @@
+{
+  "chain_name": "uptick-mainnet",
+  "chain_id": "uptick_117-1",
+  "evm_chain_id": 117,
+  "pretty_name": "Uptick Network",
+  "website": "https://uptick.network",
+  "description": "Uptick Network is a business-grade infrastructure for NFTs, built on Cosmos SDK with EVM compatibility.",
+  "network_type": "mainnet",
+  "status": "live",
+  "bech32_prefix": "uptick",
+  "addr_prefix": "uptick",
+  "slip44": 60,
+  "sdk_version": "0.46.13",
+  "coin_type": "60",
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "auptick",
+        "fixed_min_gas_price": 250000000,
+        "low_gas_price": 200000000000,
+        "average_gas_price": 250000000000,
+        "high_gas_price": 400000000000
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "auptick"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/UptickNetwork/uptick",
+    "recommended_version": "v0.2.14",
+    "compatible_versions": ["v0.2.14", "v0.2.13"],
+    "cosmos_sdk_version": "0.46.13",
+    "consensus": {
+      "type": "cometbft",
+      "version": "v0.34.29"
+    }
+  },
+  "api": [
+    {
+      "address": "https://rest.uptick.network",
+      "provider": "Uptick Official"
+    },
+    {
+      "address": "https://uptick-mainnet-api.itrocket.net",
+      "provider": "ITRocket"
+    },
+    {
+      "address": "https://api.uptick.nodestake.org",
+      "provider": "NodeStake"
+    },
+    {
+      "address": "https://rest.nodejumper.io/uptick",
+      "provider": "NodeJumper"
+    }
+  ],
+  "evm_rpc": [
+    {
+      "address": "https://jsonrpc.uptick.nodestake.org",
+      "provider": "NodeStake"
+    },
+    {
+      "address": "https://json-rpc.uptick.network",
+      "provider": "Uptick Official"
+    },
+    {
+      "address": "https://uptick-mainnet-evm.itrocket.net",
+      "provider": "ITRocket"
+    },
+    {
+      "address": "https://jsonrpc.nodejumper.io/uptick",
+      "provider": "NodeJumper"
+    }
+  ],
+  "evm_wss": [
+    {
+      "address": "wss://jsonrpc.uptick.nodestake.org/websocket",
+      "provider": "NodeStake"
+    },
+    {
+      "address": "wss://ws-json-rpc.uptick.network",
+      "provider": "Uptick Official"
+    }
+  ],
+  "grpc": [
+    {
+      "address": "uptick-mainnet-grpc.itrocket.net:18090",
+      "provider": "ITRocket"
+    },
+    {
+      "address": "grpc.uptick.nodestake.org:443",
+      "provider": "NodeStake"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc.uptick.network",
+      "provider": "Uptick Official",
+      "tx_index": "on"
+    },
+    {
+      "address": "https://uptick-mainnet-rpc.itrocket.net",
+      "provider": "ITRocket",
+      "tx_index": "on"
+    },
+    {
+      "address": "https://rpc.uptick.nodestake.org",
+      "provider": "NodeStake",
+      "tx_index": "on"
+    },
+    {
+      "address": "https://rpc.nodejumper.io:443/uptick",
+      "provider": "NodeJumper",
+      "tx_index": "on"
+    }
+  ],
+  "assets": [
+    {
+      "base": "auptick",
+      "symbol": "UPTICK",
+      "exponent": "18",
+      "coingecko_id": "uptick",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/uptick/images/uptick.jpg"
+    }
+  ],
+  "theme_color": "#1a1a2e",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/uptick/images/uptick.jpg",
+  "startBlock": 14776310,
+  "updated": "2025-12-07"
+}

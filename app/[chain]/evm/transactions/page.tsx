@@ -77,6 +77,40 @@ export default function EVMTransactionsPage() {
     }
   }, [params]);
 
+  // Helper function to process transactions data
+  const processTransactionsData = (txsData: EVMTransaction[], cacheKey: string) => {
+    // Smooth update: only update if data actually changed
+    setTransactions(prev => {
+      // If initial load or empty, replace all
+      if (prev.length === 0) {
+        return txsData;
+      }
+      
+      // Check for new transactions
+      const newTxs = txsData.filter(
+        (newTx: EVMTransaction) => !prev.some(tx => tx.hash === newTx.hash)
+      );
+      
+      if (newTxs.length > 0) {
+        // Add new transactions at the beginning, keep max 50
+        return [...newTxs, ...prev].slice(0, 50);
+      }
+      
+      // No changes, return previous state
+      return prev;
+    });
+    
+    // Save to cache
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        data: txsData,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Cache write error:', e);
+    }
+  };
+
   useEffect(() => {
     if (!selectedChain) return;
 
@@ -114,57 +148,44 @@ export default function EVMTransactionsPage() {
       try {
         setError(null);
         
-        // Try backend first
-        let response = await fetch(
-          `https://ssl.winsnip.xyz/api/evm/transactions?chain=${chainName}`
-        );
-        
-        let data = await response.json();
-        
-        // If backend returns null/empty or error, fallback to local API
-        if (!data.transactions || data.transactions.length === 0 || data.error) {
-          console.log('Backend returned null/error, trying local API...');
-          response = await fetch(
-            `/api/evm/transactions?chain=${chainName}`
-          );
-          data = await response.json();
-        }
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch EVM transactions');
-        }
-        
-        if (Array.isArray(data.transactions) && data.transactions.length > 0) {
-          // Smooth update: only update if data actually changed
-          setTransactions(prev => {
-            // If initial load or empty, replace all
-            if (prev.length === 0) {
-              return data.transactions;
-            }
-            
-            // Check for new transactions
-            const newTxs = data.transactions.filter(
-              (newTx: EVMTransaction) => !prev.some(tx => tx.hash === newTx.hash)
-            );
-            
-            if (newTxs.length > 0) {
-              // Add new transactions at the beginning, keep max 100
-              return [...newTxs, ...prev].slice(0, 100);
-            }
-            
-            // No changes, return previous state
-            return prev;
-          });
+        // Parallel fetch: Race between backend and local API
+        const fetchPromises = [
+          // Backend API with 4s timeout
+          fetch(`https://ssl.winsnip.xyz/api/evm/transactions?chain=${chainName}`, {
+            signal: AbortSignal.timeout(4000)
+          }).then(r => r.json()).catch(() => ({ transactions: [], error: 'backend_timeout' })),
           
-          // Save to cache
-          try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({
-              data: data.transactions,
-              timestamp: Date.now()
-            }));
-          } catch (e) {
-            console.warn('Cache write error:', e);
+          // Local API with 5s timeout
+          fetch(`/api/evm/transactions?chain=${chainName}`, {
+            signal: AbortSignal.timeout(5000)
+          }).then(r => r.json()).catch(() => ({ transactions: [], error: 'local_timeout' }))
+        ];
+        
+        // Use Promise.race to get the fastest response
+        const data = await Promise.race(fetchPromises);
+        
+        // If first response is empty/error, wait for second one
+        if (!data.transactions || data.transactions.length === 0 || data.error) {
+          const allResults = await Promise.allSettled(fetchPromises);
+          const validResult = allResults.find(
+            r => r.status === 'fulfilled' && 
+            r.value.transactions && 
+            r.value.transactions.length > 0
+          );
+          
+          if (validResult && validResult.status === 'fulfilled') {
+            const validData = validResult.value;
+            if (Array.isArray(validData.transactions) && validData.transactions.length > 0) {
+              processTransactionsData(validData.transactions, cacheKey);
+              return;
+            }
           }
+          throw new Error('No valid data from any source');
+        }
+        
+        // Process valid data
+        if (Array.isArray(data.transactions) && data.transactions.length > 0) {
+          processTransactionsData(data.transactions, cacheKey);
         }
       } catch (err: any) {
         console.error('Error fetching EVM transactions:', err);
@@ -177,8 +198,8 @@ export default function EVMTransactionsPage() {
     // Initial load
     fetchTransactions(true);
     
-    // Auto-refresh every 6 seconds (silent background refresh)
-    const interval = setInterval(() => fetchTransactions(false), 6000);
+    // Auto-refresh every 4 seconds (silent background refresh)
+    const interval = setInterval(() => fetchTransactions(false), 4000);
     
     return () => clearInterval(interval);
   }, [selectedChain]);
@@ -358,6 +379,7 @@ export default function EVMTransactionsPage() {
                           <tr key={tx.hash} className="hover:bg-gray-800/50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                               <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
                                 <a 
                                   href={`/${selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-')}/evm/transactions/${tx.hash}`}
                                   className="text-blue-400 hover:text-blue-300 transition-colors"

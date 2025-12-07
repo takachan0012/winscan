@@ -115,7 +115,7 @@ export default function PartnersSection() {
 
           {/* Partners Grid */}
           <div className="flex justify-center">
-            <div className="grid grid-cols-2 gap-4 max-w-md">
+            <div className="grid grid-cols-3 gap-4 max-w-3xl">
               {currentPartners.map((partner, index) => (
               <a
                 key={`${partner.chain_name || partner.name}-${index}`}

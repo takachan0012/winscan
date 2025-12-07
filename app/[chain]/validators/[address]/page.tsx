@@ -241,6 +241,99 @@ export default function ValidatorDetailPage() {
           } else {
             setValidatorBalance('N/A');
           }
+
+          // Fetch validator commission and rewards
+          const asset = selectedChain.assets?.[0];
+          const validatorAddress = params.address as string;
+
+          // Fetch commission (validator's accumulated commission)
+          if (selectedChain.api && selectedChain.api.length > 0) {
+            let commissionFetched = false;
+            for (const endpoint of selectedChain.api) {
+              try {
+                const commissionUrl = `${endpoint.address}/cosmos/distribution/v1beta1/validators/${validatorAddress}/commission`;
+                const commissionRes = await fetch(commissionUrl);
+                if (commissionRes.ok) {
+                  const commissionData = await commissionRes.json();
+                  
+                  // Handle both response structures
+                  let commissionList = [];
+                  if (commissionData.commission && commissionData.commission.commission) {
+                    commissionList = commissionData.commission.commission;
+                  } else if (commissionData.commission) {
+                    commissionList = commissionData.commission;
+                  }
+                  
+                  if (Array.isArray(commissionList) && commissionList.length > 0) {
+                    const mainCommission = commissionList.find((c: any) => c.denom === asset?.base);
+                    
+                    if (mainCommission && mainCommission.amount) {
+                      // Parse as string to handle decimal values accurately
+                      const commissionAmount = mainCommission.amount.includes('.') 
+                        ? parseFloat(mainCommission.amount)
+                        : parseFloat(mainCommission.amount);
+                      const exponent = Number(asset?.exponent || 6);
+                      const formattedCommission = (commissionAmount / Math.pow(10, exponent)).toFixed(2);
+                      setCommission(formattedCommission);
+                      commissionFetched = true;
+                      break;
+                    }
+                  }
+                }
+              } catch (error) {
+                continue;
+              }
+            }
+            if (!commissionFetched) {
+              setCommission('0.00');
+            }
+          } else {
+            setCommission('0.00');
+          }
+
+          // Fetch validator's self-delegation rewards (rewards from their own stake that hasn't been claimed)
+          if (validatorData.accountAddress && selectedChain.api && selectedChain.api.length > 0) {
+            let rewardsFetched = false;
+            for (const endpoint of selectedChain.api) {
+              try {
+                // Get rewards for the validator's account address from their own validator
+                const rewardsUrl = `${endpoint.address}/cosmos/distribution/v1beta1/delegators/${validatorData.accountAddress}/rewards/${validatorAddress}`;
+                const rewardsRes = await fetch(rewardsUrl);
+                if (rewardsRes.ok) {
+                  const rewardsData = await rewardsRes.json();
+                  
+                  // Handle rewards structure
+                  let rewardsList = [];
+                  if (rewardsData.rewards && Array.isArray(rewardsData.rewards)) {
+                    rewardsList = rewardsData.rewards;
+                  }
+                  
+                  if (Array.isArray(rewardsList) && rewardsList.length > 0) {
+                    const mainReward = rewardsList.find((r: any) => r.denom === asset?.base);
+                    
+                    if (mainReward && mainReward.amount) {
+                      // Parse as string to handle decimal values accurately
+                      const rewardAmount = mainReward.amount.includes('.')
+                        ? parseFloat(mainReward.amount)
+                        : parseFloat(mainReward.amount);
+                      const exponent = Number(asset?.exponent || 6);
+                      const formattedRewards = (rewardAmount / Math.pow(10, exponent)).toFixed(2);
+                      setRewards(formattedRewards);
+                      rewardsFetched = true;
+                      break;
+                    }
+                  }
+                }
+              } catch (error) {
+                continue;
+              }
+            }
+            if (!rewardsFetched) {
+              setRewards('0.00');
+            }
+          } else {
+            setRewards('0.00');
+          }
         } else if (!cachedValidator) {
           setValidator(null);
         }
@@ -288,15 +381,16 @@ export default function ValidatorDetailPage() {
     fetchValidatorData(true);
   }, [fetchValidatorData]);
 
-  useEffect(() => {
-    if (!selectedChain || !params?.address) return;
-    
-    const interval = setInterval(() => {
-      fetchValidatorData(false);
-    }, 30000);
+  // Auto-update disabled - only fetch on initial load
+  // useEffect(() => {
+  //   if (!selectedChain || !params?.address) return;
+  //   
+  //   const interval = setInterval(() => {
+  //     fetchValidatorData(false);
+  //   }, 30000);
 
-    return () => clearInterval(interval);
-  }, [selectedChain, params, fetchValidatorData]);
+  //   return () => clearInterval(interval);
+  // }, [selectedChain, params, fetchValidatorData]);
 
   useEffect(() => {
     if (!selectedChain || !validator?.hexAddress) return;
@@ -320,9 +414,10 @@ export default function ValidatorDetailPage() {
     };
 
     fetchUptimeRealtime();
-    const uptimeInterval = setInterval(fetchUptimeRealtime, 6000);
+    // Auto-update disabled - only fetch once on initial load
+    // const uptimeInterval = setInterval(fetchUptimeRealtime, 6000);
 
-    return () => clearInterval(uptimeInterval);
+    // return () => clearInterval(uptimeInterval);
   }, [selectedChain, validator?.hexAddress, params.address]);
 
   // Fetch validators list for redelegate
@@ -1084,118 +1179,149 @@ export default function ValidatorDetailPage() {
             </div>
           </div>
 
-          {/* Rewards & Commission Section */}
+          {/* Rewards & Commission Section - Simplified */}
           <div className="mb-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Rewards Card */}
-              <div className="bg-[#1a1a1a] rounded-lg p-6 hover:bg-[#1a1a1a]/80 transition-all duration-200">
+              {/* Commissions & Rewards Card */}
+              <div className="bg-[#1a1a1a] rounded-lg p-6 hover:bg-[#1a1a1a]/80 transition-all duration-200 flex flex-col">
                 <div className="flex items-center gap-2 mb-6">
                   <Award className="w-5 h-5 text-blue-500" />
-                  <h2 className="text-xl font-bold text-white">Validator Rewards</h2>
+                  <h2 className="text-xl font-bold text-white">Commissions & Rewards</h2>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Total Rewards */}
-                  <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Total Rewards</p>
-                    <p className="text-2xl font-bold text-white mb-1">
-                      {(parseInt(validator?.tokens || '0') * 0.0001 / 1000000).toLocaleString(undefined, { 
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4 
-                      })}
+                <div className="space-y-6 flex-1">
+                  {/* Commissions */}
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">Commissions</p>
+                    <p className="text-3xl font-bold text-white">
+                      {commission} {selectedChain?.assets[0].symbol}
                     </p>
-                    <p className="text-blue-400 text-xs">{selectedChain?.assets[0].symbol}</p>
                   </div>
 
-                  {/* Claimable */}
-                  <div className="bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Claimable</p>
-                    <p className="text-2xl font-bold text-white mb-1">
-                      {(parseInt(validator?.tokens || '0') * 0.00005 / 1000000).toLocaleString(undefined, { 
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4 
-                      })}
+                  {/* Outstanding Rewards */}
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">Outstanding Rewards</p>
+                    <p className="text-3xl font-bold text-white">
+                      {rewards} {selectedChain?.assets[0].symbol}
                     </p>
-                    <p className="text-green-400 text-xs">{selectedChain?.assets[0].symbol}</p>
-                  </div>
-
-                  {/* Daily Rate */}
-                  <div className="bg-[#111111] border border-gray-800 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Daily Rate</p>
-                    <p className="text-2xl font-bold text-white mb-1">~12.5%</p>
-                    <p className="text-purple-400 text-xs">APR</p>
-                  </div>
-
-                  {/* Last Claim */}
-                  <div className="bg-[#111111] border border-gray-800 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Last Claim</p>
-                    <p className="text-lg font-bold text-white mb-1">N/A</p>
-                    <p className="text-orange-400 text-xs">Not Available</p>
                   </div>
                 </div>
+
+                {/* Claim Button - Show always but disable if not validator's wallet */}
+                <button
+                  onClick={async () => {
+                    if (!isConnected) {
+                      alert('Please connect your wallet first');
+                      return;
+                    }
+                    
+                    if (!selectedChain || !validator?.address || !account?.address) return;
+                    
+                    // Check if connected wallet is the validator
+                    if (account.address !== validator.accountAddress) {
+                      alert('You must be the validator to claim rewards and commission');
+                      return;
+                    }
+                    
+                    const hasRewards = parseFloat(rewards) > 0;
+                    const hasCommission = parseFloat(commission) > 0;
+                    
+                    if (!hasRewards && !hasCommission) {
+                      alert('No rewards or commission to claim');
+                      return;
+                    }
+                    
+                    setIsProcessing(true);
+                    setTxResult(null);
+                    
+                    try {
+                      const { executeWithdrawAll } = await import('@/lib/keplr');
+                      const result = await executeWithdrawAll(
+                        selectedChain,
+                        {
+                          delegatorAddress: account.address,
+                          validatorAddress: validator.address,
+                          hasRewards: hasRewards,
+                          hasCommission: hasCommission,
+                        },
+                        '400000',
+                        'Integrate WinScan'
+                      );
+                      
+                      setTxResult(result);
+                      
+                      if (result.success) {
+                        // Refresh data after successful claim
+                        setTimeout(() => {
+                          fetchValidatorData(false);
+                        }, 3000);
+                      }
+                    } catch (error: any) {
+                      setTxResult({ success: false, error: error.message });
+                    } finally {
+                      setIsProcessing(false);
+                    }
+                  }}
+                  disabled={isProcessing || !isConnected || (isConnected && account?.address && validator?.accountAddress && account.address !== validator.accountAddress) || (parseFloat(rewards) === 0 && parseFloat(commission) === 0)}
+                  className={`w-full px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                    isProcessing || !isConnected || (isConnected && account?.address && validator?.accountAddress && account.address !== validator.accountAddress) || (parseFloat(rewards) === 0 && parseFloat(commission) === 0)
+                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-50'
+                      : 'bg-white hover:bg-gray-100 text-black shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {isProcessing ? 'Processing...' : 'Claim Rewards & Commission'}
+                </button>
               </div>
 
-              {/* Commission Card */}
-              <div className="bg-[#1a1a1a] rounded-lg p-6 hover:bg-[#1a1a1a]/80 transition-all duration-200">
+              {/* Commission Rate Card */}
+              <div className="bg-[#1a1a1a] rounded-lg p-6 hover:bg-[#1a1a1a]/80 transition-all duration-200 flex flex-col">
                 <div className="flex items-center gap-2 mb-6">
                   <DollarSign className="w-5 h-5 text-green-500" />
-                  <h2 className="text-xl font-bold text-white">Commission Info</h2>
+                  <h2 className="text-xl font-bold text-white">Commission Rate</h2>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-6 flex-1">
                   {/* Current Rate */}
-                  <div className="bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Current Rate</p>
-                    <p className="text-3xl font-bold text-white mb-1">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">Current Rate</p>
+                    <p className="text-3xl font-bold text-white">
                       {isNaN(parseFloat(validator?.commission || '0')) 
                         ? '0.00' 
                         : (parseFloat(validator.commission) * 100).toFixed(2)
                       }%
                     </p>
-                    <p className="text-green-400 text-xs">Commission</p>
-                  </div>
-
-                  {/* Total Earned */}
-                  <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Total Earned</p>
-                    <p className="text-2xl font-bold text-white mb-1">
-                      {(parseInt(validator?.tokens || '0') * parseFloat(validator?.commission || '0') / 1000000).toLocaleString(undefined, { 
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4 
-                      })}
-                    </p>
-                    <p className="text-blue-400 text-xs">{selectedChain?.assets[0].symbol}</p>
                   </div>
 
                   {/* Max Rate */}
-                  <div className="bg-[#111111] border border-gray-800 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Max Rate</p>
-                    <p className="text-2xl font-bold text-white mb-1">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">Max Rate</p>
+                    <p className="text-2xl font-bold text-white">
                       {isNaN(parseFloat(validator?.maxCommission || '0')) 
                         ? '0.00' 
                         : (parseFloat(validator.maxCommission) * 100).toFixed(2)
                       }%
                     </p>
-                    <p className="text-red-400 text-xs">Maximum</p>
                   </div>
 
                   {/* Max Change */}
-                  <div className="bg-[#111111] border border-gray-800 rounded-lg p-4">
-                    <p className="text-gray-400 text-xs mb-2">Max Change</p>
-                    <p className="text-2xl font-bold text-white mb-1">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">Max Daily Change</p>
+                    <p className="text-2xl font-bold text-white">
                       {isNaN(parseFloat(validator?.maxChangeRate || '0')) 
                         ? '0.00' 
                         : (parseFloat(validator.maxChangeRate) * 100).toFixed(2)
                       }%
                     </p>
-                    <p className="text-yellow-400 text-xs">Per day</p>
                   </div>
                 </div>
                 
                 {/* Action Buttons - Only show if connected wallet is the validator */}
                 {isConnected && account?.address && validator?.accountAddress && 
                  account.address === validator.accountAddress && (
-                  <div className="mt-4 space-y-3">
+                  <div className="space-y-3">
                     {/* Edit Commission Button - Only if not jailed */}
                     {!validator.jailed && (
                       <button
@@ -1203,9 +1329,9 @@ export default function ValidatorDetailPage() {
                           setNewCommissionRate(validator.commission || '0');
                           setShowEditCommissionModal(true);
                         }}
-                        className="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 bg-white hover:bg-gray-100 text-black shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                         Edit Commission Rate
@@ -1216,9 +1342,9 @@ export default function ValidatorDetailPage() {
                     {validator.jailed && (
                       <button
                         onClick={() => setShowUnjailModal(true)}
-                        className="w-full px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                         </svg>
                         Unjail Validator

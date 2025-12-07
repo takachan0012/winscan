@@ -332,9 +332,9 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
   const symbol = selectedChain.assets?.[0]?.symbol || 'TOKEN';
 
   return (
-    <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
+    <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg h-[40px]">
       <div className="flex items-center gap-2">
-        <DollarSign className="w-4 h-4 text-blue-400" />
+        <DollarSign className="w-5 h-5 text-blue-400" />
         <span className="text-sm font-semibold text-gray-300">{symbol}</span>
         {isLoading && (
           <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
