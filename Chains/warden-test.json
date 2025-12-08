@@ -58,6 +58,17 @@
       "logo": "https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg"
     }
   ],
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "award",
+        "fixed_min_gas_price": 250000000,
+        "low_gas_price": 200000000000,
+        "average_gas_price": 250000000000,
+        "high_gas_price": 400000000000
+      }
+    ]
+  },
   "autocompound_operators": [
     {
       "moniker": "Winnode",

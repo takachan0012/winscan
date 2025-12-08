@@ -1,35 +1,16 @@
 {
-  "chain_name": "zenrock-mainnet",
-  "chain_id": "diamond-1",
+  "chain_name": "zenrock-testnet",
+  "chain_id": "gardia-9",
   "api": [
     {
-      "address": "https://api.diamond.zenrocklabs.io",
+      "address": "https://api.gardia.zenrocklabs.io",
       "provider": "Zenrock Labs"
-    },
-    {
-      "address": "https://api.zenrock.nodestake.org",
-      "provider": "NodeStake"
-    },
-    {
-      "address": "https://zenrock.api.m.stavr.tech",
-      "provider": "STAVR"
     }
   ],
   "rpc": [
     {
-      "address": "https://rpc.diamond.zenrocklabs.io",
-      "provider": "Zenrock Labs",
-      "tx_index": "on"
-    },
-    {
-      "address": "https://rpc.zenrock.nodestake.org",
-      "provider": "NodeStake",
-      "tx_index": "on"
-    },
-    {
-      "address": "https://zenrock-rpc.noders.services",
-      "provider": "Noders",
-      "tx_index": "on"
+      "address": "https://rpc.gardia.zenrocklabs.io",
+      "provider": "Zenrock Labs"
     }
   ],
   "sdk_version": "0.50.13",

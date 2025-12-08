@@ -1,45 +1,75 @@
 {
-    "chain_name": "lumera-test",
-    "chain_id": "lumera-testnet-2",
-    "api": [
-        {
-            "address": "https://lumera-testnet-api.polkachu.com",
-            "provider": "Polkachu"
-        },
-        {
-            "address": "https://lcd.testnet.lumera.io",
-            "provider": "Lumera Official"
-        }
-    ],
-    "rpc": [
-        {
-            "address": "https://lumera-testnet-rpc.polkachu.com",
-            "provider": "Polkachu"
-        },
-        {
-            "address": "https://rpc-lumera.winnode.xyz",
-            "provider": "Winnode"
-        }
-    ],
-    "sdk_version": "0.46.1",
-    "coin_type": "118",
-    "min_tx_fee": "800",
-    "assets": [{
-        "base": "ulume",
-        "symbol": "LUME",
-        "exponent": "6",
-        "logo": ""
-    }],
-    "addr_prefix": "lumera",
-    "bech32_prefix": "lumera",
-    "theme_color": "#812cd6",
-    "logo": "https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png",
-    "autocompound_operators": [
-        {
-            "moniker": "Winnode",
-            "validator_address": "lumeravaloper1h0c98tf2lynxtnp4dqh2wp03z4ca96ley0g2a5",
-            "grantee_address": "lumera1h0c98tf2lynxtnp4dqh2wp03z4ca96leycfsxr",
-            "supported": true
-        }
+  "chain_name": "lumera-test",
+  "chain_id": "lumera-testnet-2",
+  "pretty_name": "Lumera Testnet",
+  "network_type": "testnet",
+  "bech32_prefix": "lumera",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulume",
+        "fixed_min_gas_price": 800,
+        "low_gas_price": 800,
+        "average_gas_price": 1000,
+        "high_gas_price": 1200
+      }
     ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulume"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/lumera-protocol/lumera",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.46.1",
+    "tendermint_version": "0.34.0"
+  },
+  "api": [
+    {
+      "address": "https://api-lumera.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://lumera-testnet-api.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://lcd.testnet.lumera.io",
+      "provider": "Lumera Official"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc-lumera.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://lumera-testnet-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rpc.testnet.lumera.io",
+      "provider": "Lumera Official"
+    }
+  ],
+  "assets": [
+    {
+      "base": "ulume",
+      "symbol": "LUME",
+      "display": "LUME",
+      "exponent": "6",
+      "coingecko_id": "unknown",
+      "logo": "https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png"
+    }
+  ],
+  "theme_color": "#812cd6",
+  "logo": "https://pbs.twimg.com/profile_images/1914464060265127936/z2ONvvpp_400x400.png",
+  "explorers": [],
+  "updated": "2025-11-17"
 }

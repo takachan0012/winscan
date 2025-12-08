@@ -60,40 +60,22 @@
   ],
   "evm_rpc": [
     {
-      "address": "https://jsonrpc.uptick.nodestake.org",
-      "provider": "NodeStake"
-    },
-    {
       "address": "https://json-rpc.uptick.network",
       "provider": "Uptick Official"
     },
     {
-      "address": "https://uptick-mainnet-evm.itrocket.net",
-      "provider": "ITRocket"
+      "address": "https://jsonrpc.uptick.nodestake.org",
+      "provider": "NodeStake"
     },
     {
-      "address": "https://jsonrpc.nodejumper.io/uptick",
-      "provider": "NodeJumper"
+      "address": "https://uptick-mainnet-evm.itrocket.net",
+      "provider": "ITRocket"
     }
   ],
   "evm_wss": [
     {
-      "address": "wss://jsonrpc.uptick.nodestake.org/websocket",
-      "provider": "NodeStake"
-    },
-    {
       "address": "wss://ws-json-rpc.uptick.network",
       "provider": "Uptick Official"
-    }
-  ],
-  "grpc": [
-    {
-      "address": "uptick-mainnet-grpc.itrocket.net:18090",
-      "provider": "ITRocket"
-    },
-    {
-      "address": "grpc.uptick.nodestake.org:443",
-      "provider": "NodeStake"
     }
   ],
   "rpc": [
@@ -124,11 +106,11 @@
       "symbol": "UPTICK",
       "exponent": "18",
       "coingecko_id": "uptick",
-      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/uptick/images/uptick.jpg"
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/uptick/images/uptick.png"
     }
   ],
   "theme_color": "#1a1a2e",
-  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/uptick/images/uptick.jpg",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/uptick/images/uptick.png",
   "startBlock": 14776310,
   "updated": "2025-12-07"
 }

@@ -83,6 +83,11 @@ export default function AccountsPage() {
   const [unjailLoading, setUnjailLoading] = useState(false);
   const [showUnjailResult, setShowUnjailResult] = useState(false);
   const [unjailResult, setUnjailResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
+  
+  // Unbonding delegations state
+  const [unbondingDelegations, setUnbondingDelegations] = useState<any[]>([]);
+  const [totalUnbonding, setTotalUnbonding] = useState<string>('0');
+  const [unbondingTimes, setUnbondingTimes] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     fetch('/api/chains')
@@ -178,7 +183,105 @@ export default function AccountsPage() {
     };
 
     fetchData();
+    
+    // Fetch unbonding delegations
+    if (connectedAddress) {
+      fetchUnbondingDelegations(connectedAddress);
+    }
   }, [connectedAddress, selectedChain]);
+
+  // Fetch unbonding delegations
+  const fetchUnbondingDelegations = async (delegatorAddress: string) => {
+    if (!selectedChain?.api || selectedChain.api.length === 0) return;
+
+    const asset = selectedChain.assets?.[0];
+    if (!asset) return;
+
+    try {
+      for (const endpoint of selectedChain.api) {
+        try {
+          const unbondingUrl = `${endpoint.address}/cosmos/staking/v1beta1/delegators/${delegatorAddress}/unbonding_delegations`;
+          const res = await fetch(unbondingUrl);
+          
+          if (res.ok) {
+            const data = await res.json();
+            const unbondingResponses = data.unbonding_responses || [];
+            
+            setUnbondingDelegations(unbondingResponses);
+            
+            // Calculate total unbonding
+            let total = 0;
+            unbondingResponses.forEach((unbonding: any) => {
+              if (Array.isArray(unbonding.entries)) {
+                unbonding.entries.forEach((entry: any) => {
+                  total += parseFloat(entry.balance || '0');
+                });
+              }
+            });
+            
+            const formatted = (total / Math.pow(10, Number(asset.exponent))).toFixed(2);
+            setTotalUnbonding(formatted);
+            break;
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching unbonding delegations:', error);
+    }
+  };
+
+  // Function to calculate time remaining
+  const getTimeRemaining = (completionTime: string) => {
+    const now = new Date().getTime();
+    const completion = new Date(completionTime).getTime();
+    const diff = completion - now;
+
+    if (diff <= 0) return 'Completed';
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const parts = [];
+    if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+    if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+    if (minutes > 0) parts.push(`${minutes} minute${minutes > 1 ? 's' : ''}`);
+    if (seconds > 0) parts.push(`${seconds} second${seconds > 1 ? 's' : ''}`);
+
+    return parts.join(' ') || 'Less than a second';
+  };
+
+  // Update countdown timers every second
+  useEffect(() => {
+    if (unbondingDelegations.length === 0) return;
+
+    const updateTimers = () => {
+      const newTimes = new Map<string, string>();
+      unbondingDelegations.forEach((unbonding, idx) => {
+        if (Array.isArray(unbonding.entries)) {
+          const earliestEntry = unbonding.entries.reduce((earliest: any, entry: any) => {
+            if (!earliest || new Date(entry.completion_time) < new Date(earliest.completion_time)) {
+              return entry;
+            }
+            return earliest;
+          }, null);
+          
+          if (earliestEntry) {
+            newTimes.set(`${unbonding.validator_address}-${idx}`, getTimeRemaining(earliestEntry.completion_time));
+          }
+        }
+      });
+      setUnbondingTimes(newTimes);
+    };
+
+    updateTimers();
+    const interval = setInterval(updateTimers, 1000);
+
+    return () => clearInterval(interval);
+  }, [unbondingDelegations]);
 
   const chainPath = selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '';
 
@@ -708,6 +811,68 @@ export default function AccountsPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Unbonding Delegations */}
+              {unbondingDelegations.length > 0 && (
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                  <h2 className="text-xl font-bold text-white mb-4">
+                    Unbonding Delegations ({unbondingDelegations.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {unbondingDelegations.map((unbonding: any, idx) => {
+                      const validatorAddr = unbonding.validator_address || '';
+                      const asset = selectedChain?.assets?.[0];
+                      
+                      return (
+                        <div key={idx} className="bg-[#0f0f0f] border border-orange-800/30 rounded-lg p-4">
+                          <div className="flex items-center justify-between gap-4 mb-3">
+                            <div className="flex-1">
+                              <p className="text-gray-400 text-sm mb-1">Validator</p>
+                              <Link 
+                                href={`/${chainPath}/validators/${validatorAddr}`}
+                                className="text-white hover:text-orange-400 font-medium transition-colors"
+                              >
+                                {validatorAddr.slice(0, 20)}...{validatorAddr.slice(-10)}
+                              </Link>
+                            </div>
+                          </div>
+                          
+                          {Array.isArray(unbonding.entries) && unbonding.entries.map((entry: any, entryIdx: number) => {
+                            const amount = parseFloat(entry.balance || '0');
+                            const formatted = (amount / Math.pow(10, Number(asset?.exponent || 6))).toFixed(2);
+                            
+                            return (
+                              <div key={entryIdx} className="flex items-center justify-between p-3 bg-[#111111] rounded-lg mb-2 last:mb-0">
+                                <div className="flex-1">
+                                  <p className="text-orange-500 font-semibold text-lg">
+                                    {formatted} {asset?.symbol}
+                                  </p>
+                                  {entry.completion_time && (
+                                    <p className="text-gray-500 text-xs mt-1">
+                                      {getTimeRemaining(entry.completion_time)}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-gray-400 text-xs">Completion</p>
+                                  <p className="text-gray-300 text-sm">
+                                    {new Date(entry.completion_time).toLocaleDateString('en-US', { 
+                                      month: 'short', 
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -119,6 +119,12 @@ export default function ValidatorDetailPage() {
   const [sendMemo, setSendMemo] = useState('Integrate WinScan');
   const [isSending, setIsSending] = useState(false);
   const [sendTxResult, setSendTxResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
+  
+  // Validator's own delegation info (self-delegation) for Voting Power section
+  const [validatorDelegation, setValidatorDelegation] = useState<string>('0');
+  const [validatorUnbonding, setValidatorUnbonding] = useState<string>('0');
+  const [unbondingCompletionTime, setUnbondingCompletionTime] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
 
   const chainPath = useMemo(() => 
     selectedChain ? selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-') : '',
@@ -150,6 +156,28 @@ export default function ValidatorDetailPage() {
         });
     }
   }, [params]);
+
+  // Function to calculate time remaining until unbonding completion
+  const getTimeRemaining = (completionTime: string) => {
+    const now = new Date().getTime();
+    const completion = new Date(completionTime).getTime();
+    const diff = completion - now;
+
+    if (diff <= 0) return 'Completed';
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const parts = [];
+    if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+    if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+    if (minutes > 0) parts.push(`${minutes} minute${minutes > 1 ? 's' : ''}`);
+    if (seconds > 0) parts.push(`${seconds} second${seconds > 1 ? 's' : ''}`);
+
+    return parts.join(' ') || 'Less than a second';
+  };
 
   const fetchValidatorData = useCallback(async (showLoading = true) => {
     if (!selectedChain || !params?.address) return;
@@ -441,6 +469,16 @@ export default function ValidatorDetailPage() {
     }
   }, [showStakeModal, account?.address, validator?.address, selectedChain?.chain_id]);
 
+  // Fetch validator's own delegation info (self-delegation) for Voting Power section
+  useEffect(() => {
+    if (validator?.accountAddress && selectedChain) {
+      fetchValidatorDelegationInfo(validator.address, validator.accountAddress);
+    } else {
+      setValidatorDelegation('0');
+      setValidatorUnbonding('0');
+    }
+  }, [validator?.address, validator?.accountAddress, selectedChain?.chain_id]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -451,6 +489,23 @@ export default function ValidatorDetailPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showValidatorList]);
+
+  // Update countdown timer every second
+  useEffect(() => {
+    if (!unbondingCompletionTime) {
+      setTimeRemaining('');
+      return;
+    }
+
+    const updateTimer = () => {
+      setTimeRemaining(getTimeRemaining(unbondingCompletionTime));
+    };
+
+    updateTimer(); // Initial update
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [unbondingCompletionTime]);
 
   useEffect(() => {
     if (!showStakeModal) {
@@ -672,6 +727,112 @@ export default function ValidatorDetailPage() {
       setBalance('0.000');
       setRewards('0.000');
       setCommission('0.000');
+    }
+  };
+
+  const fetchValidatorDelegationInfo = async (validatorAddress: string, delegatorAddress: string) => {
+    if (!selectedChain) return;
+
+    const asset = selectedChain.assets?.[0];
+    if (!asset) return;
+
+    // Fetch delegation
+    try {
+      if (selectedChain.api && selectedChain.api.length > 0) {
+        for (const endpoint of selectedChain.api) {
+          try {
+            const delegationUrl = `${endpoint.address}/cosmos/staking/v1beta1/delegations/${delegatorAddress}`;
+            const res = await fetch(delegationUrl);
+            if (res.ok) {
+              const data = await res.json();
+              const delegations = data.delegation_responses || [];
+              const myDelegation = delegations.find((d: any) => d.delegation?.validator_address === validatorAddress);
+              
+              if (myDelegation && myDelegation.balance) {
+                const amount = parseFloat(myDelegation.balance.amount || '0');
+                const formatted = (amount / Math.pow(10, Number(asset.exponent))).toFixed(2);
+                setValidatorDelegation(formatted);
+              } else {
+                setValidatorDelegation('0');
+              }
+              break;
+            }
+          } catch (error) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      setValidatorDelegation('0');
+    }
+
+    // Fetch unbonding delegations
+    try {
+      if (selectedChain.api && selectedChain.api.length > 0) {
+        for (const endpoint of selectedChain.api) {
+          try {
+            // Try specific endpoint first
+            let unbondingUrl = `${endpoint.address}/cosmos/staking/v1beta1/delegators/${delegatorAddress}/unbonding_delegations/${validatorAddress}`;
+            let res = await fetch(unbondingUrl);
+            
+            // If not implemented (code 12), try getting all unbonding delegations and filter
+            if (!res.ok || res.status === 501) {
+              unbondingUrl = `${endpoint.address}/cosmos/staking/v1beta1/delegators/${delegatorAddress}/unbonding_delegations`;
+              res = await fetch(unbondingUrl);
+            }
+            
+            if (res.ok) {
+              const data = await res.json();
+              console.log('Unbonding API Response:', data);
+              
+              // Handle different response structures
+              let unbondingDelegations = [];
+              if (Array.isArray(data.unbonding_responses)) {
+                unbondingDelegations = data.unbonding_responses;
+              } else if (data.result && Array.isArray(data.result)) {
+                unbondingDelegations = data.result;
+              }
+              
+              // Filter for this validator
+              const validatorUnbonding = unbondingDelegations.find(
+                (u: any) => u.validator_address === validatorAddress
+              );
+              
+              let totalUnbonding = 0;
+              let earliestCompletionTime: string | null = null;
+              
+              if (validatorUnbonding && Array.isArray(validatorUnbonding.entries)) {
+                validatorUnbonding.entries.forEach((entry: any) => {
+                  totalUnbonding += parseFloat(entry.balance || '0');
+                  
+                  // Track earliest completion time
+                  if (entry.completion_time) {
+                    if (!earliestCompletionTime || new Date(entry.completion_time) < new Date(earliestCompletionTime)) {
+                      earliestCompletionTime = entry.completion_time;
+                    }
+                  }
+                });
+              }
+              
+              console.log('Total Unbonding:', totalUnbonding);
+              console.log('Earliest Completion Time:', earliestCompletionTime);
+              
+              const formatted = (totalUnbonding / Math.pow(10, Number(asset.exponent))).toFixed(2);
+              console.log('Total Unbonding Formatted:', formatted);
+              setValidatorUnbonding(formatted);
+              setUnbondingCompletionTime(earliestCompletionTime);
+              break;
+            }
+          } catch (error) {
+            console.error('Error fetching unbonding:', error);
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Unbonding fetch error:', error);
+      setValidatorUnbonding('0');
+      setUnbondingCompletionTime(null);
     }
   };
 
@@ -1174,6 +1335,30 @@ export default function ValidatorDetailPage() {
                       : parseFloat(validator.votingPowerPercentage).toFixed(2)
                     }%
                   </p>
+                </div>
+              </div>
+
+              {/* Validator's Self-Delegation Info */}
+              <div className="mt-4 pt-4 border-t border-gray-800">
+                <h3 className="text-sm font-semibold text-gray-400 mb-3">Validator's Delegation</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[#111111] rounded-lg p-3 hover:bg-[#111111]/70 transition-all duration-200">
+                    <p className="text-gray-400 text-xs font-medium mb-1">Delegated</p>
+                    <p className="text-green-500 font-bold text-base">
+                      {validatorDelegation} {selectedChain?.assets[0].symbol}
+                    </p>
+                  </div>
+                  <div className="bg-[#111111] rounded-lg p-3 hover:bg-[#111111]/70 transition-all duration-200">
+                    <p className="text-gray-400 text-xs font-medium mb-1">Unbonding</p>
+                    <p className="text-orange-500 font-bold text-base">
+                      {validatorUnbonding} {selectedChain?.assets[0].symbol}
+                    </p>
+                    {timeRemaining && parseFloat(validatorUnbonding) > 0 && (
+                      <p className="text-gray-500 text-xs mt-1">
+                        {timeRemaining}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

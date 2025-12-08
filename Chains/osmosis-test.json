@@ -1,0 +1,62 @@
+{
+  "chain_name": "osmosis-test",
+  "chain_id": "osmo-test-5",
+  "pretty_name": "Osmosis Testnet",
+  "network_type": "testnet",
+  "bech32_prefix": "osmo",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uosmo",
+        "fixed_min_gas_price": 0.0025,
+        "low_gas_price": 0.0025,
+        "average_gas_price": 0.005,
+        "high_gas_price": 0.01
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uosmo"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/osmosis-labs/osmosis",
+    "recommended_version": "v28.0.0",
+    "compatible_versions": ["v28.0.0"],
+    "cosmos_sdk_version": "0.47.13",
+    "tendermint_version": "0.37.0"
+  },
+  "api": [
+    {
+      "address": "https://lcd.osmotest5.osmosis.zone",
+      "provider": "Osmosis"
+    },
+    {
+      "address": "https://osmosis-testnet-cosmos.reliableninjas.com",
+      "provider": "Reliable Ninjas"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc.osmotest5.osmosis.zone",
+      "provider": "Osmosis"
+    }
+  ],
+  "assets": [
+    {
+      "base": "uosmo",
+      "symbol": "OSMO",
+      "exponent": "6",
+      "coingecko_id": "",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.png"
+    }
+  ],
+  "theme_color": "#5E12A0",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.png",
+  "explorers": [],
+  "updated": "2025-11-21"
+}

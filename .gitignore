@@ -48,3 +48,6 @@ autocompound-bot/dist
 autocompound-bot/logs
 autocompound-bot/node_modules
 autocompound-bot/.env
+
+# Telegram monitor bot (not for public)
+telegram-monitor-bot/

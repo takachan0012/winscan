@@ -9,10 +9,10 @@
     "fee_tokens": [
       {
         "denom": "upaxi",
-        "fixed_min_gas_price": 0.06,
-        "low_gas_price": 0.06,
-        "average_gas_price": 0.1,
-        "high_gas_price": 0.15
+        "fixed_min_gas_price": 0.1,
+        "low_gas_price": 0.1,
+        "average_gas_price": 0.15,
+        "high_gas_price": 0.2
       }
     ]
   },
