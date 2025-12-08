@@ -2194,18 +2194,20 @@ export default function ValidatorDetailPage() {
                       New Commission Rate (%)
                     </label>
                     <input
-                      type="number"
-                      value={(parseFloat(newCommissionRate) * 100).toFixed(2)}
+                      type="text"
+                      inputMode="decimal"
+                      value={newCommissionRate ? (parseFloat(newCommissionRate) * 100).toFixed(2) : ''}
                       onChange={(e) => {
-                        const percentValue = parseFloat(e.target.value) || 0;
-                        const decimalValue = (percentValue / 100).toString();
-                        setNewCommissionRate(decimalValue);
+                        const value = e.target.value;
+                        // Allow typing decimal numbers
+                        if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                          const percentValue = parseFloat(value) || 0;
+                          const decimalValue = (percentValue / 100).toString();
+                          setNewCommissionRate(decimalValue);
+                        }
                       }}
-                      step="0.01"
-                      min="0"
-                      max={validator.maxCommission ? (parseFloat(validator.maxCommission) * 100).toString() : "100"}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                      placeholder="Enter new commission rate"
+                      placeholder="e.g., 5.00 for 5%"
                     />
                     <p className="text-xs text-gray-500 mt-2">
                       Enter the new commission rate as a percentage (e.g., 5 for 5%)
@@ -2218,14 +2220,18 @@ export default function ValidatorDetailPage() {
                       const currentRate = parseFloat(validator.commission || '0');
                       const newRate = parseFloat(newCommissionRate);
                       const maxChange = parseFloat(validator.maxChangeRate);
-                      const change = Math.abs(newRate - currentRate);
+                      const change = newRate - currentRate;
                       
-                      if (change > maxChange) {
+                      // Only validate if increasing commission (Cosmos allows unlimited decreases)
+                      if (change > 0 && change > maxChange) {
                         return (
                           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
-                            <p className="font-medium mb-1">⚠️ Change exceeds maximum allowed</p>
+                            <p className="font-medium mb-1">⚠️ Increase exceeds maximum allowed</p>
                             <p>
-                              You're trying to change by {(change * 100).toFixed(2)}%, but max allowed is {(maxChange * 100).toFixed(2)}% per day.
+                              You're trying to increase by {(change * 100).toFixed(2)}%, but max allowed is {(maxChange * 100).toFixed(2)}% per day.
+                            </p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              Note: Commission decreases have no limit
                             </p>
                           </div>
                         );
@@ -2254,13 +2260,14 @@ export default function ValidatorDetailPage() {
                         const currentRate = parseFloat(validator.commission || '0');
                         const newRate = parseFloat(newCommissionRate);
                         
-                        // Validate max change rate
+                        // Validate max change rate (only for increases, decreases are unlimited)
                         if (validator.maxChangeRate) {
                           const maxChange = parseFloat(validator.maxChangeRate);
-                          const change = Math.abs(newRate - currentRate);
+                          const change = newRate - currentRate;
                           
-                          if (change > maxChange) {
-                            setConfirmMessage(`Commission change of ${(change * 100).toFixed(2)}% exceeds maximum allowed ${(maxChange * 100).toFixed(2)}% per day`);
+                          // Only block if increasing above max change
+                          if (change > 0 && change > maxChange) {
+                            setConfirmMessage(`Commission increase of ${(change * 100).toFixed(2)}% exceeds maximum allowed ${(maxChange * 100).toFixed(2)}% per day. Decreases have no limit.`);
                             setShowConfirmModal(true);
                             return;
                           }

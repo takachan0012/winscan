@@ -205,11 +205,11 @@ export default function ProposalDetailPage() {
     return new Date(dateString).toLocaleString();
   };
 
-  const calculateVotePercentage = (votes: string, total: string) => {
+  const calculateVotePercentage = (votes: string, total: string): number => {
     const v = parseInt(votes);
     const t = parseInt(total);
     if (t === 0) return 0;
-    return ((v / t) * 100).toFixed(2);
+    return parseFloat(((v / t) * 100).toFixed(2));
   };
 
   const getVoteOption = (option: string | number) => {
@@ -332,13 +332,13 @@ export default function ProposalDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="xl:col-span-2 space-y-6">
               {/* Description */}
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
                 <h2 className="text-xl font-bold text-white mb-4">{t('proposalDetail.description')}</h2>
-                <div className="text-gray-300 whitespace-pre-wrap">{proposal.description}</div>
+                <div className="text-gray-300 whitespace-pre-wrap break-words">{proposal.description}</div>
               </div>
 
               {/* Messages */}
@@ -349,7 +349,7 @@ export default function ProposalDetailPage() {
                     {proposal.messages.map((msg, idx) => (
                       <div key={idx} className="bg-[#0f0f0f] rounded-lg p-4">
                         <p className="text-blue-400 text-sm mb-2">{msg['@type']?.split('.').pop() || 'Unknown'}</p>
-                        <pre className="text-xs text-gray-300 overflow-x-auto">
+                        <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap break-words">
                           {JSON.stringify(msg, null, 2)}
                         </pre>
                       </div>
@@ -371,13 +371,13 @@ export default function ProposalDetailPage() {
                     <div className="flex justify-between mb-1">
                       <span className="text-sm text-white">{t('proposalDetail.yes')}</span>
                       <span className="text-sm text-gray-400">
-                        {calculateVotePercentage(proposal.tally.yes || '0', totalVotes.toString())}%
+                        {Math.min(100, calculateVotePercentage(proposal.tally.yes || '0', totalVotes.toString())).toFixed(2)}%
                       </span>
                     </div>
-                    <div className="w-full bg-[#0f0f0f] rounded-full h-2">
+                    <div className="w-full bg-[#0f0f0f] rounded-full h-2 overflow-hidden">
                       <div 
                         className="bg-green-500 h-2 rounded-full transition-all"
-                        style={{ width: `${calculateVotePercentage(proposal.tally.yes || '0', totalVotes.toString())}%` }}
+                        style={{ width: `${Math.min(100, calculateVotePercentage(proposal.tally.yes || '0', totalVotes.toString()))}%` }}
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1">{parseInt(proposal.tally.yes || '0').toLocaleString()} {t('proposalDetail.votes')}</p>
@@ -388,13 +388,13 @@ export default function ProposalDetailPage() {
                     <div className="flex justify-between mb-1">
                       <span className="text-sm text-white">{t('proposalDetail.no')}</span>
                       <span className="text-sm text-gray-400">
-                        {calculateVotePercentage(proposal.tally.no || '0', totalVotes.toString())}%
+                        {Math.min(100, calculateVotePercentage(proposal.tally.no || '0', totalVotes.toString())).toFixed(2)}%
                       </span>
                     </div>
-                    <div className="w-full bg-[#0f0f0f] rounded-full h-2">
+                    <div className="w-full bg-[#0f0f0f] rounded-full h-2 overflow-hidden">
                       <div 
                         className="bg-red-500 h-2 rounded-full transition-all"
-                        style={{ width: `${calculateVotePercentage(proposal.tally.no || '0', totalVotes.toString())}%` }}
+                        style={{ width: `${Math.min(100, calculateVotePercentage(proposal.tally.no || '0', totalVotes.toString()))}%` }}
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1">{parseInt(proposal.tally.no || '0').toLocaleString()} {t('proposalDetail.votes')}</p>
@@ -405,13 +405,13 @@ export default function ProposalDetailPage() {
                     <div className="flex justify-between mb-1">
                       <span className="text-sm text-white">{t('proposalDetail.noWithVeto')}</span>
                       <span className="text-sm text-gray-400">
-                        {calculateVotePercentage(proposal.tally.veto || '0', totalVotes.toString())}%
+                        {Math.min(100, calculateVotePercentage(proposal.tally.veto || '0', totalVotes.toString())).toFixed(2)}%
                       </span>
                     </div>
-                    <div className="w-full bg-[#0f0f0f] rounded-full h-2">
+                    <div className="w-full bg-[#0f0f0f] rounded-full h-2 overflow-hidden">
                       <div 
                         className="bg-orange-500 h-2 rounded-full transition-all"
-                        style={{ width: `${calculateVotePercentage(proposal.tally.veto || '0', totalVotes.toString())}%` }}
+                        style={{ width: `${Math.min(100, calculateVotePercentage(proposal.tally.veto || '0', totalVotes.toString()))}%` }}
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1">{parseInt(proposal.tally.veto || '0').toLocaleString()} {t('proposalDetail.votes')}</p>
@@ -422,13 +422,13 @@ export default function ProposalDetailPage() {
                     <div className="flex justify-between mb-1">
                       <span className="text-sm text-white">{t('proposalDetail.abstain')}</span>
                       <span className="text-sm text-gray-400">
-                        {calculateVotePercentage(proposal.tally.abstain || '0', totalVotes.toString())}%
+                        {Math.min(100, calculateVotePercentage(proposal.tally.abstain || '0', totalVotes.toString())).toFixed(2)}%
                       </span>
                     </div>
-                    <div className="w-full bg-[#0f0f0f] rounded-full h-2">
+                    <div className="w-full bg-[#0f0f0f] rounded-full h-2 overflow-hidden">
                       <div 
                         className="bg-gray-500 h-2 rounded-full transition-all"
-                        style={{ width: `${calculateVotePercentage(proposal.tally.abstain || '0', totalVotes.toString())}%` }}
+                        style={{ width: `${Math.min(100, calculateVotePercentage(proposal.tally.abstain || '0', totalVotes.toString()))}%` }}
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1">{parseInt(proposal.tally.abstain || '0').toLocaleString()} {t('proposalDetail.votes')}</p>

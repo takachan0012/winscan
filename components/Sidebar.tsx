@@ -332,31 +332,28 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
 
         {/* Telegram Monitor Bot */}
         {!collapsed && (
-          <div className="px-4 pb-3 border-t border-gray-800 pt-3">
+          <div className="px-4 pb-2 border-t border-gray-800 pt-2">
             <a
               href="https://t.me/winscan_monitor_bot"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-start gap-3 p-3 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg hover:border-blue-500/40 transition-all duration-200 group"
+              className="flex items-center gap-2 p-2 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg hover:border-blue-500/40 transition-all duration-200 group"
             >
-              <div className="flex-shrink-0 mt-0.5">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
-                  <Send className="w-5 h-5 text-blue-400" />
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                  <Send className="w-4 h-4 text-blue-400" />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-1">
-                  Telegram Monitor Bot
-                  <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">Live</span>
+                <h3 className="text-xs font-semibold text-white flex items-center gap-1">
+                  Telegram Bot
+                  <span className="text-[9px] px-1 py-0.5 bg-green-500/20 text-green-400 rounded">Live</span>
                 </h3>
-                <p className="text-xs text-gray-400 leading-relaxed mb-2">
-                  Get real-time blockchain alerts directly to your Telegram. Monitor validators, transactions, and network status.
+                <p className="text-[10px] text-gray-400">
+                  Real-time alerts & monitoring
                 </p>
-                <div className="flex items-center gap-1 text-[11px] text-blue-400 font-medium group-hover:text-blue-300 transition-colors">
-                  <span>Start Monitoring</span>
-                  <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                </div>
               </div>
+              <ChevronRight className="w-3 h-3 text-blue-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
             </a>
           </div>
         )}
