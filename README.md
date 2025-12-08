@@ -54,7 +54,7 @@
 - 🔗 **Direct Voting Links** - One-click buttons to vote on WinScan
 - 🚀 **High Performance** - Parallel API requests, backend proxy optimization
 
-**🔗 Try Now:** [@WinScanMonitorBot](https://t.me/WinScanMonitorBot)
+**🔗 Try Now:** [@winscan_monitor_bot](https://t.me/winscan_monitor_bot)
 
 ## 🚀 Quick Start
 
@@ -130,7 +130,42 @@ The Telegram Monitor Bot provides instant notifications for validator performanc
 /help        - Show all commands
 ```
 
-**🔗 Start Monitoring:** [@WinScanMonitorBot](https://t.me/WinScanMonitorBot)
+**Example Alerts:**
+
+*Missed Blocks Alert:*
+```
+⚠️ MISSED BLOCKS ALERT ⚠️
+
+┌─ 🔗 Chain: AtomOne Mainnet
+├─ 👤 Validator: WinSnip Validator
+├─ 📍 Address: atonevaloper1xxx...
+└─ ⚡ Missed: 50 blocks
+
+🚨 Action Required!
+Your validator has missed 50 blocks.
+Please check your validator node immediately.
+
+⏰ Alert will not repeat for 1 hour
+```
+
+*Governance Proposal Alert:*
+```
+🗳️ NEW GOVERNANCE PROPOSAL 🗳️
+
+┌─ 🔗 Chain: AtomOne Mainnet
+├─ 🏷️ Proposal ID: #19
+├─ 📝 Title: Update dynamic min deposit
+├─ 💬 Description: During the v3 upgrade...
+└─ 🗓️ Voting Period: 12/11/2025 ➜ 4 day(s) left
+
+📢 Cast Your Vote!
+Participate in governance to shape the future of AtomOne Mainnet.
+
+[🗳️ Vote on WinScan]
+⏱️ Don't miss the voting deadline!
+```
+
+**🔗 Start Monitoring:** [@winscan_monitor_bot](https://t.me/winscan_monitor_bot)
 
 **📚 Full Documentation:** [telegram-monitor-bot/README.md](telegram-monitor-bot/README.md)
 
@@ -219,7 +254,7 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 ## 📞 Support
 
 - 🌐 Website: [winsnip.xyz](https://winsnip.xyz)
-- 🤖 Telegram Bot: [@WinScanMonitorBot](https://t.me/WinScanMonitorBot)
+- 🤖 Telegram Bot: [@winscan_monitor_bot](https://t.me/winscan_monitor_bot)
 - 🐦 Twitter: [@winsnip](https://twitter.com/winsnip)
 - 💬 Telegram: [t.me/winsnip](https://t.me/winsnip)
 - 💻 GitHub: [github.com/winsnip-official](https://github.com/winsnip-official)
