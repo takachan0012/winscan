@@ -8,6 +8,10 @@
   [![Website](https://img.shields.io/badge/Website-winsnip.xyz-blue?style=for-the-badge)](https://winsnip.xyz)
   [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
   [![Twitter](https://img.shields.io/badge/Twitter-@winsnip-1DA1F2?style=for-the-badge)](https://twitter.com/winsnip)
+  
+  [![Security Audit](https://github.com/winsnip-official/winscan/actions/workflows/audit.yml/badge.svg)](https://github.com/winsnip-official/winscan/actions/workflows/audit.yml)
+  [![CodeQL](https://github.com/winsnip-official/winscan/actions/workflows/audit.yml/badge.svg?event=push)](https://github.com/winsnip-official/winscan/security/code-scanning)
+  [![CI/CD](https://github.com/winsnip-official/winscan/actions/workflows/ci.yml/badge.svg)](https://github.com/winsnip-official/winscan/actions/workflows/ci.yml)
 </div>
 
 ## ✨ Features
