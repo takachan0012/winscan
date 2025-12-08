@@ -152,7 +152,7 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
         </div>
         
         {/* Center: Search Bar */}
-        <form onSubmit={handleSearch} className="flex-1 max-w-md hidden lg:block ml-6">
+        <form onSubmit={handleSearch} className="flex-1 max-w-2xl hidden lg:block ml-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input

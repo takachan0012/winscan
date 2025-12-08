@@ -54,13 +54,8 @@ export default function LatestBlocksHeader({ selectedChain }: LatestBlocksHeader
       }
     };
 
-    // Initial fetch
+    // Initial fetch only
     fetchBlocks();
-
-    // Auto-refresh every 6 seconds
-    const interval = setInterval(fetchBlocks, 6000);
-
-    return () => clearInterval(interval);
   }, [selectedChain]);
 
   if (!selectedChain) {
