@@ -48,23 +48,51 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
 
   const loadAssetMetadata = async () => {
     try {
-      const res = await fetch(`/api/assets?chain=${chainName}`);
-      if (res.ok) {
-        const assetsData = await res.json();
-        const asset = assetsData.metadatas?.find((a: any) => a.base === denom);
-        if (asset) {
-          let logo = asset.logo || asset.uri;
+      // Check if PRC20 token
+      const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
+      
+      if (isPRC20) {
+        // Fetch PRC20 token info and marketing info
+        const [tokenInfoRes, marketingInfoRes] = await Promise.all([
+          fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`),
+          fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=marketing_info`)
+        ]);
+        
+        if (tokenInfoRes.ok && marketingInfoRes.ok) {
+          const tokenInfo = await tokenInfoRes.json();
+          const marketingInfo = await marketingInfoRes.json();
           
-          // If no logo found, use chain registry URL
-          if (!logo && asset.symbol) {
-            logo = getChainRegistryLogoUrl(chainName, asset.symbol);
+          let logo = marketingInfo?.logo?.url || '';
+          if (logo.startsWith('ipfs://')) {
+            logo = `https://ipfs.io/ipfs/${logo.replace('ipfs://', '')}`;
           }
           
           setAssetMetadata({
             logo,
-            symbol: asset.symbol || asset.name,
-            name: asset.name
+            symbol: tokenInfo.symbol || 'PRC20',
+            name: tokenInfo.name || marketingInfo.project || 'PRC20 Token'
           });
+        }
+      } else {
+        // Regular asset metadata
+        const res = await fetch(`/api/assets?chain=${chainName}`);
+        if (res.ok) {
+          const assetsData = await res.json();
+          const asset = assetsData.metadatas?.find((a: any) => a.base === denom);
+          if (asset) {
+            let logo = asset.logo || asset.uri;
+            
+            // If no logo found, use chain registry URL
+            if (!logo && asset.symbol) {
+              logo = getChainRegistryLogoUrl(chainName, asset.symbol);
+            }
+            
+            setAssetMetadata({
+              logo,
+              symbol: asset.symbol || asset.name,
+              name: asset.name
+            });
+          }
         }
       }
     } catch (error) {
@@ -75,20 +103,107 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
   const loadHolders = async () => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&limit=200&_t=${Date.now()}`,
-        { cache: 'no-store' }
-      );
       
-      if (res.ok) {
-        const holdersData = await res.json();
-        console.log('=== FULL RESPONSE ===', JSON.stringify(holdersData, null, 2));
-        console.log('Holders array:', holdersData.holders);
-        console.log('Holders length:', holdersData.holders?.length);
-        console.log('First holder:', holdersData.holders?.[0]);
-        setData(holdersData);
+      // Check if it's a PRC20 contract
+      const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
+      
+      if (isPRC20) {
+        // For PRC20, query all_accounts and then get balances
+        const accountsRes = await fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=all_accounts`);
+        
+        if (accountsRes.ok) {
+          const accountsData = await accountsRes.json();
+          const accounts = accountsData.accounts || [];
+          
+          // Fetch balances for each account (limit to first 50 for performance)
+          const accountsToFetch = accounts.slice(0, 50);
+          const holdersWithBalance = await Promise.all(
+            accountsToFetch.map(async (address: string) => {
+              try {
+                const balanceRes = await fetch(
+                  `/api/prc20-balance?contract=${encodeURIComponent(denom)}&address=${encodeURIComponent(address)}`
+                );
+                
+                if (balanceRes.ok) {
+                  const balanceData = await balanceRes.json();
+                  return {
+                    address: address,
+                    balance: balanceData.balance || '0',
+                    percentage: 0
+                  };
+                }
+              } catch (err) {
+                console.error(`Error fetching balance for ${address}:`, err);
+              }
+              
+              return {
+                address: address,
+                balance: '0',
+                percentage: 0
+              };
+            })
+          );
+          
+          // Get token info for total supply to calculate percentages
+          const tokenInfoRes = await fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`);
+          let totalSupply = '0';
+          
+          if (tokenInfoRes.ok) {
+            const tokenInfo = await tokenInfoRes.json();
+            totalSupply = tokenInfo.total_supply || '0';
+          }
+          
+          // Calculate percentages
+          const totalSupplyNum = BigInt(totalSupply);
+          const holdersWithPercentage = holdersWithBalance.map(holder => ({
+            ...holder,
+            percentage: totalSupplyNum > 0 
+              ? (Number(BigInt(holder.balance) * BigInt(10000) / totalSupplyNum) / 100)
+              : 0
+          }));
+          
+          // Sort by balance descending
+          holdersWithPercentage.sort((a, b) => {
+            const balA = BigInt(a.balance);
+            const balB = BigInt(b.balance);
+            return balA > balB ? -1 : balA < balB ? 1 : 0;
+          });
+          
+          setData({
+            denom: denom,
+            totalSupply: totalSupply,
+            holders: holdersWithPercentage,
+            count: accounts.length,
+            message: 'PRC20 token holders',
+            note: `Showing top ${holdersWithPercentage.length} of ${accounts.length} holder${accounts.length !== 1 ? 's' : ''}`
+          });
+        } else {
+          setData({
+            denom: denom,
+            totalSupply: '0',
+            holders: [],
+            count: 0,
+            message: 'PRC20 token holders',
+            note: 'Unable to fetch holder data'
+          });
+        }
       } else {
-        console.error('Failed to fetch holders:', res.status);
+        // Regular chain holders
+        const res = await fetch(
+          `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&limit=200&_t=${Date.now()}`,
+          { cache: 'no-store' }
+        );
+        
+        if (res.ok) {
+          const holdersData = await res.json();
+          console.log('=== FULL RESPONSE ===', JSON.stringify(holdersData, null, 2));
+          console.log('Holders array:', holdersData.holders);
+          console.log('Holders length:', holdersData.holders?.length);
+          console.log('First holder:', holdersData.holders?.[0]);
+          setData(holdersData);
+        } else {
+          console.error('Failed to fetch holders:', res.status);
+        }
       }
     } catch (error) {
       console.error('Error loading holders:', error);
@@ -318,13 +433,15 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
                       </td>
                       <td className="py-3 px-4 text-right">
                         <span className={`px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider border ${
-                          data.denom.startsWith('ibc/') 
+                          data.denom.startsWith('paxi1') && data.denom.length > 40
+                            ? 'bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-400 border-orange-500/20'
+                            : data.denom.startsWith('ibc/') 
                             ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' 
                             : data.denom.startsWith('gamm/') 
                             ? 'bg-pink-500/10 text-pink-400 border-pink-500/20'
                             : 'bg-green-500/10 text-green-400 border-green-500/20'
                         }`}>
-                          {data.denom.startsWith('ibc/') ? 'IBC Token' : data.denom.startsWith('gamm/') ? 'LP Token' : 'Native'}
+                          {data.denom.startsWith('paxi1') && data.denom.length > 40 ? 'PRC20' : data.denom.startsWith('ibc/') ? 'IBC Token' : data.denom.startsWith('gamm/') ? 'LP Token' : 'Native'}
                         </span>
                       </td>
                     </tr>

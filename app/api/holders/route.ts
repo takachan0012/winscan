@@ -17,6 +17,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if denom is a PRC20 contract address
+    const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
+    
+    if (isPRC20) {
+      // For PRC20 tokens, we need to query CosmWasm contract for holders
+      // This is a placeholder - actual implementation would query the contract
+      return NextResponse.json({
+        denom: denom,
+        totalSupply: '0',
+        holders: [],
+        count: 0,
+        message: 'PRC20 token holders',
+        note: 'Holder data for PRC20 tokens is coming soon. This requires querying the smart contract storage.'
+      });
+    }
+
     let url = `${BACKEND_URL}/api/holders?chain=${chain}&denom=${encodeURIComponent(denom)}&limit=${limit}`;
     
     if (search) {

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ChainData, TransactionData } from '@/types/chain';
 import { Users, Search, Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, DollarSign, Copy, CheckCircle, Send, X } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -88,6 +89,10 @@ export default function AccountsPage() {
   const [unbondingDelegations, setUnbondingDelegations] = useState<any[]>([]);
   const [totalUnbonding, setTotalUnbonding] = useState<string>('0');
   const [unbondingTimes, setUnbondingTimes] = useState<Map<string, string>>(new Map());
+  
+  // PRC20 tokens state
+  const [prc20Tokens, setPrc20Tokens] = useState<any[]>([]);
+  const [prc20Loading, setPrc20Loading] = useState(false);
 
   useEffect(() => {
     fetch('/api/chains')
@@ -188,7 +193,58 @@ export default function AccountsPage() {
     if (connectedAddress) {
       fetchUnbondingDelegations(connectedAddress);
     }
+    
+    // Fetch PRC20 balances for Paxi
+    if (connectedAddress && selectedChain?.chain_name === 'paxi-mainnet') {
+      fetchPRC20Balances(connectedAddress);
+    }
   }, [connectedAddress, selectedChain]);
+
+  // Fetch PRC20 token balances
+  const fetchPRC20Balances = async (address: string) => {
+    setPrc20Loading(true);
+    
+    try {
+      // Get all PRC20 tokens
+      const tokensRes = await fetch('/api/prc20-tokens?chain=paxi-mainnet&limit=100');
+      if (!tokensRes.ok) {
+        setPrc20Loading(false);
+        return;
+      }
+      
+      const { tokens } = await tokensRes.json();
+      
+      // Fetch balance for each token
+      const balances = await Promise.all(
+        tokens.map(async (token: any) => {
+          try {
+            const balRes = await fetch(
+              `/api/prc20-balance?contract=${token.contract_address}&address=${address}`
+            );
+            if (!balRes.ok) {
+              return { ...token, balance: '0' };
+            }
+            const { balance } = await balRes.json();
+            return {
+              ...token,
+              balance: balance || '0'
+            };
+          } catch (error) {
+            return { ...token, balance: '0' };
+          }
+        })
+      );
+      
+      // Filter non-zero balances
+      const nonZeroBalances = balances.filter(t => t.balance !== '0');
+      setPrc20Tokens(nonZeroBalances);
+    } catch (error) {
+      console.error('Error fetching PRC20 balances:', error);
+      setPrc20Tokens([]);
+    } finally {
+      setPrc20Loading(false);
+    }
+  };
 
   // Fetch unbonding delegations
   const fetchUnbondingDelegations = async (delegatorAddress: string) => {
@@ -874,6 +930,107 @@ export default function AccountsPage() {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* PRC20 Token Balances */}
+              {selectedChain?.chain_name === 'paxi-mainnet' && (prc20Loading || prc20Tokens.length > 0) && (
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-800">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      PRC20 Token Balances
+                      {!prc20Loading && <span className="text-sm font-normal text-gray-400">({prc20Tokens.length})</span>}
+                    </h2>
+                  </div>
+                  {prc20Loading ? (
+                    <div className="px-6 py-12 text-center">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+                      <p className="text-gray-400 mt-4">Loading PRC20 tokens...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-[#0f0f0f]">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Token</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">Balance</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">Contract</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800">
+                          {prc20Tokens.map((token: any, idx: number) => {
+                            const logoUrl = token.marketing_info?.logo?.url?.startsWith('ipfs://')
+                              ? `https://ipfs.io/ipfs/${token.marketing_info.logo.url.replace('ipfs://', '')}`
+                              : token.marketing_info?.logo?.url || '/default-token.png';
+                            
+                            const decimals = parseInt(token.token_info?.decimals || '6');
+                            const rawBalance = token.balance || '0';
+                            const formattedBalance = (parseFloat(rawBalance) / Math.pow(10, decimals)).toFixed(decimals);
+                            
+                            return (
+                              <tr key={idx} className="hover:bg-gray-800/50 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <Image
+                                      src={logoUrl}
+                                      width={32}
+                                      height={32}
+                                      alt={token.token_info?.symbol || 'Token'}
+                                      className="rounded-full"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = '/default-token.png';
+                                      }}
+                                    />
+                                    <div>
+                                      <Link
+                                        href={`/${chainPath}/assets/${token.contract_address}`}
+                                        className="font-semibold text-white hover:text-orange-400 transition-colors"
+                                      >
+                                        {token.token_info?.symbol || 'Unknown'}
+                                      </Link>
+                                      <div className="text-xs text-gray-500">{token.token_info?.name || ''}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <div className="font-mono text-white font-semibold">
+                                    {formattedBalance}
+                                  </div>
+                                  <div className="text-xs text-gray-500">{token.token_info?.symbol}</div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <div className="flex items-center gap-2 justify-end">
+                                    <code className="text-xs text-gray-400 font-mono">
+                                      {token.contract_address.slice(0, 8)}...{token.contract_address.slice(-6)}
+                                    </code>
+                                    <button
+                                      onClick={(e) => {
+                                        navigator.clipboard.writeText(token.contract_address);
+                                        const btn = e.currentTarget as HTMLElement;
+                                        const originalContent = btn.innerHTML;
+                                        btn.innerHTML = '<svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                                        setTimeout(() => {
+                                          btn.innerHTML = originalContent;
+                                        }, 1500);
+                                      }}
+                                      className="text-gray-400 hover:text-gray-300 transition-colors p-1"
+                                      title="Copy contract address"
+                                    >
+                                      <Copy className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -33,6 +33,24 @@ interface AssetMetadata {
   coingecko_id?: string;
   price_usd?: number;
   price_change_24h?: number;
+  contract_address?: string; // For PRC20 tokens
+}
+
+interface PRC20Token {
+  contract_address: string;
+  token_info: {
+    name: string;
+    symbol: string;
+    decimals: number;
+    total_supply: string;
+  } | null;
+  marketing_info: {
+    project?: string;
+    description?: string;
+    logo?: { url: string };
+    marketing?: string;
+  } | null;
+  num_holders?: number;
 }
 
 interface AssetsResponse {
@@ -43,7 +61,7 @@ interface AssetsResponse {
   };
 }
 
-type FilterType = 'all' | 'native' | 'tokens';
+type FilterType = 'all' | 'native' | 'tokens' | 'prc20';
 
 export default function AssetsPage() {
   const params = useParams();
@@ -54,10 +72,14 @@ export default function AssetsPage() {
   const [chains, setChains] = useState<ChainData[]>([]);
   const [selectedChain, setSelectedChain] = useState<ChainData | null>(null);
   const [assets, setAssets] = useState<AssetMetadata[]>([]);
+  const [prc20Tokens, setPrc20Tokens] = useState<PRC20Token[]>([]);
   const [loading, setLoading] = useState(true);
+  const [prc20Loading, setPrc20Loading] = useState(false);
   const [totalAssets, setTotalAssets] = useState(0);
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [prc20NextKey, setPrc20NextKey] = useState<string | null>(null);
+  const [showPRC20Support, setShowPRC20Support] = useState(false);
 
   useEffect(() => {
     async function loadChainData() {
@@ -102,7 +124,6 @@ export default function AssetsPage() {
           
           const cachedAssets = data.metadatas || [];
           setAssets(cachedAssets);
-          setTotalAssets(cachedAssets.length);
           setLoading(false);
           
           if (Date.now() - timestamp < cacheTimeout) {
@@ -148,20 +169,20 @@ export default function AssetsPage() {
         }));
         
         setAssets(transformedAssets);
-        setTotalAssets(transformedAssets.length);
         setLoading(false);
-        
-        const nativeAssets = transformedAssets.filter((a: any) => 
-          !a.base.startsWith('ibc/') && 
+
+        const nativeAssets = transformedAssets.filter((a: any) =>
+          !a.base.startsWith('ibc/') &&
           !a.base.startsWith('factory/')
         ).slice(0, 5);
-        
-        const ibcAssets = transformedAssets.filter((a: any) => 
+
+        const ibcAssets = transformedAssets.filter((a: any) =>
           a.base.startsWith('ibc/') || a.base.startsWith('factory/')
         ).slice(0, 5);
-        
+
         const priorityAssets = [...nativeAssets, ...ibcAssets];
-        
+
+        // Fetch details for priority assets
         Promise.all(
           priorityAssets.map(async (asset: any) => {
             try {
@@ -170,6 +191,7 @@ export default function AssetsPage() {
               });
               if (detailRes.ok) {
                 const detail = await detailRes.json();
+                
                 return {
                   base: asset.base,
                   supply: detail.supply || '0',
@@ -183,27 +205,51 @@ export default function AssetsPage() {
             }
             return null;
           })
-        ).then(details => {
+        ).then(async details => {
           const detailsMap = new Map();
           details.filter(d => d !== null).forEach(d => {
             if (d) detailsMap.set(d.base, d);
           });
           
+          // Fetch holders count for all assets (in background)
+          const allAssetsWithHolders = await Promise.all(
+            transformedAssets.slice(0, 20).map(async (asset: any) => {
+              try {
+                const holdersRes = await fetch(`/api/holders?chain=${chainName}&denom=${encodeURIComponent(asset.base)}&limit=1`, {
+                  signal: AbortSignal.timeout(3000)
+                });
+                if (holdersRes.ok) {
+                  const holdersData = await holdersRes.json();
+                  return {
+                    base: asset.base,
+                    holders: holdersData.count || 0
+                  };
+                }
+              } catch (e) {
+                // Ignore
+              }
+              return { base: asset.base, holders: 0 };
+            })
+          );
+          
+          const holdersMap = new Map();
+          allAssetsWithHolders.forEach(h => holdersMap.set(h.base, h.holders));
+          
           setAssets(prev => prev.map(asset => {
             const detail = detailsMap.get(asset.base);
-            if (detail) {
+            const holdersCount = holdersMap.get(asset.base) || detail?.holders || 0;
+            
+            if (detail || holdersCount > 0) {
               return {
                 ...asset,
-                total_supply: detail.supply,
-                holders_count: detail.holders,
-                price_usd: detail.price_usd,
-                price_change_24h: detail.price_change_24h
+                total_supply: detail?.supply || asset.total_supply,
+                holders_count: holdersCount,
+                price_usd: detail?.price_usd || asset.price_usd,
+                price_change_24h: detail?.price_change_24h || asset.price_change_24h
               };
             }
             return asset;
-          }));
-          
-          try {
+          }));          try {
             const enrichedAssets = transformedAssets.map((asset: any) => {
               const detail = detailsMap.get(asset.base);
               return detail ? {
@@ -232,6 +278,48 @@ export default function AssetsPage() {
 
     fetchAssets();
   }, [chainName]);
+
+  // Fetch PRC20 tokens for Paxi chain
+  useEffect(() => {
+    if (chainName === 'paxi-mainnet') {
+      setShowPRC20Support(true);
+      if (filterType === 'prc20' || filterType === 'all') {
+        fetchPRC20Tokens();
+      }
+    } else {
+      setShowPRC20Support(false);
+    }
+  }, [chainName, filterType]);
+
+  const fetchPRC20Tokens = async (pageKey?: string) => {
+    try {
+      setPrc20Loading(true);
+      
+      let url = `/api/prc20-tokens?chain=${chainName}&limit=20`;
+      if (pageKey) {
+        url += `&key=${encodeURIComponent(pageKey)}`;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch PRC20 tokens');
+      }
+
+      const data = await response.json();
+      
+      if (pageKey) {
+        setPrc20Tokens(prev => [...prev, ...data.tokens]);
+      } else {
+        setPrc20Tokens(data.tokens);
+      }
+      
+      setPrc20NextKey(data.pagination.next_key || null);
+    } catch (error) {
+      console.error('Error fetching PRC20 tokens:', error);
+    } finally {
+      setPrc20Loading(false);
+    }
+  };
 
   const formatDenom = (denom: string) => {
     if (denom.length > 30) {
@@ -326,6 +414,12 @@ export default function AssetsPage() {
   const nativeCount = assets.filter(isNativeAsset).length;
   const tokensCount = assets.length - nativeCount;
 
+  // Update totalAssets state when assets or prc20Tokens change
+  useEffect(() => {
+    const total = assets.length + (showPRC20Support ? prc20Tokens.length : 0);
+    setTotalAssets(total);
+  }, [assets.length, prc20Tokens.length, showPRC20Support]);
+
   return (
     <div className="flex min-h-screen bg-[#0a0a0a]">
       <Sidebar selectedChain={selectedChain} />
@@ -354,7 +448,7 @@ export default function AssetsPage() {
 
             {/* Stats Cards */}
             {assets.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`grid grid-cols-1 ${showPRC20Support ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
                 <div className="bg-gradient-to-br from-[#1a1a1a] to-[#141414] border border-gray-800 rounded-2xl p-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className="bg-blue-500/10 rounded-xl p-3">
@@ -387,6 +481,19 @@ export default function AssetsPage() {
                   <h3 className="text-gray-400 text-sm font-medium">{t('assets.ibcBridged')}</h3>
                   <p className="text-gray-500 text-xs mt-1">{t('assets.ibcBridgedDesc')}</p>
                 </div>
+                
+                {showPRC20Support && (
+                  <div className="bg-gradient-to-br from-[#1a1a1a] to-[#141414] border border-gray-800 rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-xl p-3">
+                        <Layers className="w-6 h-6 text-orange-400" />
+                      </div>
+                      <span className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">{prc20Tokens.length}</span>
+                    </div>
+                    <h3 className="text-gray-400 text-sm font-medium">PRC20 Tokens</h3>
+                    <p className="text-gray-500 text-xs mt-1">CosmWasm smart contracts</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -456,11 +563,29 @@ export default function AssetsPage() {
                   {tokensCount}
                 </span>
               </button>
+              {showPRC20Support && (
+                <button
+                  onClick={() => setFilterType('prc20')}
+                  className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                    filterType === 'prc20'
+                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
+                      : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 inline mr-2" />
+                  PRC20 Tokens
+                  <span className={`ml-2 px-2 py-0.5 rounded-lg text-xs ${
+                    filterType === 'prc20' ? 'bg-white/20' : 'bg-gray-700'
+                  }`}>
+                    {prc20Tokens.length}
+                  </span>
+                </button>
+              )}
             </div>
           )}
 
           {/* Assets Table */}
-          {filteredAssets.length > 0 && (
+          {((filteredAssets.length > 0 && filterType !== 'prc20') || (filterType === 'all' && showPRC20Support && prc20Tokens.length > 0)) && (
             <>
               {/* Results info */}
               {searchQuery && (
@@ -656,13 +781,114 @@ export default function AssetsPage() {
                           
                           {/* Holders Column */}
                           <td className="px-6 py-4 text-right">
-                            <Link 
+                            <Link
                               href={`/${chainName}/assets/${encodeURIComponent(asset.base)}/holders`}
-                              className="flex items-center justify-end gap-2 hover:text-blue-400 transition-colors group/holders"
+                              className="group/holders inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-lg transition-all hover:scale-105"
                             >
-                              <Users className="w-4 h-4 text-gray-500 group-hover/holders:text-blue-400 transition-colors" />
                               <span className="text-sm font-medium text-white group-hover/holders:text-blue-400 transition-colors">
-                                View Holders
+                                {(asset.holders_count && asset.holders_count > 0) ? asset.holders_count.toLocaleString() : '-'}
+                              </span>
+                              <TrendingUp className="w-3 h-3 text-gray-500 group-hover/holders:text-blue-400 transition-colors" />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    
+                    {/* PRC20 Tokens in "All" tab */}
+                    {filterType === 'all' && showPRC20Support && prc20Tokens.map((token: PRC20Token, idx: number) => {
+                      const logoUrl = token.marketing_info?.logo?.url?.startsWith('ipfs://')
+                        ? `https://ipfs.io/ipfs/${token.marketing_info.logo.url.replace('ipfs://', '')}`
+                        : token.marketing_info?.logo?.url || '';
+                      
+                      const decimals = parseInt(String(token.token_info?.decimals || '6'));
+                      const totalSupply = token.token_info?.total_supply || '0';
+                      const formattedSupply = (parseFloat(totalSupply) / Math.pow(10, decimals)).toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 6
+                      });
+                      
+                      return (
+                        <tr 
+                          key={token.contract_address}
+                          className="hover:bg-[#0f0f0f] transition-colors group"
+                        >
+                          {/* # Column */}
+                          <td className="px-4 py-4 text-sm text-gray-400 font-medium">
+                            #{filteredAssets.length + idx + 1}
+                          </td>
+                          
+                          {/* Name Column with Logo */}
+                          <td className="px-6 py-4">
+                            <Link 
+                              href={`/${chainName}/assets/${encodeURIComponent(token.contract_address)}`}
+                              className="flex items-center gap-3"
+                            >
+                              <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/30 flex-shrink-0 overflow-hidden">
+                                {logoUrl ? (
+                                  <Image
+                                    src={logoUrl}
+                                    alt={token.token_info?.symbol || 'token'}
+                                    width={40}
+                                    height={40}
+                                    className="object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Coins className="w-5 h-5 text-orange-600" />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div>
+                                <div className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors">
+                                  {token.token_info?.symbol || 'Unknown'}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {token.token_info?.name || token.marketing_info?.project || 'PRC20 Token'}
+                                </div>
+                              </div>
+                            </Link>
+                          </td>
+                          
+                          {/* Token Type */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider border bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-400 border-orange-500/20">
+                              PRC20
+                            </span>
+                          </td>
+                          
+                          {/* Price */}
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-sm text-gray-500">-</span>
+                          </td>
+                          
+                          {/* 24h Change */}
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-sm text-gray-500">-</span>
+                          </td>
+                          
+                          {/* Supply */}
+                          <td className="px-6 py-4 text-right">
+                            <div className="text-sm font-medium text-white">
+                              {formattedSupply}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              {token.token_info?.symbol}
+                            </div>
+                          </td>
+                          
+                          {/* Holders */}
+                          <td className="px-6 py-4 text-right">
+                            <Link
+                              href={`/${chainName}/assets/${encodeURIComponent(token.contract_address)}/holders`}
+                              className="group/holders inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-lg transition-all hover:scale-105"
+                            >
+                              <span className="text-sm font-medium text-white group-hover/holders:text-blue-400 transition-colors">
+                                {token.num_holders && token.num_holders >= 100 ? '100+' : token.num_holders || '-'}
                               </span>
                               <TrendingUp className="w-3 h-3 text-gray-500 group-hover/holders:text-blue-400 transition-colors" />
                             </Link>
@@ -677,8 +903,226 @@ export default function AssetsPage() {
             </>
           )}
 
+          {/* PRC20 Tokens Table */}
+          {filterType === 'prc20' && (
+            <>
+              {prc20Loading && prc20Tokens.length === 0 ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+                </div>
+              ) : prc20Tokens.length > 0 ? (
+                <div className="space-y-6">
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-[#0f0f0f] border-b border-gray-800">
+                          <tr>
+                            <th className="px-4 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-16">
+                              #
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              {t('assets.name')}
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              {t('assets.tokenType')}
+                            </th>
+                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              {t('assets.price')}
+                            </th>
+                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              {t('assets.change24h')}
+                            </th>
+                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              {t('assets.supply')}
+                            </th>
+                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              {t('assets.holders')}
+                            </th>
+                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              Contract
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800">
+                          {prc20Tokens.map((token, index) => {
+                            const tokenInfo = token.token_info;
+                            const marketingInfo = token.marketing_info;
+                            
+                            // Convert IPFS URLs to HTTP gateway
+                            let logoUrl = marketingInfo?.logo?.url || '';
+                            if (logoUrl.startsWith('ipfs://')) {
+                              const ipfsHash = logoUrl.replace('ipfs://', '');
+                              logoUrl = `https://ipfs.io/ipfs/${ipfsHash}`;
+                            }
+                            
+                            const decimals = tokenInfo?.decimals || 6;
+                            const totalSupply = tokenInfo?.total_supply 
+                              ? (Number(tokenInfo.total_supply) / Math.pow(10, decimals)).toLocaleString('en-US', { maximumFractionDigits: 2 })
+                              : '0';
+
+                            return (
+                              <tr 
+                                key={token.contract_address}
+                                className="hover:bg-[#0f0f0f] transition-colors group"
+                              >
+                                {/* # Column */}
+                                <td className="px-4 py-4 text-sm text-gray-400 font-medium">
+                                  #{index + 1}
+                                </td>
+                                
+                                {/* Name Column with Logo */}
+                                <td className="px-6 py-4">
+                                  <Link 
+                                    href={`/${chainName}/assets/${encodeURIComponent(token.contract_address)}`}
+                                    className="flex items-center gap-3"
+                                  >
+                                    {/* Token Logo */}
+                                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-gray-700 flex-shrink-0 overflow-hidden">
+                                      {logoUrl ? (
+                                        <Image
+                                          src={logoUrl}
+                                          alt={tokenInfo?.symbol || 'token'}
+                                          width={40}
+                                          height={40}
+                                          className="object-cover"
+                                          onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <Coins className="w-5 h-5 text-orange-500" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Token Name & Symbol */}
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="font-semibold text-white group-hover:text-blue-400 transition-colors truncate">
+                                        {tokenInfo?.symbol || 'Unknown'}
+                                      </span>
+                                      <span className="text-xs text-gray-500 truncate">
+                                        {tokenInfo?.name || marketingInfo?.project || 'PRC20 Token'}
+                                      </span>
+                                      {marketingInfo?.description && (
+                                        <span className="text-xs text-gray-600 truncate max-w-xs">
+                                          {marketingInfo.description}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </Link>
+                                </td>
+                                
+                                {/* Token Type Column */}
+                                <td className="px-6 py-4">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-400 border border-orange-500/20">
+                                    PRC20
+                                  </span>
+                                </td>
+                                
+                                {/* Price Column */}
+                                <td className="px-6 py-4 text-right">
+                                  <span className="text-sm text-gray-500">-</span>
+                                </td>
+                                
+                                {/* 24h Change Column */}
+                                <td className="px-6 py-4 text-right">
+                                  <span className="text-sm text-gray-500">-</span>
+                                </td>
+                                
+                                {/* Supply Column */}
+                                <td className="px-6 py-4 text-right">
+                                  <div className="text-sm font-medium text-white">
+                                    {totalSupply}
+                                  </div>
+                                  {tokenInfo?.symbol && (
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                      {tokenInfo.symbol}
+                                    </div>
+                                  )}
+                                </td>
+                                
+                                {/* Holders Column */}
+                                <td className="px-6 py-4 text-right">
+                                  {token.num_holders !== undefined && token.num_holders > 0 ? (
+                                    <div className="text-sm font-medium text-white">
+                                      {token.num_holders >= 100 ? '100+' : token.num_holders.toLocaleString()}
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm font-medium text-gray-400">
+                                      -
+                                    </div>
+                                  )}
+                                </td>
+                                
+                                {/* Contract Column */}
+                                <td className="px-6 py-4 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <a
+                                      href={`https://www.mintscan.io/paxi/wasm/contract/${token.contract_address}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-orange-400 hover:text-orange-300 transition-colors font-mono inline-flex items-center gap-1 group/link"
+                                      title={token.contract_address}
+                                    >
+                                      <span>{token.contract_address.slice(0, 8)}...{token.contract_address.slice(-6)}</span>
+                                      <ExternalLink className="w-3 h-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                                    </a>
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(token.contract_address);
+                                      }}
+                                      className="p-1 hover:bg-gray-800 rounded transition-colors"
+                                      title="Copy contract address"
+                                    >
+                                      <svg className="w-4 h-4 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Load More Button */}
+                  {prc20NextKey && (
+                    <div className="flex justify-center pt-4">
+                      <button
+                        onClick={() => fetchPRC20Tokens(prc20NextKey)}
+                        disabled={prc20Loading}
+                        className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:from-gray-700 disabled:to-gray-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg shadow-orange-500/30 disabled:shadow-none flex items-center gap-2"
+                      >
+                        {prc20Loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Load More</span>
+                            <TrendingUp className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-[#1a1a1a] border border-gray-800 rounded-lg">
+                  <Coins className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-400">No PRC20 tokens found</p>
+                </div>
+              )}
+            </>
+          )}
+
           {/* Empty State - No Assets */}
-          {assets.length === 0 && (
+          {assets.length === 0 && filterType !== 'prc20' && (
             <div className="text-center py-12">
               <Coins className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400">{t('assets.noAssets')}</p>
@@ -686,7 +1130,7 @@ export default function AssetsPage() {
           )}
 
           {/* Empty State - Filtered */}
-          {assets.length > 0 && filteredAssets.length === 0 && (
+          {assets.length > 0 && filteredAssets.length === 0 && filterType !== 'prc20' && (
             <div className="text-center py-12 bg-[#1a1a1a] border border-gray-800 rounded-lg">
               <Coins className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400">
