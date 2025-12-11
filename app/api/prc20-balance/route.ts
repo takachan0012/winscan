@@ -38,6 +38,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Validate contract address format (bech32 format: paxi1...)
+    // Prevents SSRF by ensuring contract doesn't contain path traversal or URL manipulation characters
+    const contractRegex = /^paxi1[a-z0-9]{38,59}$/;
+    if (!contractRegex.test(contract)) {
+      return NextResponse.json(
+        { error: 'Invalid contract address format. Expected bech32 format (paxi1...)' },
+        { status: 400 }
+      );
+    }
+
+    // Validate address format (bech32 format)
+    // Prevents injection of path traversal characters (/, \, .., etc.)
+    const addressRegex = /^[a-z0-9]{1,83}1[a-z0-9]{38,59}$/;
+    if (!addressRegex.test(address)) {
+      return NextResponse.json(
+        { error: 'Invalid address format. Expected bech32 format' },
+        { status: 400 }
+      );
+    }
+
     const lcdUrl = await getWorkingLCD();
     
     // Query balance for specific address

@@ -38,6 +38,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Validate contract address format (bech32 format: paxi1...)
+    // Prevents SSRF attacks by blocking path traversal (/, \, ..) and URL manipulation
+    const contractRegex = /^paxi1[a-z0-9]{38,59}$/;
+    if (!contractRegex.test(contract)) {
+      return NextResponse.json(
+        { error: 'Invalid contract address format. Expected bech32 format (paxi1...)' },
+        { status: 400 }
+      );
+    }
+
+    // Whitelist allowed query types to prevent injection
+    const allowedQueries = ['token_info', 'marketing_info', 'all_accounts'];
+    if (!allowedQueries.includes(query)) {
+      return NextResponse.json(
+        { error: 'Invalid query type. Allowed: token_info, marketing_info, all_accounts' },
+        { status: 400 }
+      );
+    }
+
     const lcdUrl = await getWorkingLCD();
     
     // Build query object
