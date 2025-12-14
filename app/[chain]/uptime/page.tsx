@@ -432,7 +432,7 @@ export default function UptimePage() {
           onSelectChain={setSelectedChain}
         />
 
-        <main className="flex-1 mt-28 lg:mt-16 p-4 md:p-6">
+        <main className="flex-1 mt-32 lg:mt-16 p-4 md:p-6">
           {/* Header with Live Indicator */}
           <div className="mb-4 md:mb-6">
             <div className="flex items-center justify-between mb-2">

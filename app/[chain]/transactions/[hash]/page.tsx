@@ -349,7 +349,7 @@ export default function TransactionDetailPage() {
           onSelectChain={setSelectedChain}
         />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 overflow-auto">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto">
           <div className="mb-4 md:mb-6">
             <div className="flex items-center text-xs md:text-sm text-gray-400 mb-3 md:mb-4 overflow-x-auto scrollbar-none">
               <Link href={`/${chainPath}`} className="hover:text-white whitespace-nowrap">{t('txDetail.overview')}</Link>

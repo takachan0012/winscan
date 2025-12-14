@@ -954,7 +954,7 @@ export default function ValidatorDetailPage() {
         <Sidebar selectedChain={selectedChain} />
         <div className="flex-1 flex flex-col">
           <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
-          <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 flex items-center justify-center">
+          <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
               <div className="relative">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500/20 border-t-blue-500"></div>
@@ -974,7 +974,7 @@ export default function ValidatorDetailPage() {
         <Sidebar selectedChain={selectedChain} />
         <div className="flex-1 flex flex-col">
           <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
-          <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 flex items-center justify-center">
+          <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 flex items-center justify-center">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-white mb-2">{t('validatorDetail.notFound')}</h2>
               <button 
@@ -997,7 +997,7 @@ export default function ValidatorDetailPage() {
       <div className="flex-1 flex flex-col">
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 overflow-auto scroll-smooth">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto scroll-smooth">
           {/* Header Section */}
           <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
             <div className="min-w-0 flex-1">

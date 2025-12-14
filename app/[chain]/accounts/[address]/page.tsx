@@ -331,7 +331,7 @@ export default function AccountPage() {
           onSelectChain={setSelectedChain}
         />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 overflow-auto">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto">
           <div className="mb-6">
             <div className="flex items-center text-sm text-gray-400 mb-4">
               <Link href={`/${chainPath}`} className="hover:text-white">{t('accountDetail.overview')}</Link>

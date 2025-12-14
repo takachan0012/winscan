@@ -446,7 +446,7 @@ export default function AssetsPage() {
           onSelectChain={setSelectedChain}
         />
         
-        <main className="p-3 md:p-6 pt-24 md:pt-24">
+        <main className="p-3 md:p-6 pt-32 md:pt-24">
           {/* Page Header with Stats */}
           <div className="mb-6 md:mb-8">
             <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">

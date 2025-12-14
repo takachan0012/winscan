@@ -152,7 +152,7 @@ export default function NetworkPage() {
       <div className="flex-1 flex flex-col">
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 overflow-auto">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto">
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-white mb-2">{t('network.title')}</h1>

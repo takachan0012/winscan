@@ -231,9 +231,9 @@ export default function ProposalDetailPage() {
         <Sidebar selectedChain={selectedChain} />
         <div className="flex-1 flex flex-col">
           <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
-          <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 flex items-center justify-center">
+          <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 flex items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
               <p className="text-white">{t('proposalDetail.loading')}</p>
             </div>
           </main>
@@ -248,7 +248,7 @@ export default function ProposalDetailPage() {
         <Sidebar selectedChain={selectedChain} />
         <div className="flex-1 flex flex-col">
           <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
-          <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 flex items-center justify-center">
+          <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 flex items-center justify-center">
             <div className="text-center">
               <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-white mb-2">{t('proposalDetail.notFound')}</h2>
@@ -279,7 +279,7 @@ export default function ProposalDetailPage() {
       <div className="flex-1 flex flex-col">
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 overflow-auto">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto">
           {/* Breadcrumb */}
           <div className="flex items-center text-sm text-gray-400 mb-6">
             <Link href={`/${chainPath}`} className="hover:text-blue-500">{t('proposalDetail.overview')}</Link>

@@ -108,9 +108,10 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
       { 
         name: 'Tools', 
         translationKey: 'menu.tools', 
-        path: `${chainPath}/statesync`, 
+        path: `${chainPath}/endpoint-checker`, 
         icon: <Settings className="w-5 h-5" />,
         subItems: [
+          { name: 'Endpoint Checker', translationKey: 'menu.rpcChecker', path: `${chainPath}/endpoint-checker`, icon: <Activity className="w-4 h-4" /> },
           { name: 'State Sync', translationKey: 'menu.statesync', path: `${chainPath}/statesync`, icon: <RefreshCw className="w-4 h-4" /> },
           { name: 'Parameters', translationKey: 'menu.parameters', path: `${chainPath}/parameters`, icon: <Settings className="w-4 h-4" /> },
         ]

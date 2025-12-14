@@ -580,7 +580,7 @@ export default function AccountsPage() {
       <div className="flex-1 flex flex-col">
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 overflow-auto">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto">
           <div className="flex items-center text-sm text-gray-400 mb-6">
             <Link href={`/${chainPath}`} className="hover:text-blue-500">{t('overview.title')}</Link>
             <span className="mx-2">/</span>

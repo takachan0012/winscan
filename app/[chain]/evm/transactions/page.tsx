@@ -227,7 +227,7 @@ export default function EVMTransactionsPage() {
         />
         
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#0a0a0a]">
-          <div className="container mx-auto px-3 md:px-6 py-6 md:py-8 pt-24 md:pt-8">
+          <div className="container mx-auto px-3 md:px-6 py-6 md:py-8 pt-32 md:pt-8">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-white mb-2">

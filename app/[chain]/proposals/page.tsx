@@ -172,7 +172,7 @@ export default function ProposalsPage() {
           onSelectChain={setSelectedChain}
         />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 overflow-auto">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto">
           {/* Page Header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-3">

@@ -240,7 +240,7 @@ export default function AssetDetailPage() {
           onSelectChain={setSelectedChain}
         />
         
-        <main className="p-4 md:p-6 pt-20 md:pt-24">
+        <main className="p-4 md:p-6 pt-32 md:pt-24">
           {/* Back Button */}
           <Link 
             href={`/${chainName}/assets`}

@@ -322,7 +322,7 @@ export default function ValidatorsPage() {
           onSelectChain={setSelectedChain}
         />
 
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6">
           <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{t('validators.title')}</h1>

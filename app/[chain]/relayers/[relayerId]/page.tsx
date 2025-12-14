@@ -135,7 +135,7 @@ export default function RelayerDetailPage() {
         <Sidebar selectedChain={selectedChain} />
         <div className="flex-1 flex flex-col">
           <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
-          <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 flex items-center justify-center">
+          <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
               <div className="relative">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500/20 border-t-blue-500"></div>
@@ -153,7 +153,7 @@ export default function RelayerDetailPage() {
       <Sidebar selectedChain={selectedChain} />
       <div className="flex-1 flex flex-col">
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
-        <main className="flex-1 mt-24 md:mt-16 p-3 md:p-6 space-y-4 md:space-y-6">
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 space-y-4 md:space-y-6">
           {/* Back Button */}
           <button
             onClick={() => router.push(`/${chainPath}/relayers`)}

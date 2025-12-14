@@ -99,7 +99,7 @@ export default function PRC20TokensPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black p-3 md:p-6 pt-24 md:pt-24">
+      <div className="min-h-screen bg-black p-3 md:p-6 pt-32 md:pt-24">
         <div className="max-w-7xl mx-auto">
           <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 md:p-6 text-center">
             <p className="text-red-400 text-sm md:text-base">{error}</p>
@@ -110,7 +110,7 @@ export default function PRC20TokensPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-3 md:p-6 pt-24 md:pt-24">
+    <div className="min-h-screen bg-black p-3 md:p-6 pt-32 md:pt-24">
       <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
