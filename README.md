@@ -43,7 +43,8 @@
 - 🤖 **Auto-Compound Bot** - Automated staking rewards compounding
 - 📊 **Token Analytics** - Real-time price tracking, supply metrics
 - 💰 **Asset Management** - Multi-asset support, holder tracking
-- 🔄 **State Sync** - Fast node synchronization endpoints
+- 🔄 **State Sync** - Fast node synchronization with active peers & seeds
+- 🔍 **Endpoint Checker** - Test RPC, API, gRPC, WSS, EVM endpoints connectivity
 - 🚀 **Performance** - Optimized with caching, CDN, and stale-while-revalidate
 - 📦 **Smart Caching** - 5-minute cache with background refresh
 - 🔄 **Auto-Refresh** - 4-second background updates for real-time data
@@ -83,6 +84,8 @@ Visit http://localhost:3000
 - **[Telegram Monitor Bot](telegram-monitor-bot/README.md)** - Real-time validator & governance alerts
 - **[Auto-Compound Bot Guide](autocompound-bot/README.md)** - Setup validator auto-compound bot
 - **[Chain Configuration Guide](CHAIN-GUIDELINES.md)** - Add your blockchain
+- **[Endpoint Checker](#-endpoint-checker)** - Test RPC/API connectivity & latency
+- **[State Sync Setup](#-state-sync-with-active-peers)** - Fast node sync with active peers
 - **[Contributing Guide](CONTRIBUTING.md)** - Contribution guidelines
 - **[Security Policy](SECURITY.md)** - Report vulnerabilities
 - **[License](LICENSE)** - Usage terms and restrictions
@@ -174,6 +177,104 @@ Participate in governance to shape the future of AtomOne Mainnet.
 **🔗 Start Monitoring:** [@winscan_monitor_bot](https://t.me/winscan_monitor_bot)
 
 **📚 Full Documentation:** [telegram-monitor-bot/README.md](telegram-monitor-bot/README.md)
+
+## 🔍 Endpoint Checker
+
+**Test and validate your blockchain endpoints in real-time!**
+
+The Endpoint Checker is a powerful tool for validators and node operators to verify connectivity and performance of their endpoints.
+
+**Supported Endpoints:**
+- ✅ **Cosmos RPC** - Tendermint RPC endpoint testing with block height & chain ID
+- ✅ **Cosmos API/REST** - REST API endpoint verification
+- ✅ **gRPC/gRPC-Web** - gRPC endpoint connectivity check
+- ✅ **WebSocket** - Real-time WebSocket connection testing
+- ✅ **EVM JSON-RPC** - Ethereum-compatible RPC testing (for EVM chains)
+- ✅ **EVM WebSocket** - EVM WebSocket connection validation
+
+**Key Features:**
+- 📊 **Real-Time Testing** - Test multiple endpoints simultaneously
+- ⚡ **Latency Measurement** - Accurate response time in milliseconds
+- 📈 **Block Height** - Current block height verification
+- 🆔 **Chain ID** - Automatic chain ID detection
+- 🎯 **Auto-Fill** - Pre-filled with chain's default endpoints
+- 🔄 **Manual Override** - Edit or add custom endpoints to test
+- 📱 **Mobile Friendly** - Fully responsive interface
+- 🌐 **Multi-Language** - Available in 7 languages
+
+**How to Use:**
+1. Navigate to Tools → Endpoint Checker
+2. Endpoints are auto-filled from chain configuration
+3. Modify or add custom endpoints as needed
+4. Click "Check All Endpoints"
+5. View results with latency, block height, and status
+
+**Example Results:**
+```
+✅ Cosmos RPC
+   Latency: 45ms
+   Block Height: 12,345,678
+   Chain ID: paxi-mainnet
+
+✅ EVM JSON-RPC
+   Latency: 38ms
+   Block Height: 5,678,901
+   Chain ID: 1234
+```
+
+**Access:** Navigate to any chain → Tools → Endpoint Checker
+
+## 🔄 State Sync with Active Peers
+
+**Fast node synchronization with live peer discovery!**
+
+The State Sync tool helps you quickly sync your node to the latest blockchain state without downloading the entire history.
+
+**Features:**
+- 📊 **Live State Sync Info** - Latest block height, trust height, and hash
+- 🌐 **Active Peers Discovery** - Automatically fetch top 10 most active peers
+- 🌱 **Seed Nodes** - Get reliable seed nodes for network bootstrapping
+- 📋 **One-Click Copy** - Copy individual peers/seeds or all at once
+- 🔧 **Customizable** - Configure service name and home directory
+- 📝 **Auto-Generated Scripts** - Ready-to-use bash scripts for quick setup
+- ⚡ **Smart Selection** - Peers sorted by activity score (bandwidth)
+- 🔍 **RPC with Indexer** - Automatically finds RPCs with tx_index enabled
+
+**How to Use:**
+1. Navigate to Tools → State Sync
+2. View current chain state (latest height, trust height, hash)
+3. Check active peers and seeds list
+4. Configure service name (e.g., `paxid`, `lumerachain`)
+5. Set home directory (e.g., `$HOME/.paxi`)
+6. Copy peers/seeds or use the automated script
+7. Run the script on your server
+
+**Generated Script Example:**
+```bash
+#!/bin/bash
+
+# Stop your node
+sudo systemctl stop paxid
+
+# Backup priv_validator_state.json
+cp $HOME/.paxi/data/priv_validator_state.json $HOME/backup.json
+
+# Reset database
+paxid tendermint unsafe-reset-all --home $HOME/.paxi
+
+# Configure state sync
+sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\\1true|" $HOME/.paxi/config/config.toml
+sed -i.bak -E "s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\\1${TRUST_HEIGHT}|" $HOME/.paxi/config/config.toml
+
+# Add peers
+PEERS="node1@ip1:26656,node2@ip2:26656"
+sed -i.bak -E "s|^(persistent_peers[[:space:]]+=[[:space:]]+).*$|\\1\"$PEERS\"|" $HOME/.paxi/config/config.toml
+
+# Start node
+sudo systemctl start paxid
+```
+
+**Access:** Navigate to any chain → Tools → State Sync
 
 ## 🔧 Configuration
 
