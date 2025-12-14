@@ -238,10 +238,11 @@ export class ABIDecoder {
     if (!this.interface) return [];
 
     return Array.from(this.interface.fragments)
-      .filter((f): f is ethers.FunctionFragment => 
-        f.type === 'function' && 
-        (f.stateMutability === 'view' || f.stateMutability === 'pure')
-      )
+      .filter((f): f is ethers.FunctionFragment => {
+        if (f.type !== 'function') return false;
+        const func = f as ethers.FunctionFragment;
+        return func.stateMutability === 'view' || func.stateMutability === 'pure';
+      })
       .map(f => this.fragmentToABIItem(f));
   }
 
@@ -252,10 +253,11 @@ export class ABIDecoder {
     if (!this.interface) return [];
 
     return Array.from(this.interface.fragments)
-      .filter((f): f is ethers.FunctionFragment => 
-        f.type === 'function' && 
-        (f.stateMutability === 'nonpayable' || f.stateMutability === 'payable')
-      )
+      .filter((f): f is ethers.FunctionFragment => {
+        if (f.type !== 'function') return false;
+        const func = f as ethers.FunctionFragment;
+        return func.stateMutability === 'nonpayable' || func.stateMutability === 'payable';
+      })
       .map(f => this.fragmentToABIItem(f));
   }
 
