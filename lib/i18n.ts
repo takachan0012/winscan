@@ -545,6 +545,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'Khối EVM',
     'menu.evm.transactions': 'Giao dịch EVM',
     'menu.evm.contracts': 'Hợp đồng thông minh',
+    'menu.prc20': 'Token PRC20',
     'menu.relayers': 'Rơ le',
     'menu.network': 'Mạng',
     'menu.consensus': 'Đồng thuận',
