@@ -20,6 +20,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { prefetchOnIdle } from '@/lib/prefetch';
 import { fetchChainsWithCache } from '@/lib/chainsCache';
+import AdBanner from '@/components/AdBanner';
 
 export default function ChainOverviewPage() {
   const params = useParams();
@@ -501,6 +502,9 @@ export default function ChainOverviewPage() {
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
 
         <main className="flex-1 mt-32 lg:mt-16 p-4 md:p-6 overflow-auto">
+          {/* Top Banner Ad */}
+          <AdBanner position="top" className="mb-6" />
+          
           {/* Premium Chain Header Banner */}
           <div className="mb-6">
             {chainRegistry && (chainRegistry.website || chainRegistry.description || chainRegistry.codebase?.git_repo || chainRegistry.twitter) ? (
@@ -1057,6 +1061,9 @@ export default function ChainOverviewPage() {
                 </div>
               </div>
 
+              {/* Between Content Ad */}
+              <AdBanner position="between-content" className="my-6" />
+              
               {/* Latest Blocks & Transactions */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
                 <LatestBlocks blocks={blocks.slice(0, 10)} chainName={selectedChain?.chain_name || ''} />

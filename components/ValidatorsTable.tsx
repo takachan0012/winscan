@@ -10,6 +10,8 @@ import { getTranslation } from '@/lib/i18n';
 import { useWallet } from '@/contexts/WalletContext';
 import { isAutoCompoundEnabled, saveAutoCompoundStatus, getAutoCompoundValidators, getAutoCompoundStatus } from '@/lib/autoCompoundStorage';
 import { convertAccountToValidatorAddress } from '@/lib/addressConverter';
+import SponsoredBadge from '@/components/SponsoredBadge';
+import { isSponsoredValidator } from '@/lib/adsConfig';
 
 interface ValidatorsTableProps {
   validators: ValidatorData[];
@@ -122,11 +124,16 @@ const ValidatorRow = memo(({
     return ((powerNum / totalVotingPower) * 100).toFixed(2);
   };
 
+  const isSponsored = chain?.chain_id && isSponsoredValidator(validator.address || '', chain.chain_id);
+
   return (
-    <tr className="border-b border-gray-800 hover:bg-[#1a1a1a] transition-colors duration-150">
+    <tr className={`border-b border-gray-800 hover:bg-[#1a1a1a] transition-colors duration-150 ${isSponsored ? 'bg-gradient-to-r from-yellow-500/5 to-orange-500/5' : ''}`}>
       <td className="px-1.5 md:px-6 py-1.5 md:py-4">
         <div className="flex items-center space-x-1 md:space-x-2">
           <span className="text-gray-400 font-medium text-[9px] md:text-sm min-w-[16px] md:min-w-[30px]">{rank}</span>
+          {isSponsored && (
+            <SponsoredBadge variant="tooltip" className="md:hidden" />
+          )}
         </div>
       </td>
       <td className="px-2 md:px-6 py-1.5 md:py-4">
@@ -160,12 +167,15 @@ const ValidatorRow = memo(({
             size="md"
           />
           <div className="min-w-0 flex flex-col gap-0">
-            <Link
-              href={`/${chainPath}/validators/${validator.address}`}
-              className="text-white hover:text-blue-400 text-base font-medium transition-colors truncate block leading-tight"
-            >
-              {validator.moniker || t('common.unknown')}
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/${chainPath}/validators/${validator.address}`}
+                className="text-white hover:text-blue-400 text-base font-medium transition-colors truncate block leading-tight"
+              >
+                {validator.moniker || t('common.unknown')}
+              </Link>
+              {isSponsored && <SponsoredBadge variant="compact" />}
+            </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <div className="font-mono truncate max-w-[200px]">
                 {validator.address?.slice(0, 8)}...

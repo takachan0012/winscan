@@ -68,7 +68,6 @@ type TranslationKeys = {
   'menu.evm.blocks': string;
   'menu.evm.transactions': string;
   'menu.evm.contracts': string;
-  'menu.prc20': string;
   'common.height': string;
   'common.hash': string;
   'common.time': string;
@@ -138,7 +137,6 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'EVM Blocks',
     'menu.evm.transactions': 'EVM Transactions',
     'menu.evm.contracts': 'Smart Contracts',
-    'menu.prc20': 'PRC20 Tokens',
     'common.height': 'Height',
     'common.hash': 'Hash',
     'common.time': 'Time',
@@ -207,7 +205,6 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'Blok EVM',
     'menu.evm.transactions': 'Transaksi EVM',
     'menu.evm.contracts': 'Kontrak Pintar',
-    'menu.prc20': 'Token PRC20',
     'common.height': 'Tinggi',
     'common.hash': 'Hash',
     'common.time': 'Waktu',
@@ -276,7 +273,6 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'EVM区块',
     'menu.evm.transactions': 'EVM交易',
     'menu.evm.contracts': '智能合约',
-    'menu.prc20': 'PRC20代币',
     'common.height': '高度',
     'common.hash': '哈希',
     'common.time': '时间',
@@ -338,7 +334,6 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'EVMブロック',
     'menu.evm.transactions': 'EVMトランザクション',
     'menu.evm.contracts': 'スマートコントラクト',
-    'menu.prc20': 'PRC20トークン',
     'menu.relayers': 'リレイヤー',
     'menu.network': 'ネットワーク',
     'menu.consensus': 'コンセンサス',
@@ -407,7 +402,6 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'ईवीएम ब्लॉक',
     'menu.evm.transactions': 'ईवीएम लेन-देन',
     'menu.evm.contracts': 'स्मार्ट अनुबंध',
-    'menu.prc20': 'PRC20 टोकन',
     'menu.relayers': 'रिलेयर',
     'menu.network': 'नेटवर्क',
     'menu.consensus': 'सहमति',
@@ -476,7 +470,6 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'EVM Блоки',
     'menu.evm.transactions': 'EVM Транзакции',
     'menu.evm.contracts': 'Смарт-контракты',
-    'menu.prc20': 'PRC20 токены',
     'menu.relayers': 'Релейеры',
     'menu.network': 'Сеть',
     'menu.consensus': 'Консенсус',
@@ -545,7 +538,6 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.blocks': 'Khối EVM',
     'menu.evm.transactions': 'Giao dịch EVM',
     'menu.evm.contracts': 'Hợp đồng thông minh',
-    'menu.prc20': 'Token PRC20',
     'menu.relayers': 'Rơ le',
     'menu.network': 'Mạng',
     'menu.consensus': 'Đồng thuận',
