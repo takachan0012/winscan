@@ -532,16 +532,16 @@ export default function AssetsPage() {
             <div className="mb-4 md:mb-6 flex flex-wrap gap-2 md:gap-3">
               <button
                 onClick={() => setFilterType('all')}
-                className={`px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
+                className={`flex items-center px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
                   filterType === 'all'
                     ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/30'
                     : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
                 }`}
               >
-                <Layers className="w-3 h-3 md:w-4 md:h-4 inline mr-1 md:mr-2" />
+                <Layers className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
                 <span className="hidden sm:inline">{t('assets.allAssets')}</span>
                 <span className="sm:hidden">All</span>
-                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs ${
+                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium ${
                   filterType === 'all' ? 'bg-white/20' : 'bg-gray-700'
                 }`}>
                   {totalAssets}
@@ -549,16 +549,16 @@ export default function AssetsPage() {
               </button>
               <button
                 onClick={() => setFilterType('native')}
-                className={`px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
+                className={`flex items-center px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
                   filterType === 'native'
                     ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/30'
                     : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
                 }`}
               >
-                <TrendingUp className="w-3 h-3 md:w-4 md:h-4 inline mr-1 md:mr-2" />
+                <TrendingUp className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
                 <span className="hidden sm:inline">{t('assets.native')}</span>
                 <span className="sm:hidden">Native</span>
-                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs ${
+                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium ${
                   filterType === 'native' ? 'bg-white/20' : 'bg-gray-700'
                 }`}>
                   {nativeCount}
@@ -566,16 +566,16 @@ export default function AssetsPage() {
               </button>
               <button
                 onClick={() => setFilterType('tokens')}
-                className={`px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
+                className={`flex items-center px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
                   filterType === 'tokens'
                     ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30'
                     : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
                 }`}
               >
-                <Coins className="w-3 h-3 md:w-4 md:h-4 inline mr-1 md:mr-2" />
+                <Coins className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
                 <span className="hidden sm:inline">{t('assets.tokens')}</span>
                 <span className="sm:hidden">Tokens</span>
-                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs ${
+                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium ${
                   filterType === 'tokens' ? 'bg-white/20' : 'bg-gray-700'
                 }`}>
                   {tokensCount}
@@ -584,16 +584,16 @@ export default function AssetsPage() {
               {showPRC20Support && (
                 <button
                   onClick={() => setFilterType('prc20')}
-                  className={`px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
+                  className={`flex items-center px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
                     filterType === 'prc20'
                       ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
                       : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
                   }`}
                 >
-                  <Layers className="w-3 h-3 md:w-4 md:h-4 inline mr-1 md:mr-2" />
+                  <Layers className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
                   <span className="hidden sm:inline">PRC20 Tokens</span>
                   <span className="sm:hidden">PRC20</span>
-                  <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs ${
+                  <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium ${
                     filterType === 'prc20' ? 'bg-white/20' : 'bg-gray-700'
                   }`}>
                     {filteredPRC20Tokens.length}
