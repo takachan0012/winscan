@@ -66,7 +66,7 @@ export default function EVMContractsPage() {
 
       try {
         const chainSlug = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
-        const response = await fetch(`https://ssl.winsnip.xyz/api/evm/contracts?chain=${chainSlug}`);
+        const response = await fetch(`/api/evm/contracts?chain=${chainSlug}`);
         
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
