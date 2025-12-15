@@ -3,8 +3,6 @@
  * Fetches directly from LCD endpoints to bypass server IP blocks
  */
 
-import { fetchJSONFromSSLBackend } from './sslLoadBalancer';
-
 export interface LCDEndpoint {
   address: string;
   provider: string;
@@ -156,8 +154,15 @@ export async function fetchValidatorDelegatorsCount(
 
   if (chainPath) {
     try {
-      const data = await fetchJSONFromSSLBackend(`/api/validators/delegators?chain=${chainPath}&validator=${validatorAddress}`);
-      return data.count || 0;
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/validators/delegators?chain=${chainPath}&validator=${validatorAddress}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.count || 0;
       }
     } catch (fallbackError) {
     }
@@ -408,8 +413,16 @@ export async function fetchStakingParamsDirectly(
 
   if (chainPath) {
     try {
-      const data = await fetchJSONFromSSLBackend(`/api/parameters/staking?chain=${chainPath}`);
-      return data;
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/staking?chain=${chainPath}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
     } catch (fallbackError) {
     }
   }
@@ -457,8 +470,16 @@ export async function fetchSlashingParamsDirectly(
 
   if (chainPath) {
     try {
-      const data = await fetchJSONFromSSLBackend(`/api/parameters/slashing?chain=${chainPath}`);
-      return data;
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/slashing?chain=${chainPath}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
     } catch (fallbackError) {
     }
   }
@@ -512,8 +533,16 @@ export async function fetchGovParamsDirectly(
 
   if (chainPath) {
     try {
-      const data = await fetchJSONFromSSLBackend(`/api/parameters/gov?chain=${chainPath}`);
-      return data;
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/gov?chain=${chainPath}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
     } catch (fallbackError) {
     }
   }
@@ -561,8 +590,16 @@ export async function fetchDistributionParamsDirectly(
 
   if (chainPath) {
     try {
-      const data = await fetchJSONFromSSLBackend(`/api/parameters/distribution?chain=${chainPath}`);
-      return data;
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/distribution?chain=${chainPath}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
     } catch (fallbackError) {
     }
   }
@@ -610,8 +647,16 @@ export async function fetchMintParamsDirectly(
 
   if (chainPath) {
     try {
-      const data = await fetchJSONFromSSLBackend(`/api/parameters/mint?chain=${chainPath}`);
-      return data;
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/parameters/mint?chain=${chainPath}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
     } catch (fallbackError) {
     }
   }
@@ -745,7 +790,14 @@ export async function fetchValidatorUptime(
 
   if (chainPath && consensusAddress) {
     try {
-      const data = await fetchJSONFromSSLBackend(`/api/validators/uptime?chain=${chainPath}&consensus=${consensusAddress}`);
+      const fallbackUrl = `https://ssl.winsnip.xyz/api/validators/uptime?chain=${chainPath}&consensus=${consensusAddress}`;
+      
+      const response = await fetch(fallbackUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
         return data.uptime || 100;
       }
     } catch (fallbackError) {
