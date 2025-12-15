@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONFromSSLBackend } from '@/lib/sslLoadBalancer';
 
 const BACKEND_URL = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
 
@@ -33,26 +34,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let url = `${BACKEND_URL}/api/holders?chain=${chain}&denom=${encodeURIComponent(denom)}&limit=${limit}`;
+    let path = `/api/holders?chain=${chain}&denom=${encodeURIComponent(denom)}&limit=${limit}`;
     
     if (search) {
-      url += `&search=${encodeURIComponent(search)}`;
+      path += `&search=${encodeURIComponent(search)}`;
     }
 
-    console.log('[Holders API] Fetching from backend:', url);
+    console.log('[Holders API] Fetching from backend with SSL load balancer');
 
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-      },
-      next: { revalidate: 30 } // Cache for 30 seconds
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend returned ${response.status}`);
-    }
-
-    const data = await response.json();
+    // Use SSL load balancer for automatic failover between ssl.winsnip.xyz and ssl2.winsnip.xyz
+    const data = await fetchJSONFromSSLBackend(path);
     
     return NextResponse.json(data);
   } catch (error: any) {

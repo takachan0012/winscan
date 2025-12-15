@@ -9,6 +9,7 @@ import { ChainData } from '@/types/chain';
 import { useState, useCallback, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from 'use-debounce';
+import { fetchJSONFromSSLBackend } from '@/lib/sslLoadBalancer';
 const KeplrWallet = dynamic(() => import('./KeplrWallet'), {
   ssr: false,
   loading: () => (
@@ -41,13 +42,11 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
     if (/^\d+$/.test(query)) {
       // Try Cosmos block first
       try {
-        const cosmosRes = await fetch(`https://ssl.winsnip.xyz/api/blocks/${query}?chain=${chainName}`);
-        if (cosmosRes.ok) {
-          const data = await cosmosRes.json();
-          if (data.block) {
-            router.push(`/${chainPath}/blocks/${query}`);
-            setSearchQuery('');
-            return;
+        const data = await fetchJSONFromSSLBackend(`/api/blocks/${query}?chain=${chainName}`);
+        if (data.block) {
+          router.push(`/${chainPath}/blocks/${query}`);
+          setSearchQuery('');
+          return;
           }
         }
       } catch (err) {
@@ -77,14 +76,11 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
     else if (/^[A-F0-9]{64}$/i.test(query)) {
       // Try Cosmos transaction first
       try {
-        const cosmosRes = await fetch(`https://ssl.winsnip.xyz/api/transactions/${query}?chain=${chainName}`);
-        if (cosmosRes.ok) {
-          const data = await cosmosRes.json();
-          if (data.transaction) {
-            router.push(`/${chainPath}/transactions/${query}`);
-            setSearchQuery('');
-            return;
-          }
+        const data = await fetchJSONFromSSLBackend(`/api/transactions/${query}?chain=${chainName}`);
+        if (data.transaction) {
+          router.push(`/${chainPath}/transactions/${query}`);
+          setSearchQuery('');
+          return;
         }
       } catch (err) {
         console.log('Cosmos transaction not found, trying EVM...');

@@ -28,7 +28,7 @@ export const bannerAds: Record<string, AdConfig[]> = {
     {
       id: 'top-winscan-promo',
       title: 'Explore 30+ Cosmos Chains',
-      description: 'Track validators, governance, and transactions across the Cosmos ecosystem',
+      description: 'Track validators, governance, and transactions across the Cosmos ecosystem & For Banner Ads @winscan Team',
       link: '/',
       cta: 'Explore Chains',
       active: true,
