@@ -85,13 +85,31 @@ export function calculateFee(chain: ChainData, gasLimit: string): { amount: Arra
   
   let feeAmount: string;
   
+  // Priority 1: Use gas_price if specified
   if (chain.gas_price) {
     const gasPricePerUnit = parseFloat(chain.gas_price);
     const gasLimitNum = parseFloat(gasLimit);
     feeAmount = Math.ceil(gasLimitNum * gasPricePerUnit).toString();
-  } else if (exponent >= 18) {
+  } 
+  // Priority 2: Use fixed_min_gas_price from fees.fee_tokens (e.g., Injective)
+  else if ((chain as any).fees?.fee_tokens?.[0]?.fixed_min_gas_price) {
+    const gasPricePerUnit = parseFloat(String((chain as any).fees.fee_tokens[0].fixed_min_gas_price));
     const gasLimitNum = parseFloat(gasLimit);
-    feeAmount = Math.ceil(gasLimitNum * 833333333333).toString();
+    feeAmount = Math.ceil(gasLimitNum * gasPricePerUnit).toString();
+  }
+  // Priority 3: Use low_gas_price as fallback
+  else if ((chain as any).fees?.fee_tokens?.[0]?.low_gas_price) {
+    const gasPricePerUnit = parseFloat(String((chain as any).fees.fee_tokens[0].low_gas_price));
+    const gasLimitNum = parseFloat(gasLimit);
+    feeAmount = Math.ceil(gasLimitNum * gasPricePerUnit).toString();
+  }
+  // Priority 4: Calculate based on exponent for tokens with high decimals
+  else if (exponent >= 18) {
+    const gasLimitNum = parseFloat(gasLimit);
+    // For 18 decimal tokens: default to 0.00025 per gas unit
+    const minFee = parseFloat(chain.min_tx_fee || '0.00025');
+    const multiplier = Math.pow(10, exponent);
+    feeAmount = Math.ceil(gasLimitNum * minFee * multiplier).toString();
   } else if (exponent >= 12) {
     const minFee = parseFloat(chain.min_tx_fee || '0.025');
     const multiplier = Math.pow(10, exponent - 6);
@@ -2134,7 +2152,9 @@ export async function executeUnjail(
           [unjailMsg],
           fee,
           memo || 'Unjail via WinScan',
-          coinType
+          coinType,
+          true,
+          registry
         );
         
         const result = await broadcastTransaction(restEndpoint, signedTx);
@@ -2339,7 +2359,9 @@ export async function executeEditValidatorCommission(
           [editValidatorMsg],
           fee,
           memo || 'Edit Commission via WinScan',
-          coinType
+          coinType,
+          true,
+          registry
         );
         
         const result = await broadcastTransaction(restEndpoint, signedTx);

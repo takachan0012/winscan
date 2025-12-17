@@ -23,6 +23,7 @@ interface PRC20Token {
   token_info: TokenInfo | null;
   marketing_info: MarketingInfo | null;
   num_holders?: number;
+  verified?: boolean;
 }
 
 async function fetchPRC20NumHolders(lcdUrls: string[], contractAddress: string): Promise<number> {
@@ -237,11 +238,18 @@ export async function GET(request: NextRequest) {
 
           if (tokenInfo) {
             console.log(`  ✓ ${tokenInfo.symbol} (${tokenInfo.name}) - ${numHolders} holders`);
+            
+            // Hardcoded verified tokens (will be replaced with backend API call)
+            const verifiedTokens = [
+              'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u' // COBRA
+            ];
+            
             const token: PRC20Token = {
               contract_address: contractAddress,
               token_info: tokenInfo,
               marketing_info: marketingInfo,
-              num_holders: numHolders
+              num_holders: numHolders,
+              verified: verifiedTokens.includes(contractAddress)
             };
             return token;
           }

@@ -203,9 +203,10 @@ export async function signTransactionForEvm(
   fee: { amount: Array<{ denom: string; amount: string }>; gas: string },
   memo: string,
   coinType: number,
-  autoSimulate: boolean = true
+  autoSimulate: boolean = true,
+  customRegistry?: Registry
 ): Promise<TxRaw> {
-  const registry = new Registry(defaultRegistryTypes);
+  const registry = customRegistry || new Registry(defaultRegistryTypes);
   
   const account = await fetchAccountWithEthSupport(restUrl, address);
   

@@ -53,6 +53,7 @@ interface PRC20Token {
   num_holders?: number;
   price_usd?: number;
   price_change_24h?: number;
+  verified?: boolean;
 }
 
 interface AssetsResponse {
@@ -281,21 +282,46 @@ export default function AssetsPage() {
     fetchAssets();
   }, [chainName]);
 
-  // Fetch PRC20 tokens for Paxi chain
+  // Fetch PRC20 tokens for Paxi chain - LOAD IN BACKGROUND IMMEDIATELY
   useEffect(() => {
     if (chainName === 'paxi-mainnet') {
       setShowPRC20Support(true);
-      if (filterType === 'prc20' || filterType === 'all') {
-        fetchPRC20Tokens();
-      }
+      // Load PRC20 in background regardless of active tab
+      fetchPRC20Tokens();
     } else {
       setShowPRC20Support(false);
     }
-  }, [chainName, filterType]);
+  }, [chainName]);
 
   const fetchPRC20Tokens = async (pageKey?: string) => {
+    const cacheKey = `prc20_tokens_${chainName}`;
+    const cacheTimeout = 60000; // 1 minute
+    
+    // Check cache first
+    if (!pageKey) {
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          
+          setPrc20Tokens(data.tokens || []);
+          setPrc20NextKey(data.next_key || null);
+          setPrc20Loading(false);
+          
+          // Still fresh, don't refetch
+          if (Date.now() - timestamp < cacheTimeout) {
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('PRC20 cache read error:', e);
+      }
+    }
+    
     try {
-      setPrc20Loading(true);
+      if (!pageKey) {
+        setPrc20Loading(true);
+      }
       
       let url = `/api/prc20-tokens?chain=${chainName}&limit=1000`;
       if (pageKey) {
@@ -373,6 +399,19 @@ export default function AssetsPage() {
         setPrc20Tokens(prev => [...prev, ...tokensWithPrices]);
       } else {
         setPrc20Tokens(tokensWithPrices);
+        
+        // Cache the result
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            data: {
+              tokens: tokensWithPrices,
+              next_key: data.pagination.next_key
+            },
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('PRC20 cache write error:', e);
+        }
       }
       
       setPrc20NextKey(data.pagination.next_key || null);
@@ -823,8 +862,18 @@ export default function AssetsPage() {
                               
                               {/* Token Info */}
                               <div className="min-w-0">
-                                <div className="text-xs md:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">
-                                  {asset.symbol || asset.name || asset.display || 'Unknown'}
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs md:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">
+                                    {asset.symbol || asset.name || asset.display || 'Unknown'}
+                                  </div>
+                                  {isNativeAsset(asset) && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-yellow-500/10 to-amber-500/10 text-yellow-400 border border-yellow-500/30 flex-shrink-0" title="Verified Native Token">
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                      </svg>
+                                      Verified
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-[10px] md:text-xs text-gray-500 mt-0.5 font-mono truncate">
                                   {formatDenom(asset.base)}
@@ -947,8 +996,18 @@ export default function AssetsPage() {
                               </div>
                               
                               <div className="min-w-0">
-                                <div className="text-xs md:text-sm font-bold text-white group-hover:text-orange-400 transition-colors truncate">
-                                  {token.token_info?.symbol || 'Unknown'}
+                                <div className="flex items-center gap-1.5">
+                                  <div className="text-xs md:text-sm font-bold text-white group-hover:text-orange-400 transition-colors truncate">
+                                    {token.token_info?.symbol || 'Unknown'}
+                                  </div>
+                                  {token.verified && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-yellow-500/10 to-amber-500/10 text-yellow-400 border border-yellow-500/30 flex-shrink-0" title="Verified Token">
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                      </svg>
+                                      Verified
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-[10px] md:text-xs text-gray-500 mt-0.5 truncate">
                                   {token.token_info?.name || token.marketing_info?.project || 'PRC20 Token'}
@@ -1129,9 +1188,19 @@ export default function AssetsPage() {
                                     
                                     {/* Token Name & Symbol */}
                                     <div className="flex flex-col min-w-0">
-                                      <span className="text-xs md:text-sm font-semibold text-white group-hover:text-blue-400 transition-colors truncate">
-                                        {tokenInfo?.symbol || 'Unknown'}
-                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-xs md:text-sm font-semibold text-white group-hover:text-blue-400 transition-colors truncate">
+                                          {tokenInfo?.symbol || 'Unknown'}
+                                        </span>
+                                        {token.verified && (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-yellow-500/10 to-amber-500/10 text-yellow-400 border border-yellow-500/30 flex-shrink-0" title="Verified Token">
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                            Verified
+                                          </span>
+                                        )}
+                                      </div>
                                       <span className="text-[10px] md:text-xs text-gray-500 truncate">
                                         {tokenInfo?.name || marketingInfo?.project || 'PRC20 Token'}
                                       </span>

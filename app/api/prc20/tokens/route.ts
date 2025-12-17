@@ -30,10 +30,16 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
     
+    // Verified tokens list (manually curated)
+    const verifiedTokens = [
+      'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u', // COBRA - First Token on Paxi
+    ];
+    
     // Transform to expected format
     const tokens = (data.tokens || []).map((token: any) => {
       const totalSupply = token.token_info?.total_supply || '0';
       const decimals = token.token_info?.decimals || 18;
+      const isVerified = verifiedTokens.includes(token.contract_address);
       
       // Calculate price (mock for now - would come from price API)
       const randomPrice = Math.random() * 5;
@@ -49,7 +55,7 @@ export async function GET(request: NextRequest) {
         logoUrl: token.marketing_info?.logo?.url || '',
         website: token.marketing_info?.project || '',
         description: token.marketing_info?.description || '',
-        verified: false, // Would come from verified list
+        verified: isVerified,
         chainId: chainName,
         price: price,
         priceChange24h: (Math.random() - 0.5) * 20, // Mock 24h change

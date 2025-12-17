@@ -24,6 +24,7 @@ interface PRC20Token {
   contract_address: string;
   token_info: TokenInfo | null;
   marketing_info: MarketingInfo | null;
+  verified?: boolean;
 }
 
 export default function PRC20TokensPage() {
@@ -31,20 +32,56 @@ export default function PRC20TokensPage() {
   const chain = params.chain as string;
 
   const [tokens, setTokens] = useState<PRC20Token[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [displayTokens, setDisplayTokens] = useState<PRC20Token[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextKey, setNextKey] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const fetchTokens = async (pageKey?: string) => {
+  // Load cached data immediately
+  useEffect(() => {
+    const cacheKey = `prc20_tokens_${chain}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        const age = Date.now() - timestamp;
+        
+        // Show cached data even if old (stale-while-revalidate)
+        if (age < 24 * 60 * 60 * 1000) { // Less than 24 hours
+          const cachedTokens = data.tokens || [];
+          setTokens(cachedTokens);
+          // Show first 5 immediately, rest progressively
+          setDisplayTokens(cachedTokens.slice(0, 5));
+          setNextKey(data.next_key || null);
+          setIsInitialLoad(false);
+          
+          // Progressive reveal of remaining tokens
+          if (cachedTokens.length > 5) {
+            for (let i = 5; i < cachedTokens.length; i += 3) {
+              setTimeout(() => {
+                setDisplayTokens(cachedTokens.slice(0, Math.min(i + 3, cachedTokens.length)));
+              }, (i - 5) * 50); // 50ms delay between batches
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+  }, [chain]);
+
+  const fetchTokens = async (pageKey?: string, silent = false) => {
     try {
       if (pageKey) {
         setLoadingMore(true);
-      } else {
+      } else if (!silent) {
         setLoading(true);
       }
 
-      let url = `/api/prc20-tokens?chain=${chain}&limit=20`;
+      let url = `/api/prc20-tokens?chain=${chain}&limit=50`;
       if (pageKey) {
         url += `&key=${encodeURIComponent(pageKey)}`;
       }
@@ -56,16 +93,43 @@ export default function PRC20TokensPage() {
       }
 
       const data = await response.json();
+      const newTokens = data.tokens || [];
 
       if (pageKey) {
-        setTokens(prev => [...prev, ...data.tokens]);
+        const allTokens = [...tokens, ...newTokens];
+        setTokens(allTokens);
+        setDisplayTokens(allTokens);
       } else {
-        setTokens(data.tokens);
+        setTokens(newTokens);
+        
+        // Progressive reveal: show first 5, then rest gradually
+        setDisplayTokens(newTokens.slice(0, 5));
+        
+        if (newTokens.length > 5) {
+          for (let i = 5; i < newTokens.length; i += 3) {
+            setTimeout(() => {
+              setDisplayTokens(newTokens.slice(0, Math.min(i + 3, newTokens.length)));
+            }, (i - 5) * 50);
+          }
+        }
+        
+        // Cache the data
+        const cacheKey = `prc20_tokens_${chain}`;
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: {
+            tokens: newTokens,
+            next_key: data.pagination.next_key
+          },
+          timestamp: Date.now()
+        }));
       }
 
       setNextKey(data.pagination.next_key || null);
+      setIsInitialLoad(false);
     } catch (err: any) {
-      setError(err.message);
+      if (!silent) {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -73,7 +137,9 @@ export default function PRC20TokensPage() {
   };
 
   useEffect(() => {
-    fetchTokens();
+    // Fetch in background (silent mode if we have cached data)
+    const hasCachedData = tokens.length > 0;
+    fetchTokens(undefined, hasCachedData);
   }, [chain]);
 
   const formatSupply = (supply: string, decimals: number) => {
@@ -84,7 +150,7 @@ export default function PRC20TokensPage() {
     return num.toFixed(2);
   };
 
-  if (loading) {
+  if (isInitialLoad && loading && tokens.length === 0) {
     return (
       <div className="min-h-screen bg-black p-6">
         <div className="max-w-7xl mx-auto">
@@ -97,7 +163,7 @@ export default function PRC20TokensPage() {
     );
   }
 
-  if (error) {
+  if (error && tokens.length === 0) {
     return (
       <div className="min-h-screen bg-black p-3 md:p-6 pt-32 md:pt-24">
         <div className="max-w-7xl mx-auto">
@@ -126,7 +192,7 @@ export default function PRC20TokensPage() {
 
         {/* Tokens Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tokens.map((token) => (
+          {displayTokens.map((token) => (
             <div
               key={token.contract_address}
               className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 hover:border-blue-500 transition-all hover:shadow-lg hover:shadow-blue-500/20"
@@ -151,9 +217,19 @@ export default function PRC20TokensPage() {
                 )}
 
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-bold text-white truncate">
-                    {token.token_info?.symbol || 'Unknown'}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold text-white truncate">
+                      {token.token_info?.symbol || 'Unknown'}
+                    </h3>
+                    {token.verified && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-yellow-500/10 to-amber-500/10 text-yellow-400 border border-yellow-500/30" title="Verified Token">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Verified
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-400 truncate">
                     {token.token_info?.name || 'Unknown Token'}
                   </p>

@@ -24,6 +24,7 @@ interface PRC20Token {
   holders?: number;
   num_holders?: number;
   balance?: string;
+  verified?: boolean;
 }
 
 type TabType = 'tokens' | 'swap' | 'transfer' | 'pump' | 'newListings';
@@ -148,7 +149,8 @@ export default function PRC20Page() {
         marketCap: Math.random() * 10000000,
         volume24h: Math.random() * 1000000,
         holders: token.num_holders || Math.floor(Math.random() * 10000),
-        balance: '0'
+        balance: '0',
+        verified: token.verified || false
       }));
 
       setTokens(mappedTokens);
@@ -804,7 +806,16 @@ export default function PRC20Page() {
                                   </div>
                                 )}
                                 <div>
-                                  <div className="text-white font-medium">{token.name}</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white font-medium">{token.name}</span>
+                                    {token.verified && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-400 border border-blue-500/20">
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="text-gray-400 text-sm">{token.symbol}</div>
                                 </div>
                               </div>

@@ -38,6 +38,12 @@ interface AssetDetail {
     usd_24h_change: number;
     usd_market_cap: number;
   } | null;
+  verified?: boolean;
+  marketing?: {
+    project?: string;
+    description?: string;
+    marketing?: string;
+  };
 }
 
 export default function AssetDetailPage() {
@@ -78,6 +84,11 @@ export default function AssetDetailPage() {
         const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
         
         if (isPRC20) {
+          // Verified tokens list
+          const verifiedTokens = [
+            'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u', // COBRA
+          ];
+          
           // Fetch PRC20 token info
           const [tokenInfoRes, marketingInfoRes, holdersRes] = await Promise.all([
             fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`),
@@ -100,6 +111,8 @@ export default function AssetDetailPage() {
           }
           
           if (tokenInfo) {
+            const isVerified = verifiedTokens.includes(denom);
+            
             // Transform PRC20 data to AssetDetail format
             setAsset({
               denom: denom,
@@ -122,7 +135,13 @@ export default function AssetDetailPage() {
                 : '0',
               holders: numHolders,
               holders_type: 'prc20',
-              price: null
+              price: null,
+              verified: isVerified,
+              marketing: {
+                project: marketingInfo?.project || '',
+                description: marketingInfo?.description || '',
+                marketing: marketingInfo?.marketing || ''
+              }
             });
           }
         } else {
@@ -291,6 +310,14 @@ export default function AssetDetailPage() {
                     >
                       {isPRC20 ? 'PRC20' : isNative ? t('assetDetail.native') : t('assetDetail.token')}
                     </span>
+                    {asset.verified && (
+                      <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Verified
+                      </span>
+                    )}
                   </div>
                   {asset.metadata?.description && (
                     <p className="text-sm md:text-base text-gray-400 max-w-3xl line-clamp-3 md:line-clamp-none">
@@ -436,6 +463,28 @@ export default function AssetDetailPage() {
                     {asset.metadata.uri_hash}
                   </div>
                 </div>
+              )}
+              
+              {/* Marketing Info for PRC20 */}
+              {isPRC20 && asset.marketing && (
+                <>
+                  {asset.marketing.project && (
+                    <div className="px-4 md:px-6 py-3 md:py-4">
+                      <div className="text-xs md:text-sm text-gray-400 mb-1">Project</div>
+                      <div className="text-xs md:text-sm text-white">
+                        {asset.marketing.project}
+                      </div>
+                    </div>
+                  )}
+                  {asset.marketing.marketing && (
+                    <div className="px-4 md:px-6 py-3 md:py-4">
+                      <div className="text-xs md:text-sm text-gray-400 mb-1">Marketing Contact</div>
+                      <div className="text-xs md:text-sm text-white break-all">
+                        {asset.marketing.marketing}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
