@@ -2402,6 +2402,132 @@ export async function executeEditValidatorCommission(
   }
 }
 
+/**
+ * Check and approve PRC20 allowance for swap pool
+ */
+async function ensurePRC20Allowance(
+  client: any,
+  signerAddress: string,
+  tokenAddress: string,
+  spenderAddress: string,
+  amount: string,
+  chain: ChainData
+): Promise<boolean> {
+  try {
+    console.log('🔍 Checking PRC20 allowance...', {
+      token: tokenAddress,
+      spender: spenderAddress,
+      amount: amount
+    });
+
+    // Query current allowance
+    const allowanceQuery = {
+      allowance: {
+        owner: signerAddress,
+        spender: spenderAddress
+      }
+    };
+    
+    const queryBase64 = Buffer.from(JSON.stringify(allowanceQuery)).toString('base64');
+    
+    // Get LCD endpoint from chain config
+    const lcdEndpoints = chain.api || [];
+    const lcdUrl = lcdEndpoints.length > 0 ? lcdEndpoints[0].address : 'https://mainnet-lcd.paxinet.io';
+    
+    const response = await fetch(
+      `${lcdUrl}/cosmwasm/wasm/v1/contract/${tokenAddress}/smart/${queryBase64}`
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      const currentAllowance = data.data?.allowance || '0';
+      console.log('📊 Current allowance:', currentAllowance);
+      
+      // If allowance is sufficient, no need to approve
+      if (BigInt(currentAllowance) >= BigInt(amount)) {
+        console.log('✅ Allowance sufficient, no approval needed');
+        return true;
+      }
+    }
+    
+    console.log('⚠️ Insufficient allowance, requesting approval from wallet...');
+    console.log('   Token contract:', tokenAddress);
+    console.log('   Spender (pool):', spenderAddress);
+    console.log('   Amount to approve:', amount);
+    console.log('   Signer address:', signerAddress);
+    
+    // Prepare approval message
+    const increaseAllowanceMsg = {
+      increase_allowance: {
+        spender: spenderAddress,
+        amount: amount,
+        expires: null
+      }
+    };
+    
+    console.log('📝 Approval message:', JSON.stringify(increaseAllowanceMsg, null, 2));
+    
+    try {
+      // Calculate fee - use 300k gas (actual usage ~254k)
+      const fee = calculateFee(chain, '300000');
+      console.log('💰 Fee:', JSON.stringify(fee));
+      
+      console.log('🔐 Requesting wallet signature for approval...');
+      
+      // Execute approval transaction
+      const result = await client.execute(
+        signerAddress,
+        tokenAddress,
+        increaseAllowanceMsg,
+        fee,
+        'Approve PRC20 token for swap'
+      );
+      
+      console.log('📡 Approval transaction broadcast!');
+      console.log('   Result:', JSON.stringify(result, null, 2));
+      
+      if (result.transactionHash) {
+        console.log('✅ Approval successful!');
+        console.log('   Tx Hash:', result.transactionHash);
+        console.log('   Height:', result.height);
+        console.log('   Gas used:', result.gasUsed);
+        
+        // Wait for tx to be indexed
+        console.log('⏳ Waiting 2 seconds for transaction to be indexed...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        console.log('✅ Approval complete, ready for swap!');
+        return true;
+      } else {
+        console.error('❌ No transaction hash in result');
+        console.error('   Full result:', result);
+        return false;
+      }
+    } catch (execError: any) {
+      console.error('❌ Approval execution error!');
+      console.error('   Error type:', execError.constructor?.name);
+      console.error('   Error message:', execError.message);
+      console.error('   Error code:', execError.code);
+      console.error('   Error log:', execError.log);
+      
+      // More specific error messages
+      if (execError.message?.includes('insufficient funds')) {
+        throw new Error('Insufficient PAXI for transaction fee (need ~0.006 PAXI)');
+      } else if (execError.message?.includes('rejected')) {
+        throw new Error('Approval rejected in wallet');
+      } else if (execError.message?.includes('account sequence')) {
+        throw new Error('Sequence mismatch - please try again');
+      } else {
+        throw new Error(`Approval failed: ${execError.message || 'Unknown error'}`);
+      }
+    }
+  } catch (error: any) {
+    console.error('❌ Error in ensurePRC20Allowance:', error);
+    console.error('   Full error:', error);
+    throw error;
+  }
+}
+
 export async function executeSwap(
   chain: ChainData,
   params: {
@@ -2570,6 +2696,93 @@ export async function executeSwap(
     
     console.log('👤 Signer address:', signerAddress);
 
+    // CRITICAL: PRC20 → PAXI swaps need approval for swap module account
+    if (params.offerDenom !== 'upaxi') {
+      console.log('🔐 PRC20 swap detected, need approval for swap module...');
+      console.log('   Token:', params.offerDenom);
+      console.log('   Amount to swap:', params.offerAmount);
+      
+      try {
+        // Create CosmWasm client for contract execution (approval)
+        const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate');
+        const { GasPrice } = await import('@cosmjs/stargate');
+        
+        console.log('🔗 Creating CosmWasm client...');
+        const wasmClient = await SigningCosmWasmClient.connectWithSigner(
+          rpcEndpoint,
+          offlineSigner,
+          { gasPrice: GasPrice.fromString('0.025upaxi') }
+        );
+        
+        // CRITICAL: Swap module account address (from successful transaction analysis)
+        // This is the module account that executes transfer_from during swap
+        const SWAP_MODULE_ACCOUNT = 'paxi1mfru9azs5nua2wxcd4sq64g5nt7nn4n80r745t';
+        
+        console.log('📋 Swap module account:', SWAP_MODULE_ACCOUNT);
+        
+        // Query actual balance from contract
+        console.log('💰 Querying token balance...');
+        const balanceQuery = { balance: { address: signerAddress } };
+        const balanceQueryB64 = Buffer.from(JSON.stringify(balanceQuery)).toString('base64');
+        
+        const lcdEndpoints = chain.api || [];
+        const lcdUrl = lcdEndpoints.length > 0 ? lcdEndpoints[0].address : 'https://mainnet-lcd.paxinet.io';
+        
+        const balanceResp = await fetch(
+          `${lcdUrl}/cosmwasm/wasm/v1/contract/${params.offerDenom}/smart/${balanceQueryB64}`
+        );
+        
+        if (balanceResp.ok) {
+          const balanceData = await balanceResp.json();
+          const actualBalance = balanceData.data?.balance || '0';
+          
+          const balanceBigInt = BigInt(actualBalance);
+          const swapAmountBigInt = BigInt(params.offerAmount);
+          const isSufficient = balanceBigInt >= swapAmountBigInt;
+          
+          console.log('📊 Balance check:', {
+            actualBalance: actualBalance,
+            swapAmount: params.offerAmount,
+            sufficient: isSufficient
+          });
+          
+          if (!isSufficient) {
+            const shortfall = swapAmountBigInt - balanceBigInt;
+            throw new Error(
+              `Insufficient balance! Need ${shortfall.toString()} more tokens. Please refresh page.`
+            );
+          }
+          
+          console.log('✅ Balance sufficient');
+        }
+        
+        // Approve swap module to transfer tokens (1.5x for safety)
+        const approveAmount = (BigInt(params.offerAmount) * BigInt(150) / BigInt(100)).toString();
+        
+        console.log('💳 Approving swap module:', {
+          tokenContract: params.offerDenom,
+          spender: SWAP_MODULE_ACCOUNT,
+          swapAmount: params.offerAmount,
+          approveAmount: approveAmount
+        });
+        
+        await ensurePRC20Allowance(
+          wasmClient,
+          signerAddress,
+          params.offerDenom,
+          SWAP_MODULE_ACCOUNT, // Approve swap module account
+          approveAmount,
+          chain
+        );
+        
+        console.log('✅ Swap module approved, ready to swap!');
+        
+      } catch (error: any) {
+        console.error('❌ Preparation failed:', error);
+        throw new Error(`Failed to prepare swap: ${error.message}`);
+      }
+    }
+
     const swapMsg = {
       typeUrl: '/x.swap.types.MsgSwap',
       value: {
@@ -2583,9 +2796,14 @@ export async function executeSwap(
 
     console.log('📝 Swap message:', swapMsg);
 
-    const fee = calculateFee(chain, gasLimit);
+    // Use higher gas for PRC20 → PAXI swaps (needs more gas for transfer_from + swap)
+    const finalGasLimit = params.offerDenom !== 'upaxi' ? '500000' : gasLimit;
+    const fee = calculateFee(chain, finalGasLimit);
 
-    console.log('💰 Fee:', fee);
+    console.log('💰 Fee:', {
+      gasLimit: finalGasLimit,
+      fee: fee
+    });
 
     const result = await client.signAndBroadcast(
       signerAddress,
