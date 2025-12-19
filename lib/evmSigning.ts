@@ -1,17 +1,14 @@
-import { SigningStargateClient, defaultRegistryTypes } from '@cosmjs/stargate';
-import { Registry, makeSignDoc } from '@cosmjs/proto-signing';
-import { TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
-import { PubKey } from 'cosmjs-types/cosmos/crypto/secp256k1/keys';
-import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
-import { AuthInfo, TxBody, Fee } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
-import { toBase64, fromBase64 } from '@cosmjs/encoding';
-import Long from 'long';
+// This file uses dynamic imports to avoid webpack bundling issues in browser
+// All cosmjs imports are loaded on-demand
 
 export async function simulateTransaction(
   restUrl: string,
-  txRaw: TxRaw
+  txRaw: any
 ): Promise<{ gasUsed: string; gasWanted: string }> {
   try {
+    const { TxRaw } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
+    const { toBase64 } = await import('@cosmjs/encoding');
+    
     const txBytes = TxRaw.encode(txRaw).finish();
     const txBytesBase64 = toBase64(txBytes);
     
@@ -128,8 +125,13 @@ export async function makeAuthInfoBytesForEvm(
   fee: { amount: Array<{ denom: string; amount: string }>; gasLimit: string },
   coinType: number,
   chainId: string,
-  mode: SignMode = SignMode.SIGN_MODE_DIRECT
+  mode?: number
 ): Promise<Uint8Array> {
+  const { SignMode } = await import('cosmjs-types/cosmos/tx/signing/v1beta1/signing');
+  const { AuthInfo, Fee } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
+  const { PubKey } = await import('cosmjs-types/cosmos/crypto/secp256k1/keys');
+  
+  const signMode = mode !== undefined ? mode : SignMode.SIGN_MODE_DIRECT;
   const pubkeyTypeUrl = getPubkeyTypeUrl(coinType, account.pub_key, chainId);
   
   console.log('🔑 Creating AuthInfo with:', {
@@ -162,7 +164,7 @@ export async function makeAuthInfoBytesForEvm(
           }).finish(),
         },
         sequence: sequenceBigInt,
-        modeInfo: { single: { mode } },
+        modeInfo: { single: { mode: signMode } },
       },
     ],
     fee: Fee.fromPartial({
@@ -180,11 +182,13 @@ export async function makeAuthInfoBytesForEvm(
   return authInfo;
 }
 
-export function makeBodyBytes(
-  registry: Registry,
+export async function makeBodyBytes(
+  registry: any,
   messages: any[],
   memo: string = ''
-): Uint8Array {
+): Promise<Uint8Array> {
+  const { TxBody } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
+  
   const anyMsgs = messages.map((m) => registry.encodeAsAny(m));
   return TxBody.encode(
     TxBody.fromPartial({
@@ -204,8 +208,14 @@ export async function signTransactionForEvm(
   memo: string,
   coinType: number,
   autoSimulate: boolean = true,
-  customRegistry?: Registry
-): Promise<TxRaw> {
+  customRegistry?: any
+): Promise<any> {
+  const { Registry, makeSignDoc } = await import('@cosmjs/proto-signing');
+  const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+  const { TxRaw } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
+  const { fromBase64 } = await import('@cosmjs/encoding');
+  const { SignMode } = await import('cosmjs-types/cosmos/tx/signing/v1beta1/signing');
+  
   const registry = customRegistry || new Registry(defaultRegistryTypes);
   
   const account = await fetchAccountWithEthSupport(restUrl, address);
@@ -225,7 +235,7 @@ export async function signTransactionForEvm(
     fee
   });
   
-  const txBodyBytes = makeBodyBytes(registry, messages, memo);
+  const txBodyBytes = await makeBodyBytes(registry, messages, memo);
   
   // First attempt: try simulation with minimal fee
   let finalFee = fee;
@@ -342,8 +352,12 @@ export async function signTransactionForEvm(
 
 export async function broadcastTransaction(
   restUrl: string,
-  txRaw: TxRaw
+  txRaw: any
 ): Promise<any> {
+  const { TxRaw } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
+  const { AuthInfo } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
+  const { toBase64 } = await import('@cosmjs/encoding');
+  
   const txBytes = TxRaw.encode(txRaw).finish();
   const txBytesBase64 = toBase64(txBytes);
   

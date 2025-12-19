@@ -78,11 +78,29 @@ export default function AssetDetailPage() {
     async function fetchAssetDetail() {
       if (!chainName || !denom) return;
       
+      // Check cache first for faster loading
+      const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
+      if (isPRC20 && typeof window !== 'undefined') {
+        const cacheKey = `prc20_detail_${denom}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const cachedData = JSON.parse(cached);
+            const age = Date.now() - cachedData.timestamp;
+            if (age < 60000) { // 60 seconds cache
+              setAsset(cachedData.asset);
+              setTokenLogo(cachedData.logo);
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            sessionStorage.removeItem(cacheKey);
+          }
+        }
+      }
+      
       setLoading(true);
       try {
-        // Check if denom is a PRC20 contract address (starts with paxi1)
-        const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
-        
         if (isPRC20) {
           // Verified tokens list
           const verifiedTokens = [
@@ -103,8 +121,9 @@ export default function AssetDetailPage() {
           const numHolders = holdersData?.count || 0;
           
           // Set logo URL
+          let logoUrl = '';
           if (marketingInfo?.logo?.url) {
-            const logoUrl = marketingInfo.logo.url.startsWith('ipfs://')
+            logoUrl = marketingInfo.logo.url.startsWith('ipfs://')
               ? `https://ipfs.io/ipfs/${marketingInfo.logo.url.replace('ipfs://', '')}`
               : marketingInfo.logo.url;
             setTokenLogo(logoUrl);
@@ -143,6 +162,49 @@ export default function AssetDetailPage() {
                 marketing: marketingInfo?.marketing || ''
               }
             });
+            
+            // Cache the result
+            if (typeof window !== 'undefined') {
+              const cacheKey = `prc20_detail_${denom}`;
+              const cacheData = {
+                timestamp: Date.now(),
+                asset: {
+                  denom,
+                  metadata: {
+                    description: marketingInfo?.description || 'PRC20 Token',
+                    denom_units: [
+                      { denom: denom, exponent: 0, aliases: [] },
+                      { denom: tokenInfo.symbol || 'TOKEN', exponent: tokenInfo.decimals || 6, aliases: [] }
+                    ],
+                    base: denom,
+                    display: tokenInfo.symbol || 'TOKEN',
+                    name: tokenInfo.name || marketingInfo?.project || 'Unknown',
+                    symbol: tokenInfo.symbol || 'TOKEN',
+                    uri: marketingInfo?.logo?.url || '',
+                    uri_hash: ''
+                  },
+                  supply: tokenInfo.total_supply || '0',
+                  supply_formatted: tokenInfo.total_supply 
+                    ? (Number(tokenInfo.total_supply) / Math.pow(10, tokenInfo.decimals || 6)).toLocaleString('en-US')
+                    : '0',
+                  holders: numHolders,
+                  holders_type: 'prc20',
+                  price: null,
+                  verified: isVerified,
+                  marketing: {
+                    project: marketingInfo?.project || '',
+                    description: marketingInfo?.description || '',
+                    marketing: marketingInfo?.marketing || ''
+                  }
+                },
+                logo: logoUrl
+              };
+              try {
+                sessionStorage.setItem(cacheKey, JSON.stringify(cacheData));
+              } catch (e) {
+                console.warn('Failed to cache data:', e);
+              }
+            }
           }
         } else {
           // Regular asset
@@ -311,11 +373,11 @@ export default function AssetDetailPage() {
                       {isPRC20 ? 'PRC20' : isNative ? t('assetDetail.native') : t('assetDetail.token')}
                     </span>
                     {asset.verified && (
-                      <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
+                      <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 text-yellow-400 border border-yellow-500/30 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
-                        Verified
+                        <span className="text-[10px] md:text-xs font-semibold">Verified</span>
                       </span>
                     )}
                   </div>
@@ -359,6 +421,30 @@ export default function AssetDetailPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Quick Actions for PRC20 */}
+          {isPRC20 && (
+            <div className="grid grid-cols-2 gap-3 mb-4 md:mb-6">
+              <Link
+                href={`/${chainName}/prc20?action=transfer&token=${denom}`}
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-6 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                Transfer
+              </Link>
+              <Link
+                href={`/${chainName}/prc20/swap?from=${denom}`}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+                Swap
+              </Link>
             </div>
           )}
 
@@ -471,7 +557,7 @@ export default function AssetDetailPage() {
                   {asset.marketing.project && (
                     <div className="px-4 md:px-6 py-3 md:py-4">
                       <div className="text-xs md:text-sm text-gray-400 mb-1">Project</div>
-                      <div className="text-xs md:text-sm text-white">
+                      <div className="text-xs md:text-sm text-white break-all">
                         {asset.marketing.project}
                       </div>
                     </div>

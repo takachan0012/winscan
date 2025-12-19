@@ -200,6 +200,35 @@ export default function AccountsPage() {
     }
   }, [connectedAddress, selectedChain]);
 
+  // Retry helper for balance fetch
+  const fetchBalanceWithRetry = async (contract: string, address: string, retries = 3): Promise<string> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const balRes = await fetch(
+          `/api/prc20-balance?contract=${contract}&address=${address}`,
+          { 
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10000)
+          }
+        );
+        
+        if (balRes.ok) {
+          const { balance } = await balRes.json();
+          return balance || '0';
+        }
+        
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+      } catch (error) {
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+      }
+    }
+    return '0';
+  };
+
   // Fetch PRC20 token balances
   const fetchPRC20Balances = async (address: string) => {
     setPrc20Loading(true);
@@ -208,38 +237,80 @@ export default function AccountsPage() {
       // Get all PRC20 tokens
       const tokensRes = await fetch('/api/prc20-tokens?chain=paxi-mainnet&limit=100');
       if (!tokensRes.ok) {
+        console.error('[PRC20] Failed to fetch tokens list');
         setPrc20Loading(false);
         return;
       }
       
       const { tokens } = await tokensRes.json();
+      console.log(`[PRC20] Loading balances for ${tokens.length} tokens...`);
       
-      // Fetch balance for each token
-      const balances = await Promise.all(
-        tokens.map(async (token: any) => {
-          try {
-            const balRes = await fetch(
-              `/api/prc20-balance?contract=${token.contract_address}&address=${address}`
+      if (tokens.length === 0) {
+        console.log('[PRC20] No tokens found');
+        setPrc20Loading(false);
+        return;
+      }
+      
+      // Progressive loading: process in batches of 3 with delays
+      const batchSize = 3;
+      const allBalances: any[] = [];
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (let i = 0; i < tokens.length; i += batchSize) {
+        const batch = tokens.slice(i, i + batchSize);
+        console.log(`[PRC20] Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(tokens.length/batchSize)}...`);
+        
+        const batchResults = await Promise.all(
+          batch.map(async (token: any) => {
+            const balance = await fetchBalanceWithRetry(
+              token.contract_address,
+              address
             );
-            if (!balRes.ok) {
-              return { ...token, balance: '0' };
+            
+            const hasBalance = balance && balance !== '0';
+            
+            if (hasBalance) {
+              successCount++;
+              const decimals = parseInt(token.token_info?.decimals || '6');
+              const formatted = (parseFloat(balance) / Math.pow(10, decimals)).toFixed(4);
+              console.log(`[PRC20] ✅ ${token.token_info?.symbol}: ${formatted}`);
+            } else {
+              failCount++;
             }
-            const { balance } = await balRes.json();
+            
             return {
               ...token,
               balance: balance || '0'
             };
-          } catch (error) {
-            return { ...token, balance: '0' };
-          }
-        })
-      );
+          })
+        );
+        
+        allBalances.push(...batchResults);
+        
+        // Update display progressively
+        const nonZeroSoFar = allBalances.filter(t => t.balance !== '0');
+        if (nonZeroSoFar.length > 0) {
+          setPrc20Tokens(nonZeroSoFar);
+        }
+        
+        // Delay between batches to avoid overwhelming the API
+        if (i + batchSize < tokens.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
       
-      // Filter non-zero balances
-      const nonZeroBalances = balances.filter(t => t.balance !== '0');
+      // Final update
+      const nonZeroBalances = allBalances.filter(t => t.balance !== '0');
+      console.log(`[PRC20] ✅ Complete! Found ${nonZeroBalances.length} tokens with balance (${successCount} success, ${failCount} zero/failed)`);
       setPrc20Tokens(nonZeroBalances);
+      
+      if (nonZeroBalances.length === 0) {
+        console.log('[PRC20] ℹ️ No PRC20 tokens with balance found in this wallet');
+      }
+      
     } catch (error) {
-      console.error('Error fetching PRC20 balances:', error);
+      console.error('[PRC20] Error fetching balances:', error);
       setPrc20Tokens([]);
     } finally {
       setPrc20Loading(false);
@@ -937,13 +1008,38 @@ export default function AccountsPage() {
               {selectedChain?.chain_name === 'paxi-mainnet' && (prc20Loading || prc20Tokens.length > 0) && (
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-800">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                      <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      PRC20 Token Balances
-                      {!prc20Loading && <span className="text-sm font-normal text-gray-400">({prc20Tokens.length})</span>}
-                    </h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        PRC20 Token Balances
+                        {!prc20Loading && <span className="text-sm font-normal text-gray-400">({prc20Tokens.length})</span>}
+                      </h2>
+                    </div>
+                    
+                    {/* Action Tabs */}
+                    <div className="flex gap-2 flex-wrap">
+                      <Link
+                        href={`/${chainPath}/prc20/swap`}
+                        className="px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-lg text-orange-400 text-sm font-medium transition-all flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        Swap
+                      </Link>
+                      <Link
+                        href={`/${chainPath}/prc20`}
+                        className="px-4 py-2 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 rounded-lg text-gray-300 text-sm font-medium transition-all flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Token List
+                      </Link>
+                    </div>
                   </div>
                   {prc20Loading ? (
                     <div className="px-6 py-12 text-center">
@@ -958,6 +1054,7 @@ export default function AccountsPage() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Token</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">Balance</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">Contract</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
@@ -1022,6 +1119,19 @@ export default function AccountsPage() {
                                     >
                                       <Copy className="w-4 h-4" />
                                     </button>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Link
+                                      href={`/${chainPath}/prc20/swap?from=${token.contract_address}`}
+                                      className="px-3 py-1.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-lg text-orange-400 text-xs font-medium transition-all flex items-center gap-1.5"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                      </svg>
+                                      Swap
+                                    </Link>
                                   </div>
                                 </td>
                               </tr>

@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         throw new Error('Invalid pools data');
       }
       
-      // Calculate current prices (no historical data available from LCD)
+      // Extract prices from pool data (already calculated by backend)
       const marketData: Record<string, any> = {};
       
       pools.forEach((pool: any) => {
@@ -75,28 +75,26 @@ export async function GET(request: NextRequest) {
         if (!prc20Address) return;
         
         try {
-          const paxiReserveRaw = pool.reserve_paxi;
-          const tokenReserveRaw = pool.reserve_prc20;
+          // Use price_prc20_per_paxi from pool - this is the correct price in PAXI
+          const priceInPaxi = parseFloat(pool.price_prc20_per_paxi || pool.pricePrc20PerPaxi || '0');
           
-          if (paxiReserveRaw && tokenReserveRaw) {
-            const paxiReserve = parseFloat(paxiReserveRaw) / 1e6;
-            const tokenReserve = parseFloat(tokenReserveRaw) / 1e6; // Assume 6 decimals
-            
-            if (tokenReserve > 0 && paxiReserve > 0) {
-              const priceInPaxi = paxiReserve / tokenReserve;
-              
-              marketData[prc20Address] = {
-                price_usd: priceInPaxi,
-                price_change_24h: 0, // No historical data from LCD
-                volume_24h: 0, // No volume data from LCD
-                liquidity_paxi: paxiReserve,
-                liquidity_token: tokenReserve,
-                last_updated: new Date().toISOString()
-              };
-            }
+          // Get reserves for liquidity info
+          const paxiReserve = parseFloat(pool.reserve_paxi || '0') / 1e6;
+          const tokenReserve = parseFloat(pool.reserve_prc20 || '0') / 1e6;
+          
+          if (priceInPaxi > 0) {
+            marketData[prc20Address] = {
+              price_paxi: priceInPaxi, // Price of 1 PRC20 token in PAXI (not USD)
+              price_usd: priceInPaxi, // Kept for backward compatibility
+              price_change_24h: 0, // No historical data from LCD
+              volume_24h: 0, // No volume data from LCD
+              liquidity_paxi: paxiReserve,
+              liquidity_token: tokenReserve,
+              last_updated: new Date().toISOString()
+            };
           }
         } catch (error) {
-          console.error(`Error calculating price for ${prc20Address}:`, error);
+          console.error(`Error extracting price for ${prc20Address}:`, error);
         }
       });
       

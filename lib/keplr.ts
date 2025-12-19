@@ -2402,6 +2402,217 @@ export async function executeEditValidatorCommission(
   }
 }
 
+export async function executeSwap(
+  chain: ChainData,
+  params: {
+    prc20Address: string;
+    offerDenom: string;
+    offerAmount: string;
+    minReceive: string;
+  },
+  gasLimit: string = '300000',
+  memo: string = ''
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    if (!isKeplrInstalled()) {
+      throw new Error('Keplr extension is not installed');
+    }
+
+    const keplr = window.keplr!;
+    let chainId = (chain.chain_id || chain.chain_name).trim();
+    
+    console.log('🔄 executeSwap:', {
+      prc20: params.prc20Address,
+      offerDenom: params.offerDenom,
+      offerAmount: params.offerAmount,
+      chainId: chainId
+    });
+    
+    await keplr.enable(chainId);
+    
+    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    
+    // @ts-ignore - Import required modules
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { Registry } = await import('@cosmjs/proto-signing');
+    // @ts-ignore
+    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const protobuf = await import('protobufjs/minimal');
+    
+    // Create MsgSwap interface dengan proper protobuf writer
+    const MsgSwap = {
+      encode(message: any, writer: any = protobuf.Writer.create()) {
+        if (message.creator !== '') {
+          writer.uint32(10).string(message.creator);
+        }
+        if (message.prc20 !== '') {
+          writer.uint32(18).string(message.prc20);
+        }
+        if (message.offerDenom !== '') {
+          writer.uint32(26).string(message.offerDenom);
+        }
+        if (message.offerAmount !== '') {
+          writer.uint32(34).string(message.offerAmount);
+        }
+        if (message.minReceive !== '') {
+          writer.uint32(42).string(message.minReceive);
+        }
+        return writer;
+      },
+      decode(input: any, length?: number) {
+        const reader = input instanceof protobuf.Reader ? input : new protobuf.Reader(input);
+        let end = length === undefined ? reader.len : reader.pos + length;
+        const message: any = {
+          creator: '',
+          prc20: '',
+          offerDenom: '',
+          offerAmount: '',
+          minReceive: ''
+        };
+        while (reader.pos < end) {
+          const tag = reader.uint32();
+          switch (tag >>> 3) {
+            case 1:
+              message.creator = reader.string();
+              break;
+            case 2:
+              message.prc20 = reader.string();
+              break;
+            case 3:
+              message.offerDenom = reader.string();
+              break;
+            case 4:
+              message.offerAmount = reader.string();
+              break;
+            case 5:
+              message.minReceive = reader.string();
+              break;
+            default:
+              reader.skipType(tag & 7);
+              break;
+          }
+        }
+        return message;
+      },
+      fromJSON(object: any) {
+        return {
+          creator: object.creator ?? '',
+          prc20: object.prc20 ?? '',
+          offerDenom: object.offerDenom ?? '',
+          offerAmount: object.offerAmount ?? '',
+          minReceive: object.minReceive ?? ''
+        };
+      },
+      toJSON(message: any) {
+        return {
+          creator: message.creator,
+          prc20: message.prc20,
+          offerDenom: message.offerDenom,
+          offerAmount: message.offerAmount,
+          minReceive: message.minReceive
+        };
+      },
+      fromPartial(object: any) {
+        return {
+          creator: object.creator ?? '',
+          prc20: object.prc20 ?? '',
+          offerDenom: object.offerDenom ?? '',
+          offerAmount: object.offerAmount ?? '',
+          minReceive: object.minReceive ?? ''
+        };
+      }
+    };
+    
+    // @ts-ignore - Registry types are complex
+    const registry = new Registry([
+      ...defaultRegistryTypes,
+      ['/x.swap.types.MsgSwap', MsgSwap],
+    ]);
+    
+    console.log('✅ Custom registry created with MsgSwap');
+    
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        break;
+      }
+    }
+    
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+    }
+    
+    if (!rpcEndpoint) {
+      throw new Error('No RPC endpoint available for this chain');
+    }
+
+    const clientOptions: any = {
+      registry,
+      broadcastTimeoutMs: 30000,
+      broadcastPollIntervalMs: 3000,
+    };
+
+    const client = await SigningStargateClient.connectWithSigner(
+      rpcEndpoint, 
+      offlineSigner,
+      clientOptions
+    );
+    
+    console.log('✅ SigningStargateClient connected with custom registry');
+    
+    const accounts = await offlineSigner.getAccounts();
+    const signerAddress = accounts[0].address;
+    
+    console.log('👤 Signer address:', signerAddress);
+
+    const swapMsg = {
+      typeUrl: '/x.swap.types.MsgSwap',
+      value: {
+        creator: signerAddress,
+        prc20: params.prc20Address,
+        offerDenom: params.offerDenom,
+        offerAmount: params.offerAmount,
+        minReceive: params.minReceive,
+      },
+    };
+
+    console.log('📝 Swap message:', swapMsg);
+
+    const fee = calculateFee(chain, gasLimit);
+
+    console.log('💰 Fee:', fee);
+
+    const result = await client.signAndBroadcast(
+      signerAddress,
+      [swapMsg],
+      fee,
+      memo || 'Swap via WinScan'
+    );
+
+    console.log('✅ Swap result:', result);
+
+    if (result.code === 0) {
+      return {
+        success: true,
+        txHash: result.transactionHash,
+      };
+    } else {
+      return {
+        success: false,
+        error: result.rawLog || 'Swap transaction failed',
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Swap error:', error);
+    return { success: false, error: error.message || 'Swap failed' };
+  }
+}
+
 export async function enableAutoCompound(
   chain: ChainData,
   params: {

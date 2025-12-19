@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { getChainRegistryLogoUrl } from '@/lib/chainRegistryLogo';
+import PRC20HoldersCount from '@/components/PRC20HoldersCount';
 
 interface DenomUnit {
   denom: string;
@@ -295,7 +296,8 @@ export default function AssetsPage() {
 
   const fetchPRC20Tokens = async (pageKey?: string) => {
     const cacheKey = `prc20_tokens_${chainName}`;
-    const cacheTimeout = 60000; // 1 minute
+    const poolsCacheKey = `prc20_pools_${chainName}`;
+    const cacheTimeout = 300000; // 5 minutes (increased from 1 minute)
     
     // Check cache first
     if (!pageKey) {
@@ -304,18 +306,24 @@ export default function AssetsPage() {
         if (cached) {
           const { data, timestamp } = JSON.parse(cached);
           
-          setPrc20Tokens(data.tokens || []);
-          setPrc20NextKey(data.next_key || null);
-          setPrc20Loading(false);
-          
-          // Still fresh, don't refetch
+          // Still fresh, use cache and return immediately
           if (Date.now() - timestamp < cacheTimeout) {
+            console.log('✅ Using cached PRC20 data');
+            setPrc20Tokens(data.tokens || []);
+            setPrc20NextKey(data.next_key || null);
+            setPrc20Loading(false);
             return;
           }
         }
       } catch (e) {
         console.warn('PRC20 cache read error:', e);
       }
+    }
+    
+    // Prevent duplicate calls
+    if (prc20Loading && !pageKey) {
+      console.log('⚠️ PRC20 already loading, skipping duplicate call');
+      return;
     }
     
     try {
@@ -335,28 +343,53 @@ export default function AssetsPage() {
 
       const data = await response.json();
       
-      // Fetch all pools in one request
+      // Fetch all pools in one request - WITH CACHING
       let poolsMap = new Map();
       try {
-        const poolsResponse = await fetch(
-          'https://mainnet-lcd.paxinet.io/paxi/swap/all_pools',
-          { signal: AbortSignal.timeout(5000) }
-        );
+        // Check pools cache first
+        const poolsCached = sessionStorage.getItem(poolsCacheKey);
+        let pools: any[] = [];
         
-        if (poolsResponse.ok) {
-          const poolsData = await poolsResponse.json();
-          
-          // Check different possible response structures
-          const pools = poolsData.pools || poolsData.result?.pools || poolsData;
-          
-          if (Array.isArray(pools)) {
-            pools.forEach((pool: any) => {
-              const prc20Address = pool.prc20 || pool.prc20_address || pool.token || pool.contract_address;
-              if (prc20Address) {
-                poolsMap.set(prc20Address, pool);
-              }
-            });
+        if (poolsCached) {
+          const { data: cachedPools, timestamp } = JSON.parse(poolsCached);
+          if (Date.now() - timestamp < cacheTimeout) {
+            console.log('✅ Using cached pool data');
+            pools = cachedPools;
           }
+        }
+        
+        // Fetch fresh pool data if cache miss or expired
+        if (pools.length === 0) {
+          console.log('📡 Fetching fresh pool data...');
+          const poolsResponse = await fetch(
+            'https://mainnet-lcd.paxinet.io/paxi/swap/all_pools',
+            { signal: AbortSignal.timeout(5000) }
+          );
+          
+          if (poolsResponse.ok) {
+            const poolsData = await poolsResponse.json();
+            
+            // Check different possible response structures
+            pools = poolsData.pools || poolsData.result?.pools || poolsData;
+            
+            // Cache the pools data
+            if (Array.isArray(pools) && pools.length > 0) {
+              sessionStorage.setItem(poolsCacheKey, JSON.stringify({
+                data: pools,
+                timestamp: Date.now()
+              }));
+              console.log('✅ Pool data cached');
+            }
+          }
+        }
+        
+        if (Array.isArray(pools)) {
+          pools.forEach((pool: any) => {
+            const prc20Address = pool.prc20 || pool.prc20_address || pool.token || pool.contract_address;
+            if (prc20Address) {
+              poolsMap.set(prc20Address, pool);
+            }
+          });
         }
       } catch (error) {
         console.error('Failed to fetch all pools:', error);
@@ -1263,17 +1296,13 @@ export default function AssetsPage() {
                                   )}
                                 </td>
                                 
-                                {/* Holders Column */}
+                                {/* Holders Column - Lazy Loaded */}
                                 <td className="px-3 md:px-6 py-3 md:py-4 text-right">
-                                  {token.num_holders !== undefined && token.num_holders > 0 ? (
-                                    <div className="text-xs md:text-sm font-medium text-white">
-                                      {token.num_holders.toLocaleString()}
-                                    </div>
-                                  ) : (
-                                    <div className="text-xs md:text-sm font-medium text-gray-400">
-                                      -
-                                    </div>
-                                  )}
+                                  <PRC20HoldersCount
+                                    contractAddress={token.contract_address}
+                                    chainName={chainName || 'paxi-mainnet'}
+                                    initialCount={token.num_holders}
+                                  />
                                 </td>
                                 
                                 {/* Contract Column */}

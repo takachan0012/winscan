@@ -9,20 +9,40 @@ const LCD_ENDPOINTS = [
   'https://api-paxi-m.maouam.xyz'
 ];
 
-async function getWorkingLCD(): Promise<string> {
-  for (const url of LCD_ENDPOINTS) {
+async function queryWithRetry(url: string, retries: number = 2): Promise<Response | null> {
+  for (let i = 0; i <= retries; i++) {
     try {
-      const testRes = await fetch(`${url}/cosmos/base/tendermint/v1beta1/node_info`, {
-        signal: AbortSignal.timeout(3000)
+      const response = await fetch(url, {
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000)
       });
-      if (testRes.ok) {
-        return url;
+      
+      if (response.ok) {
+        return response;
+      }
+      
+      // Don't retry on 4xx errors (client errors)
+      if (response.status >= 400 && response.status < 500) {
+        return null;
+      }
+      
+      // Retry on 5xx (server errors)
+      if (i < retries) {
+        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1))); // Exponential backoff
+        console.log(`[PRC20 Balance] Retrying (${i + 1}/${retries})...`);
       }
     } catch (error) {
-      continue;
+      if (i < retries) {
+        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+        console.log(`[PRC20 Balance] Retrying after error (${i + 1}/${retries})...`);
+      }
     }
   }
-  return LCD_ENDPOINTS[0]; // Fallback to first
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -30,6 +50,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const contract = searchParams.get('contract');
     const address = searchParams.get('address');
+
+    console.log('[PRC20 Balance] Request:', { contract, address });
 
     if (!contract || !address) {
       return NextResponse.json(
@@ -58,8 +80,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const lcdUrl = await getWorkingLCD();
-    
     // Query balance for specific address
     const queryObj = {
       balance: {
@@ -68,32 +88,47 @@ export async function GET(request: NextRequest) {
     };
 
     // Encode query to base64
-    const base64Query = Buffer.from(JSON.stringify(queryObj)).toString('base64');
-    const url = `${lcdUrl}/cosmwasm/wasm/v1/contract/${contract}/smart/${base64Query}`;
-
-    const response = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(5000)
-    });
-
-    if (!response.ok) {
-      console.error('[PRC20 Balance] Error:', response.status);
-      return NextResponse.json(
-        { balance: '0' },
-        { status: 200 }
-      );
-    }
-
-    const data = await response.json();
+    const queryJson = JSON.stringify(queryObj);
+    const base64Query = Buffer.from(queryJson).toString('base64');
+    console.log('[PRC20 Balance] Query JSON:', queryJson);
+    console.log('[PRC20 Balance] Query Base64:', base64Query);
     
-    return NextResponse.json(data.data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
+    // Try each LCD endpoint with retry logic
+    let response: Response | null = null;
+    let lastError: any = null;
+    
+    for (const lcdUrl of LCD_ENDPOINTS) {
+      try {
+        const url = `${lcdUrl}/cosmwasm/wasm/v1/contract/${contract}/smart/${base64Query}`;
+        console.log(`[PRC20 Balance] Trying ${lcdUrl}...`);
+        response = await queryWithRetry(url);
+        
+        if (response) {
+          const data = await response.json();
+          console.log(`[PRC20 Balance] Success from ${lcdUrl}:`, JSON.stringify(data));
+          return NextResponse.json(data.data, {
+            headers: {
+              'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
+            }
+          });
+        }
+        console.log(`[PRC20 Balance] No response from ${lcdUrl}`);
+      } catch (error: any) {
+        lastError = error;
+        console.error(`[PRC20 Balance] ${lcdUrl} failed:`, error.message);
+        continue;
       }
-    });
+    }
+    
+    // All endpoints failed
+    console.error('[PRC20 Balance] All LCD endpoints failed:', lastError);
+    return NextResponse.json(
+      { balance: '0' },
+      { status: 200 }
+    );
 
   } catch (error: any) {
-    console.error('[PRC20 Balance] Error:', error);
+    console.error('[PRC20 Balance] Unexpected error:', error);
     return NextResponse.json(
       { balance: '0' },
       { status: 200 }

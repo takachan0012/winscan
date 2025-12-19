@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { ChainData } from '@/types/chain';
 import { ArrowDownUp, Settings, Info, Zap, AlertCircle } from 'lucide-react';
 import { calculateFee } from '@/lib/keplr';
+import { getPoolPrice, calculateSwapOutput } from '@/lib/poolPriceCalculator';
 
 interface Token {
   address: string;
@@ -20,11 +21,13 @@ interface Token {
 
 export default function PRC20SwapPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const [chains, setChains] = useState<ChainData[]>([]);
   const [selectedChain, setSelectedChain] = useState<ChainData | null>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [fromToken, setFromToken] = useState<Token | null>(null);
   const [toToken, setToToken] = useState<Token | null>(null);
+  const [initialTokenSet, setInitialTokenSet] = useState(false);
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
   const [slippage, setSlippage] = useState('0.5');
@@ -32,6 +35,10 @@ export default function PRC20SwapPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [txResult, setTxResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
+  const [marketPrices, setMarketPrices] = useState<Record<string, { price_paxi: number; price_usd: number; price_change_24h: number }>>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [swapPercentage, setSwapPercentage] = useState(0);
+  const [memo, setMemo] = useState('WinScan Swap');
 
   useEffect(() => {
     const loadChains = async () => {
@@ -60,6 +67,75 @@ export default function PRC20SwapPage() {
     }
   }, [selectedChain]);
 
+  const loadMarketPrices = async (tokensArray?: Token[]) => {
+    const tokensToUse = tokensArray || tokens;
+    console.log('💡 Loading market prices (NO CACHE) with', tokensToUse.length, 'tokens');
+
+    // Fetch pools directly from LCD - NO CACHE!
+    try {
+      console.log('📡 Fetching FRESH pools from LCD (no cache)...');
+      const poolsResponse = await fetch(
+        'https://mainnet-lcd.paxinet.io/paxi/swap/all_pools',
+        { signal: AbortSignal.timeout(10000) }
+      );
+      
+      if (!poolsResponse.ok) {
+        throw new Error('Failed to fetch pools');
+      }
+
+      const poolsData = await poolsResponse.json();
+      const pools = poolsData.pools || poolsData.result?.pools || poolsData;
+      
+      if (!Array.isArray(pools) || pools.length === 0) {
+        throw new Error('Invalid pools data structure');
+      }
+
+      console.log('🏊 Fresh pools loaded:', pools.length);
+
+      // Calculate real-time prices from pool reserves
+      // Use poolPriceCalculator module to get prices with correct decimals
+      console.log('🔄 Using poolPriceCalculator module to calculate prices...');
+      const calculatedPrices: Record<string, { price_paxi: number; price_usd: number; price_change_24h: number }> = {};
+      
+      // Process each pool using the module
+      for (const pool of pools) {
+        const prc20Address = pool.prc20 || pool.prc20_address || pool.token || pool.contract_address;
+        
+        if (!prc20Address) continue;
+
+        try {
+          // Use module to get price with correct decimals
+          const poolPrice = await getPoolPrice(prc20Address);
+          
+          if (poolPrice) {
+            calculatedPrices[prc20Address] = {
+              price_paxi: poolPrice.price,
+              price_usd: poolPrice.price,
+              price_change_24h: 0
+            };
+            
+            // Update token decimals in state if different
+            const tokenInState = tokensToUse.find(t => t.address === prc20Address);
+            if (tokenInState && tokenInState.decimals !== poolPrice.decimals) {
+              console.log(`🔧 Updating ${tokenInState.symbol} decimals: ${tokenInState.decimals} → ${poolPrice.decimals}`);
+              setTokens(prev => prev.map(t => 
+                t.address === prc20Address ? { ...t, decimals: poolPrice.decimals } : t
+              ));
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Error calculating price for ${prc20Address}:`, error);
+        }
+      }
+
+      setMarketPrices(calculatedPrices);
+      console.log('✅ Prices calculated with correct decimals:', Object.keys(calculatedPrices).length, 'tokens');
+      
+    } catch (error) {
+      console.error('❌ Error loading pool prices:', error);
+    }
+  };
+
   const checkWalletConnection = async () => {
     if (!selectedChain) return;
     
@@ -74,7 +150,7 @@ export default function PRC20SwapPage() {
         // Immediately load balances after connection
         if (tokens.length > 0) {
           console.log('🔄 Loading balances for connected wallet...');
-          loadBalances(tokens, key.bech32Address);
+          loadBalances(true);
         }
       }
     } catch (error) {
@@ -88,6 +164,8 @@ export default function PRC20SwapPage() {
       const response = await fetch(`/api/prc20/tokens?chain=${selectedChain?.chain_name}`);
       const data = await response.json();
       
+      console.log('📦 Loaded tokens from API:', data.tokens?.length);
+      
       // Add native PAXI token
       const nativeToken: Token = {
         address: 'upaxi',
@@ -97,107 +175,315 @@ export default function PRC20SwapPage() {
         balance: '0',
       };
       
-      const allTokens = [nativeToken, ...(data.tokens || [])];
+      // Map PRC20 tokens - decimals will be queried automatically when needed
+      const prc20Tokens = (data.tokens || []).map((token: any) => ({
+        address: token.address,
+        name: token.name,
+        symbol: token.symbol,
+        decimals: parseInt(token.decimals) || 18, // Initial value, will be corrected by poolPriceCalculator
+        logo: token.logoUrl,
+        balance: '0'
+      }));
+      
+      console.log('✅ Tokens loaded from backend');
+      
+      const allTokens = [nativeToken, ...prc20Tokens];
+      console.log('🪙 All tokens:', allTokens.map(t => `${t.symbol} (${t.decimals} decimals)`));
       setTokens(allTokens);
       
-      // Set default tokens
-      if (!fromToken) setFromToken(nativeToken);
+      // Load market prices (no cache)
+      console.log('🔄 Tokens loaded, now loading market prices...');
+      loadMarketPrices(allTokens);
       
-      // Load balances if wallet connected
-      if (walletAddress) {
-        loadBalances(allTokens, walletAddress);
+      // Check URL query param untuk auto-select token
+      const fromParam = searchParams.get('from');
+      
+      if (fromParam && !initialTokenSet) {
+        console.log('🔍 Looking for token with address:', fromParam);
+        // Cari token dari query param
+        const selectedToken = allTokens.find(t => t.address === fromParam);
+        
+        if (selectedToken && selectedToken.address !== 'upaxi') {
+          // PRC20 token dari URL
+          console.log('✅ Found token:', selectedToken.symbol, 'decimals:', selectedToken.decimals);
+          setFromToken(selectedToken);
+          setToToken(nativeToken); // PAXI otomatis
+          setInitialTokenSet(true);
+          console.log('✅ Auto-selected:', selectedToken.symbol, '→ PAXI');
+        } else {
+          console.log('⚠️ Token not found or is PAXI, using default');
+          // Default: PAXI → pilih token
+          setFromToken(nativeToken);
+          setInitialTokenSet(true);
+        }
+      } else if (!fromToken && !initialTokenSet) {
+        // Default: PAXI → pilih token
+        setFromToken(nativeToken);
+        setInitialTokenSet(true);
       }
+      
+      // Balances will be loaded by useEffect when tokens are selected
     } catch (error) {
       console.error('Error loading tokens:', error);
     }
   };
 
-  const loadBalances = async (tokenList: Token[], address: string) => {
-    if (!selectedChain?.api?.[0]?.address || !address) {
-      console.log('Missing chain API or address:', { api: selectedChain?.api?.[0]?.address, address });
+  const loadBalances = async (selectedTokensOnly: boolean = false) => {
+    if (!selectedChain?.api?.[0]?.address || !walletAddress) {
+      console.log('⚠️ Cannot load balances: missing chain or wallet');
       return;
     }
     
     try {
-      console.log('Loading balances for:', address);
-      console.log('API endpoint:', selectedChain.api[0].address);
+      console.log('🔄 Loading balances...');
+      console.log('   Wallet Address:', walletAddress);
+      console.log('   Selected tokens:', { from: fromToken?.symbol, to: toToken?.symbol });
+      console.log('   selectedTokensOnly:', selectedTokensOnly);
       
-      // Load native balance
-      const balanceUrl = `${selectedChain.api[0].address}/cosmos/bank/v1beta1/balances/${address}`;
-      console.log('Fetching from:', balanceUrl);
-      
+      // Always fetch native PAXI balance
+      const balanceUrl = `${selectedChain.api[0].address}/cosmos/bank/v1beta1/balances/${walletAddress}`;
       const nativeBalanceRes = await fetch(balanceUrl);
       
       if (!nativeBalanceRes.ok) {
-        console.error('Failed to fetch balance:', nativeBalanceRes.status, nativeBalanceRes.statusText);
+        console.error('Failed to fetch PAXI balance');
         return;
       }
       
       const nativeData = await nativeBalanceRes.json();
-      console.log('Balance response:', nativeData);
-      
       const paxiBalance = nativeData.balances?.find((b: any) => b.denom === 'upaxi');
+      const paxiAmount = paxiBalance?.amount || '0';
       
-      console.log('Native PAXI Balance:', paxiBalance?.amount || '0', 'upaxi');
+      console.log('✅ PAXI Balance:', (parseFloat(paxiAmount) / 1e6).toFixed(2), 'PAXI');
       
-      // Load PRC20 balances
-      const updatedTokens = await Promise.all(
-        tokenList.map(async (token) => {
-          if (token.address === 'upaxi') {
-            return {
-              ...token,
-              balance: paxiBalance?.amount || '0',
-            };
-          }
-          
+      // Update tokens dengan balance
+      const updatedTokens = [...tokens];
+      const paxiIdx = updatedTokens.findIndex(t => t.address === 'upaxi');
+      if (paxiIdx !== -1) {
+        updatedTokens[paxiIdx] = { ...updatedTokens[paxiIdx], balance: paxiAmount };
+      }
+      
+      // Jika selectedTokensOnly, hanya fetch untuk fromToken dan toToken
+      if (selectedTokensOnly && (fromToken || toToken)) {
+        const tokensToFetch = [];
+        if (fromToken && fromToken.address !== 'upaxi') tokensToFetch.push(fromToken);
+        if (toToken && toToken.address !== 'upaxi') tokensToFetch.push(toToken);
+        
+        console.log(`📥 Fetching balance for ${tokensToFetch.length} PRC20 tokens...`);
+        
+        for (const token of tokensToFetch) {
           try {
+            console.log(`  Fetching ${token.symbol} balance...`);
+            console.log(`    Contract: ${token.address}`);
+            console.log(`    Address: ${walletAddress}`);
+            console.log(`    Decimals: ${token.decimals}`);
+            
             const balanceRes = await fetch(
-              `/api/prc20-balance?contract=${token.address}&address=${address}`
+              `/api/prc20-balance?contract=${token.address}&address=${walletAddress}`,
+              { cache: 'no-store' }
             );
+            
+            if (!balanceRes.ok) {
+              console.error(`  ❌ Failed to fetch ${token.symbol}: ${balanceRes.status}`);
+              continue;
+            }
+            
             const balanceData = await balanceRes.json();
-            return {
-              ...token,
-              balance: balanceData.balance || '0',
-            };
-          } catch {
-            return token;
+            const balance = balanceData.balance || '0';
+            
+            console.log(`  📊 Raw balance: ${balance}`);
+            const formatted = (parseFloat(balance) / Math.pow(10, token.decimals)).toFixed(4);
+            console.log(`  ✅ ${token.symbol} Balance: ${formatted}`);
+            
+            // Update token in array
+            const idx = updatedTokens.findIndex(t => t.address === token.address);
+            if (idx !== -1) {
+              updatedTokens[idx] = { ...updatedTokens[idx], balance };
+              console.log(`  📝 Updated ${token.symbol} in tokens array at index ${idx}`);
+            } else {
+              console.warn(`  ⚠️ Token ${token.symbol} not found in array`);
+            }
+          } catch (error) {
+            console.error(`  ❌ Error loading ${token.symbol} balance:`, error);
           }
-        })
-      );
+        }
+      }
       
+      console.log('📦 Updating tokens state...');
       setTokens(updatedTokens);
       
-      // Update selected tokens if they exist
+      // Update selected tokens with new balance - ALWAYS update to force re-render
       if (fromToken) {
-        const updatedFrom = updatedTokens.find(t => t.address === fromToken.address);
-        if (updatedFrom) setFromToken(updatedFrom);
+        const updated = updatedTokens.find(t => t.address === fromToken.address);
+        if (updated) {
+          console.log(`🔄 Updating fromToken ${fromToken.symbol} balance: ${fromToken.balance || '0'} → ${updated.balance || '0'}`);
+          console.log(`   Formatted: ${formatBalance(updated.balance || '0', updated.decimals)} ${updated.symbol}`);
+          setFromToken({ ...updated }); // Force new object to trigger re-render
+        }
       }
       if (toToken) {
-        const updatedTo = updatedTokens.find(t => t.address === toToken.address);
-        if (updatedTo) setToToken(updatedTo);
+        const updated = updatedTokens.find(t => t.address === toToken.address);
+        if (updated) {
+          console.log(`🔄 Updating toToken ${toToken.symbol} balance: ${toToken.balance || '0'} → ${updated.balance || '0'}`);
+          console.log(`   Formatted: ${formatBalance(updated.balance || '0', updated.decimals)} ${updated.symbol}`);
+          setToToken({ ...updated }); // Force new object to trigger re-render
+        }
       }
+      
+      console.log('✅ Balance loading complete!');
     } catch (error) {
-      console.error('Error loading balances:', error);
+      console.error('❌ Error loading balances:', error);
     }
   };
 
-  // Reload balances when wallet address changes
+  // Load balances when tokens selected
   useEffect(() => {
-    if (walletAddress && tokens.length > 0) {
-      loadBalances(tokens, walletAddress);
+    if (walletAddress && tokens.length > 0 && (fromToken || toToken)) {
+      console.log('🔄 [useEffect] Triggering balance load for:', fromToken?.symbol, toToken?.symbol);
+      const timer = setTimeout(() => {
+        loadBalances(true);
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [walletAddress]);
+  }, [walletAddress, fromToken?.address, toToken?.address]);
+  
+  // Initial balance load after wallet connected and tokens loaded
+  useEffect(() => {
+    if (walletAddress && tokens.length > 0 && initialTokenSet) {
+      console.log('🔄 [useEffect] Initial balance load after tokens ready');
+      const timer = setTimeout(() => {
+        loadBalances(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [walletAddress, tokens.length, initialTokenSet]);
 
-  // Reload balance when tokens change (especially when selecting PAXI Native)
+  // This function is now replaced by poolPriceCalculator module
+  // Kept for backward compatibility
+  const queryPoolPrice = getPoolPrice;
+
+  // Auto-calculate toAmount when fromAmount changes with real-time pool query
   useEffect(() => {
-    if (walletAddress && tokens.length > 0) {
-      // When fromToken or toToken changes, reload their balances
-      if (fromToken || toToken) {
-        console.log('🔄 Token changed, reloading balances...');
-        loadBalances(tokens, walletAddress);
-      }
+    if (!fromAmount || !fromToken || !toToken) {
+      setToAmount('');
+      return;
     }
-  }, [fromToken?.address, toToken?.address, walletAddress, tokens.length]);
+
+    const amount = parseFloat(fromAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setToAmount('');
+      return;
+    }
+
+    // Async function to calculate with real-time pool data
+    const calculateAmount = async () => {
+      let calculatedAmount: number;
+      
+      if (fromToken.address === 'upaxi' && toToken.address !== 'upaxi') {
+        // PAXI → PRC20: amount / price_paxi
+        // First try cached market prices
+        let tokenPriceInPaxi = marketPrices[toToken.address]?.price_paxi || marketPrices[toToken.address]?.price_usd;
+        
+        // If no cached price, query pool directly
+        if (!tokenPriceInPaxi || tokenPriceInPaxi === 0) {
+          console.log('🔍 No cached price, querying pool for', toToken.symbol);
+          const poolData = await queryPoolPrice(toToken.address);
+          if (poolData) {
+            tokenPriceInPaxi = poolData.price;
+            // Update token decimals if different - THIS IS CRITICAL!
+            if (poolData.decimals !== toToken.decimals) {
+              console.warn(`🔧 FIXING ${toToken.symbol} decimals: ${toToken.decimals} → ${poolData.decimals}`);
+              const updatedToToken = { ...toToken, decimals: poolData.decimals };
+              setToToken(updatedToToken);
+              
+              // Also update in tokens array
+              setTokens(prev => prev.map(t => 
+                t.address === toToken.address ? updatedToToken : t
+              ));
+            }
+            // Update market prices cache
+            setMarketPrices(prev => ({
+              ...prev,
+              [toToken.address]: {
+                price_paxi: tokenPriceInPaxi,
+                price_usd: tokenPriceInPaxi,
+                price_change_24h: 0
+              }
+            }));
+          }
+        }
+        
+        if (tokenPriceInPaxi && tokenPriceInPaxi > 0) {
+          // Use module to calculate output
+          calculatedAmount = calculateSwapOutput(amount, 'upaxi', toToken.address, tokenPriceInPaxi);
+          console.log(`💱 Swap (PAXI → ${toToken.symbol}): ${amount} PAXI = ${calculatedAmount.toFixed(6)} ${toToken.symbol}`);
+          console.log(`   Price: 1 ${toToken.symbol} = ${tokenPriceInPaxi.toFixed(10)} PAXI`);
+        } else {
+          console.warn('⚠️ No price data for', toToken.symbol);
+          setToAmount('');
+          return;
+        }
+      } else if (fromToken.address !== 'upaxi' && toToken.address === 'upaxi') {
+        // PRC20 → PAXI: amount * price_paxi
+        // First try cached market prices
+        let tokenPriceInPaxi = marketPrices[fromToken.address]?.price_paxi || marketPrices[fromToken.address]?.price_usd;
+        
+        // If no cached price, query pool directly
+        if (!tokenPriceInPaxi || tokenPriceInPaxi === 0) {
+          console.log('🔍 No cached price, querying pool for', fromToken.symbol);
+          const poolData = await queryPoolPrice(fromToken.address);
+          if (poolData) {
+            tokenPriceInPaxi = poolData.price;
+            // Update token decimals if different - THIS IS CRITICAL!
+            if (poolData.decimals !== fromToken.decimals) {
+              console.warn(`🔧 FIXING ${fromToken.symbol} decimals: ${fromToken.decimals} → ${poolData.decimals}`);
+              const updatedFromToken = { ...fromToken, decimals: poolData.decimals };
+              setFromToken(updatedFromToken);
+              
+              // Also update in tokens array
+              setTokens(prev => prev.map(t => 
+                t.address === fromToken.address ? updatedFromToken : t
+              ));
+            }
+            // Update market prices cache
+            setMarketPrices(prev => ({
+              ...prev,
+              [fromToken.address]: {
+                price_paxi: tokenPriceInPaxi,
+                price_usd: tokenPriceInPaxi,
+                price_change_24h: 0
+              }
+            }));
+          }
+        }
+        
+        if (tokenPriceInPaxi && tokenPriceInPaxi > 0) {
+          // Use module to calculate output
+          calculatedAmount = calculateSwapOutput(amount, fromToken.address, 'upaxi', tokenPriceInPaxi);
+          console.log(`💱 Swap (${fromToken.symbol} → PAXI): ${amount} ${fromToken.symbol} = ${calculatedAmount.toFixed(6)} PAXI`);
+          console.log(`   Price: 1 ${fromToken.symbol} = ${tokenPriceInPaxi.toFixed(10)} PAXI`);
+        } else {
+          console.warn('⚠️ No price data for', fromToken.symbol);
+          setToAmount('');
+          return;
+        }
+      } else {
+        // Should not reach here, but fallback
+        calculatedAmount = amount;
+      }
+      
+      // Format output amount with reasonable precision
+      // Use maximum of 6 decimals for display, but respect token's actual decimals
+      const displayDecimals = Math.min(toToken.decimals, 6);
+      const formattedAmount = calculatedAmount.toFixed(displayDecimals);
+      console.log(`📊 Final output: ${formattedAmount} ${toToken.symbol} (display decimals: ${displayDecimals})`);
+      
+      setToAmount(formattedAmount);
+    };
+    
+    // Execute calculation
+    calculateAmount();
+    
+  }, [fromAmount, fromToken, toToken, marketPrices]);
 
   const handleSwap = async () => {
     if (!fromToken || !toToken || !fromAmount) {
@@ -217,125 +503,365 @@ export default function PRC20SwapPage() {
 
     setLoading(true);
     try {
-      // Get Keplr
-      if (!(window as any).keplr) {
-        throw new Error('Keplr wallet not found. Please install Keplr extension.');
+      // CRITICAL: Query ACTUAL decimals from token contract (NOT inference!)
+      let actualFromDecimals = fromToken.decimals;
+      let actualToDecimals = toToken.decimals;
+      
+      if (fromToken.address !== 'upaxi') {
+        console.log(`🔍 Querying ACTUAL decimals for ${fromToken.symbol} from token contract...`);
+        console.log(`   Contract address: ${fromToken.address}`);
+        console.log(`   Cached decimals: ${fromToken.decimals}`);
+        
+        try {
+          const tokenInfoQuery = Buffer.from(JSON.stringify({ token_info: {} })).toString('base64');
+          const queryUrl = `https://mainnet-lcd.paxinet.io/cosmwasm/wasm/v1/contract/${fromToken.address}/smart/${tokenInfoQuery}`;
+          console.log(`   Query URL: ${queryUrl}`);
+          
+          const response = await fetch(queryUrl, { signal: AbortSignal.timeout(5000) });
+          console.log(`   Response status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`   Response data:`, data);
+            const contractDecimals = parseInt(data.data?.decimals);
+            
+            if (!isNaN(contractDecimals)) {
+              console.log(`✅ ${fromToken.symbol} ACTUAL decimals from contract: ${contractDecimals}`);
+              actualFromDecimals = contractDecimals;
+              
+              if (contractDecimals !== fromToken.decimals) {
+                console.warn(`⚠️ DECIMALS MISMATCH! Cached: ${fromToken.decimals}, Contract: ${contractDecimals} - USING CONTRACT VALUE!`);
+              } else {
+                console.log(`✅ Decimals match! Both are ${contractDecimals}`);
+              }
+            } else {
+              console.error(`❌ Invalid decimals in response:`, data.data?.decimals);
+            }
+          } else {
+            console.error(`❌ HTTP ${response.status}: ${response.statusText}`);
+          }
+        } catch (e: any) {
+          console.error(`❌ Failed to query ${fromToken.symbol} decimals:`, e.message);
+          console.log(`   Falling back to pool inference...`);
+          
+          // Fallback to pool inference only if contract query fails
+          const poolData = await getPoolPrice(fromToken.address);
+          if (poolData) {
+            console.log(`   Pool inferred decimals: ${poolData.decimals}`);
+            if (poolData.decimals !== fromToken.decimals) {
+              console.warn(`🔧 Fallback: Using pool inferred decimals: ${poolData.decimals}`);
+              actualFromDecimals = poolData.decimals;
+            }
+          } else {
+            console.error(`   ❌ Pool data also unavailable! Using cached: ${fromToken.decimals}`);
+          }
+        }
+        
+        console.log(`📌 FINAL ${fromToken.symbol} decimals: ${actualFromDecimals}`);
       }
-
-      const keplr = (window as any).keplr;
-      const chainId = selectedChain.chain_id || selectedChain.chain_name;
+      
+      if (toToken.address !== 'upaxi') {
+        try {
+          console.log(`🔍 Querying ACTUAL decimals for ${toToken.symbol} from token contract...`);
+          const tokenInfoQuery = Buffer.from(JSON.stringify({ token_info: {} })).toString('base64');
+          const response = await fetch(
+            `https://mainnet-lcd.paxinet.io/cosmwasm/wasm/v1/contract/${toToken.address}/smart/${tokenInfoQuery}`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            const contractDecimals = parseInt(data.data?.decimals);
+            
+            if (!isNaN(contractDecimals)) {
+              console.log(`✅ ${toToken.symbol} ACTUAL decimals from contract: ${contractDecimals}`);
+              actualToDecimals = contractDecimals;
+              
+              if (contractDecimals !== toToken.decimals) {
+                console.warn(`⚠️ MISMATCH! Cached: ${toToken.decimals}, Contract: ${contractDecimals} - USING CONTRACT VALUE!`);
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`❌ Failed to query ${toToken.symbol} decimals:`, e);
+          // Fallback to pool inference only if contract query fails
+          const poolData = await getPoolPrice(toToken.address);
+          if (poolData && poolData.decimals !== toToken.decimals) {
+            console.warn(`🔧 Fallback: Using pool inferred decimals: ${poolData.decimals}`);
+            actualToDecimals = poolData.decimals;
+          }
+        }
+      }
       
       console.log('🚀 Starting swap transaction:', {
-        chain: chainId,
         from: fromToken.symbol,
         to: toToken.symbol,
-        amount: fromAmount
+        amount: fromAmount,
+        fromDecimalsInitial: fromToken.decimals,
+        toDecimalsInitial: toToken.decimals,
+        fromDecimalsCorrected: actualFromDecimals,
+        toDecimalsCorrected: actualToDecimals,
+        rawBalance: fromToken.balance,
+        fromAddress: fromToken.address,
+        toAddress: toToken.address
       });
+      
+      console.log('⚠️ CRITICAL: Checking decimals match...');
+      if (actualFromDecimals !== fromToken.decimals) {
+        console.error(`❌ DECIMALS MISMATCH! ${fromToken.symbol}: Cached=${fromToken.decimals}, Actual=${actualFromDecimals}`);
+      } else {
+        console.log(`✅ ${fromToken.symbol} decimals match: ${actualFromDecimals}`);
+      }
+      
+      if (actualToDecimals !== toToken.decimals) {
+        console.error(`❌ DECIMALS MISMATCH! ${toToken.symbol}: Cached=${toToken.decimals}, Actual=${actualToDecimals}`);
+      } else {
+        console.log(`✅ ${toToken.symbol} decimals match: ${actualToDecimals}`);
+      }
+      
+      // Balance is ALWAYS in base units (raw from contract) - no decimals applied
+      let userBalanceBaseUnits = parseFloat(fromToken.balance || '0');
+      
+      const userBalanceHumanReadable = userBalanceBaseUnits / Math.pow(10, actualFromDecimals);
+      
+      console.log('💳 User balance (raw from contract):', {
+        token: fromToken.symbol,
+        rawBalance: userBalanceBaseUnits,
+        decimals: actualFromDecimals,
+        humanReadable: userBalanceHumanReadable.toFixed(8),
+        humanReadableFull: userBalanceHumanReadable
+      });
+      
+      // CRITICAL DEBUG: Show user what's happening
+      const debugInfo = `
+🔍 SWAP DEBUG INFO
 
-      // Enable chain
-      await keplr.enable(chainId);
-      console.log('✅ Chain enabled');
+Token: ${fromToken.symbol}
+Your balance: ${userBalanceHumanReadable.toFixed(8)} ${fromToken.symbol}
+You want to swap: ${fromAmount} ${fromToken.symbol}
+
+[RAW VALUES]
+Balance (raw): ${userBalanceBaseUnits}
+Decimals: ${actualFromDecimals}
+Request: ${fromAmount} × 10^${actualFromDecimals}
+
+⚠️ Check if you have enough balance!
+      `.trim();
       
-      // Get offline signer
-      const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
-      const accounts = await offlineSigner.getAccounts();
+      console.log(debugInfo);
       
-      if (accounts.length === 0) {
-        throw new Error('No accounts found in wallet');
-      }
+      // Calculate requested amount in base units with ACTUAL decimals
+      const requestedAmountBaseUnits = Math.floor(parseFloat(fromAmount) * Math.pow(10, actualFromDecimals));
       
-      console.log('✅ Signer obtained, account:', accounts[0].address);
-      
-      // Import required libs
-      const { SigningStargateClient } = await import('@cosmjs/stargate');
-      
-      // Connect client
-      const rpcEndpoint = selectedChain.rpc?.[0]?.address || '';
-      if (!rpcEndpoint) {
-        throw new Error('No RPC endpoint available for this chain');
-      }
-      
-      console.log('📡 Connecting to RPC:', rpcEndpoint);
-      
-      // Client options (same as staking)
-      const clientOptions: any = { 
-        broadcastTimeoutMs: 30000, 
-        broadcastPollIntervalMs: 3000,
+      const balanceCheck = {
+        token: fromToken.symbol,
+        decimals: actualFromDecimals,
+        userBalanceRaw: userBalanceBaseUnits,
+        userBalanceHuman: (userBalanceBaseUnits / Math.pow(10, actualFromDecimals)).toFixed(8),
+        requestedHuman: fromAmount,
+        requestedRaw: requestedAmountBaseUnits,
+        calculation: `${fromAmount} × 10^${actualFromDecimals} = ${requestedAmountBaseUnits}`,
+        hasEnough: userBalanceBaseUnits >= requestedAmountBaseUnits,
+        shortage: userBalanceBaseUnits < requestedAmountBaseUnits ? 
+          (requestedAmountBaseUnits - userBalanceBaseUnits) : 0
       };
       
-      const client = await SigningStargateClient.connectWithSigner(
-        rpcEndpoint, 
-        offlineSigner,
-        clientOptions
-      );
+      console.log('💰 Balance check DETAILS:', balanceCheck);
       
-      console.log('✅ Client connected');
+      // Show alert and throw error if insufficient
+      if (!balanceCheck.hasEnough) {
+        const shortageHuman = (balanceCheck.shortage / Math.pow(10, actualFromDecimals)).toFixed(8);
+        alert(`❌ INSUFFICIENT BALANCE!\n\nToken: ${fromToken.symbol}\nDecimals: ${actualFromDecimals}\n\nYou have: ${balanceCheck.userBalanceHuman} ${fromToken.symbol}\nYou want: ${fromAmount} ${fromToken.symbol}\nShortage: ${shortageHuman} ${fromToken.symbol}\n\n[RAW VALUES]\nBalance: ${balanceCheck.userBalanceRaw}\nRequested: ${balanceCheck.requestedRaw}\n\nPlease reduce your swap amount!`);
+        throw new Error(`Insufficient balance. You need ${shortageHuman} more ${fromToken.symbol}`);
+      }
       
-      // Prepare swap transaction
-      const amountInBaseUnit = (parseFloat(fromAmount) * Math.pow(10, fromToken.decimals)).toString();
+      // Confirmation before proceeding
+      console.log('✅ Balance check PASSED! Proceeding with swap...');
       
-      let msg: any;
+      // SAFETY: Never send more than available balance (防止overflow)
+      const safeAmountInBaseUnit = Math.min(requestedAmountBaseUnits, userBalanceBaseUnits);
+      const amountInBaseUnit = safeAmountInBaseUnit.toString();
+      
+      if (safeAmountInBaseUnit < requestedAmountBaseUnits) {
+        console.warn('⚠️ Reducing swap amount to match available balance');
+      }
+      
+      console.log('💰 Amount to send:', {
+        input: fromAmount,
+        decimals: actualFromDecimals,
+        baseUnit: amountInBaseUnit
+      });
+      
+      // CRITICAL: Check pool reserves to prevent overflow in pool contract
+      let poolReserves: any = null;
+      try {
+        const fromAddr = fromToken.address === 'upaxi' ? toToken.address : fromToken.address;
+        const poolData = await getPoolPrice(fromAddr);
+        
+        if (poolData) {
+          poolReserves = poolData.reserves;
+          
+          const yourSwapBaseUnits = parseFloat(amountInBaseUnit);
+          const yourSwapHuman = yourSwapBaseUnits / Math.pow(10, actualFromDecimals);
+          
+          console.log('🏊 Pool reserves check:', {
+            token: fromToken.symbol,
+            poolPaxiReserve: poolData.reserves.paxi.toFixed(6) + ' PAXI',
+            poolTokenReserve: poolData.reserves.token.toFixed(6) + ' ' + fromToken.symbol,
+            yourSwapBaseUnits: yourSwapBaseUnits,
+            yourSwapHuman: yourSwapHuman.toFixed(6) + ' ' + fromToken.symbol,
+            decimals: actualFromDecimals,
+            poolHasEnough: poolData.reserves.token > yourSwapHuman
+          });
+          
+          // Check if pool has enough reserves
+          if (fromToken.address !== 'upaxi') {
+            // Swapping PRC20 → PAXI, check if pool has enough tokens to accept
+            if (yourSwapHuman > poolData.reserves.token) {
+              throw new Error(`Pool doesn't have enough capacity. Pool token reserve: ${poolData.reserves.token.toFixed(6)} ${fromToken.symbol}, you're trying to swap: ${yourSwapHuman.toFixed(6)} ${fromToken.symbol}`);
+            }
+          } else {
+            // Swapping PAXI → PRC20, check if pool has enough PAXI to accept
+            const yourSwapPaxi = yourSwapBaseUnits / 1e6;
+            if (yourSwapPaxi > poolData.reserves.paxi) {
+              throw new Error(`Pool doesn't have enough PAXI capacity. Pool PAXI reserve: ${poolData.reserves.paxi.toFixed(6)} PAXI, you're trying to swap: ${yourSwapPaxi.toFixed(6)} PAXI`);
+            }
+          }
+        }
+      } catch (e: any) {
+        console.error('❌ Pool reserve check failed:', e);
+        if (e.message?.includes('Pool doesn')) {
+          throw e;
+        }
+      }
+      
+      let prc20Address: string;
+      let offerDenom: string;
       
       if (fromToken.address === 'upaxi') {
-        // Swap PAXI to PRC20 using native swap module
-        msg = {
-          typeUrl: '/paxi.swap.v1.MsgSwap',
-          value: {
-            creator: walletAddress,
-            prc20: toToken.address,
-            offerDenom: 'upaxi',
-            offerAmount: amountInBaseUnit,
-            minReceive: '1'
-          }
-        };
+        // Swap PAXI to PRC20
+        prc20Address = toToken.address;
+        offerDenom = 'upaxi';
       } else if (toToken.address === 'upaxi') {
-        // Swap PRC20 to PAXI using native swap module
-        msg = {
-          typeUrl: '/paxi.swap.v1.MsgSwap',
-          value: {
-            creator: walletAddress,
-            prc20: fromToken.address,
-            offerDenom: fromToken.address,
-            offerAmount: amountInBaseUnit,
-            minReceive: '1'
-          }
-        };
+        // Swap PRC20 to PAXI
+        prc20Address = fromToken.address;
+        offerDenom = fromToken.address;
       } else {
-        // PRC20 to PRC20 swap not directly supported
         throw new Error('Direct PRC20 to PRC20 swap not supported yet. Please swap to PAXI first, then to your target token.');
       }
       
-      console.log('📝 Swap message prepared:', msg);
+      // CRITICAL FIX: Calculate expected output using CONSTANT PRODUCT FORMULA (AMM)
+      // Pool uses: Output = (input × outputReserve) / (inputReserve + input)
+      // NOT simple: Output = input × price
+      let recalculatedOutputHuman = 0;
+      let poolReservesDebug: any = {};
       
-      // Calculate fee using same method as staking
-      const fee = calculateFee(selectedChain, '300000');
+      if (fromToken.address === 'upaxi') {
+        // PAXI → PRC20: Swapping PAXI for tokens
+        const poolData = await getPoolPrice(toToken.address);
+        if (poolData) {
+          const inputAmountHuman = parseFloat(fromAmount); // PAXI in human units
+          const paxiReserve = poolData.reserves.paxi; // PAXI reserve in human units
+          const tokenReserve = poolData.reserves.token; // Token reserve in human units
+          
+          // AMM formula: outputAmount = (inputAmount × tokenReserve) / (paxiReserve + inputAmount)
+          recalculatedOutputHuman = (inputAmountHuman * tokenReserve) / (paxiReserve + inputAmountHuman);
+          
+          poolReservesDebug = {
+            paxiReserve: paxiReserve,
+            tokenReserve: tokenReserve,
+            inputPaxi: inputAmountHuman,
+            outputToken: recalculatedOutputHuman
+          };
+          
+          console.log(`📊 AMM Calculation (PAXI → ${toToken.symbol}):`, {
+            formula: '(input × tokenReserve) / (paxiReserve + input)',
+            input: `${inputAmountHuman} PAXI`,
+            paxiReserve: `${paxiReserve.toFixed(6)} PAXI`,
+            tokenReserve: `${tokenReserve.toFixed(6)} ${toToken.symbol}`,
+            output: `${recalculatedOutputHuman.toFixed(8)} ${toToken.symbol}`,
+            calculation: `(${inputAmountHuman} × ${tokenReserve}) / (${paxiReserve} + ${inputAmountHuman}) = ${recalculatedOutputHuman.toFixed(8)}`
+          });
+        }
+      } else {
+        // PRC20 → PAXI: Swapping tokens for PAXI
+        const poolData = await getPoolPrice(fromToken.address);
+        if (poolData) {
+          const inputAmountHuman = parseFloat(fromAmount); // Token in human units
+          const tokenReserve = poolData.reserves.token; // Token reserve in human units
+          const paxiReserve = poolData.reserves.paxi; // PAXI reserve in human units
+          
+          // AMM formula: outputAmount = (inputAmount × paxiReserve) / (tokenReserve + inputAmount)
+          recalculatedOutputHuman = (inputAmountHuman * paxiReserve) / (tokenReserve + inputAmountHuman);
+          
+          poolReservesDebug = {
+            tokenReserve: tokenReserve,
+            paxiReserve: paxiReserve,
+            inputToken: inputAmountHuman,
+            outputPaxi: recalculatedOutputHuman
+          };
+          
+          console.log(`📊 AMM Calculation (${fromToken.symbol} → PAXI):`, {
+            formula: '(input × paxiReserve) / (tokenReserve + input)',
+            input: `${inputAmountHuman} ${fromToken.symbol}`,
+            tokenReserve: `${tokenReserve.toFixed(6)} ${fromToken.symbol}`,
+            paxiReserve: `${paxiReserve.toFixed(6)} PAXI`,
+            output: `${recalculatedOutputHuman.toFixed(8)} PAXI`,
+            calculation: `(${inputAmountHuman} × ${paxiReserve}) / (${tokenReserve} + ${inputAmountHuman}) = ${recalculatedOutputHuman.toFixed(8)}`
+          });
+        }
+      }
       
-      console.log('💰 Fee calculated:', fee);
+      // Convert to base units with CORRECT decimals
+      const expectedOutputBaseUnits = Math.floor(recalculatedOutputHuman * Math.pow(10, actualToDecimals));
+      const slippagePercent = parseFloat(slippage) / 100;
+      const minReceiveAmount = Math.floor(expectedOutputBaseUnits * (1 - slippagePercent));
+      const minReceive = minReceiveAmount > 0 ? minReceiveAmount.toString() : '1';
       
-      // Sign and broadcast
-      const result = await client.signAndBroadcast(
-        walletAddress,
-        [msg],
-        fee,
-        'Swap ' + fromToken.symbol + ' to ' + toToken.symbol
+      console.log('🎯 Slippage calculation:', {
+        toAmountState: toAmount,
+        recalculatedOutputHuman: recalculatedOutputHuman,
+        actualToDecimals: actualToDecimals,
+        expectedOutputBaseUnits: expectedOutputBaseUnits,
+        slippage: slippage + '%',
+        slippagePercent: slippagePercent,
+        minReceiveAmountBaseUnits: minReceiveAmount,
+        minReceive: minReceive,
+        formula: `${recalculatedOutputHuman.toFixed(8)} × 10^${actualToDecimals} × (1 - ${slippage}%) = ${minReceive}`,
+        poolReserves: poolReservesDebug
+      });
+      
+      // Import executeSwap from keplr.ts
+      const { executeSwap } = await import('@/lib/keplr');
+      
+      // Execute swap with custom registry
+      const result = await executeSwap(
+        selectedChain,
+        {
+          prc20Address,
+          offerDenom,
+          offerAmount: amountInBaseUnit,
+          minReceive
+        },
+        '300000',
+        `Swap ${fromToken.symbol} to ${toToken.symbol}`
       );
       
-      console.log('📡 Broadcast result:', result);
+      console.log('📡 Swap result:', result);
       
-      if (result.code === 0) {
-        console.log('✅ Swap successful! TxHash:', result.transactionHash);
-        setTxResult({ success: true, txHash: result.transactionHash });
+      if (result.success) {
+        console.log('✅ Swap successful! TxHash:', result.txHash);
+        setTxResult({ success: true, txHash: result.txHash });
         
         // Reload balances after 3 seconds
         setTimeout(() => {
           if (walletAddress) {
             console.log('🔄 Reloading balances...');
-            loadBalances(tokens, walletAddress);
+            loadBalances(true);
           }
         }, 3000);
       } else {
-        console.error('❌ Transaction failed:', result.rawLog);
-        throw new Error(result.rawLog || 'Transaction failed');
+        console.error('❌ Swap failed:', result.error);
+        throw new Error(result.error || 'Swap failed');
       }
       
     } catch (error: any) {
@@ -378,7 +904,7 @@ export default function PRC20SwapPage() {
       if (tokens.length > 0) {
         console.log('🔄 Loading balances after wallet connection...');
         setTimeout(() => {
-          loadBalances(tokens, key.bech32Address);
+          loadBalances(true);
         }, 500); // Small delay to ensure token list is ready
       }
     } catch (error: any) {
@@ -474,13 +1000,13 @@ export default function PRC20SwapPage() {
               <div className="mb-2">
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm text-gray-400">From</label>
-                  {walletAddress && fromToken && (
+                  {walletAddress && fromToken && fromToken.balance && (
                     <button
                       onClick={() => {
                         const maxAmount = formatBalance(fromToken.balance || '0', fromToken.decimals);
                         setFromAmount(maxAmount);
                       }}
-                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-semibold"
                     >
                       MAX
                     </button>
@@ -499,7 +1025,17 @@ export default function PRC20SwapPage() {
                       value={fromToken?.address || ''}
                       onChange={(e) => {
                         const token = tokens.find(t => t.address === e.target.value);
-                        setFromToken(token || null);
+                        if (token) {
+                          setFromToken(token);
+                          // Auto-set PAXI sebagai toToken jika pilih PRC20
+                          if (token.address !== 'upaxi') {
+                            const paxiToken = tokens.find(t => t.address === 'upaxi');
+                            setToToken(paxiToken || null);
+                          } else {
+                            // Jika pilih PAXI, clear toToken supaya user pilih PRC20
+                            setToToken(null);
+                          }
+                        }
                       }}
                       className="ml-4 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
@@ -511,15 +1047,68 @@ export default function PRC20SwapPage() {
                       ))}
                     </select>
                   </div>
-                  {fromToken && (
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-gray-500">
-                        {fromToken.logo && <img src={fromToken.logo} alt={fromToken.name} className="w-4 h-4 rounded-full" />}
-                        <span>{fromToken.name}</span>
+                  
+                  {/* Amount Slider */}
+                  {fromToken && walletAddress && fromToken.balance && fromToken.balance !== '0' && (
+                    <div className="mb-3 px-1">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={swapPercentage}
+                        onChange={(e) => {
+                          const percentage = parseInt(e.target.value);
+                          setSwapPercentage(percentage);
+                          const balance = formatBalance(fromToken.balance || '0', fromToken.decimals);
+                          const amount = (parseFloat(balance) * percentage / 100).toFixed(fromToken.decimals);
+                          setFromAmount(amount);
+                        }}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                        style={{
+                          background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${swapPercentage}%, #374151 ${swapPercentage}%, #374151 100%)`
+                        }}
+                      />
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-xs text-gray-500">25%</span>
+                        <span className="text-xs text-gray-500">50%</span>
+                        <span className="text-xs text-gray-500">Max</span>
                       </div>
-                      {walletAddress && (
-                        <div className="text-gray-400">
+                    </div>
+                  )}
+
+                  {fromToken && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          {fromToken.logo && <img src={fromToken.logo} alt={fromToken.name} className="w-4 h-4 rounded-full" />}
+                          <span>{fromToken.name}</span>
+                        </div>
+                        {walletAddress && (
+                        <button
+                          onClick={() => {
+                            const maxAmount = formatBalance(fromToken.balance || '0', fromToken.decimals);
+                            setFromAmount(maxAmount);
+                          }}
+                          className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                          title="Click to use max balance"
+                        >
                           Balance: <span className="text-white font-medium">{formatBalance(fromToken.balance || '0', fromToken.decimals)}</span> {fromToken.symbol}
+                        </button>
+                        )}
+                      </div>
+                      {fromToken.address !== 'upaxi' && marketPrices[fromToken.address] && (
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="text-gray-500">
+                            {(marketPrices[fromToken.address].price_paxi || marketPrices[fromToken.address].price_usd).toFixed(6)} PAXI
+                          </div>
+                          {marketPrices[fromToken.address].price_change_24h !== 0 && (
+                            <div className={`flex items-center gap-1 font-medium ${
+                              marketPrices[fromToken.address].price_change_24h > 0 ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {marketPrices[fromToken.address].price_change_24h > 0 ? '↑' : '↓'}
+                              {Math.abs(marketPrices[fromToken.address].price_change_24h).toFixed(2)}%
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -554,7 +1143,17 @@ export default function PRC20SwapPage() {
                       value={toToken?.address || ''}
                       onChange={(e) => {
                         const token = tokens.find(t => t.address === e.target.value);
-                        setToToken(token || null);
+                        if (token) {
+                          setToToken(token);
+                          // Auto-set PAXI sebagai fromToken jika pilih PRC20
+                          if (token.address !== 'upaxi') {
+                            const paxiToken = tokens.find(t => t.address === 'upaxi');
+                            setFromToken(paxiToken || null);
+                          } else {
+                            // Jika pilih PAXI, clear fromToken supaya user pilih PRC20
+                            setFromToken(null);
+                          }
+                        }
                       }}
                       className="ml-4 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
@@ -567,14 +1166,31 @@ export default function PRC20SwapPage() {
                     </select>
                   </div>
                   {toToken && (
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-gray-500">
-                        {toToken.logo && <img src={toToken.logo} alt={toToken.name} className="w-4 h-4 rounded-full" />}
-                        <span>{toToken.name}</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          {toToken.logo && <img src={toToken.logo} alt={toToken.name} className="w-4 h-4 rounded-full" />}
+                          <span>{toToken.name}</span>
+                        </div>
+                        {walletAddress && (
+                          <div className="text-gray-400">
+                            Balance: <span className="text-white font-medium">{formatBalance(toToken.balance || '0', toToken.decimals)}</span> {toToken.symbol}
+                          </div>
+                        )}
                       </div>
-                      {walletAddress && (
-                        <div className="text-gray-400">
-                          Balance: <span className="text-white font-medium">{formatBalance(toToken.balance || '0', toToken.decimals)}</span> {toToken.symbol}
+                      {toToken.address !== 'upaxi' && marketPrices[toToken.address] && (
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="text-gray-500">
+                            {(marketPrices[toToken.address].price_paxi || marketPrices[toToken.address].price_usd).toFixed(6)} PAXI
+                          </div>
+                          {marketPrices[toToken.address].price_change_24h !== 0 && (
+                            <div className={`flex items-center gap-1 font-medium ${
+                              marketPrices[toToken.address].price_change_24h > 0 ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {marketPrices[toToken.address].price_change_24h > 0 ? '↑' : '↓'}
+                              {Math.abs(marketPrices[toToken.address].price_change_24h).toFixed(2)}%
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -582,20 +1198,174 @@ export default function PRC20SwapPage() {
                 </div>
               </div>
 
+              {/* Advanced Options */}
+              {fromToken && toToken && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Advanced Options
+                    <svg
+                      className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg space-y-4">
+                      {/* Amount Slider */}
+                      {fromToken.balance && fromToken.balance !== '0' && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <label className="text-sm text-gray-400">Amount Percentage</label>
+                            <span className="text-sm text-white font-medium">{swapPercentage}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={swapPercentage}
+                            onChange={(e) => {
+                              const percentage = parseInt(e.target.value);
+                              setSwapPercentage(percentage);
+                              const balance = formatBalance(fromToken.balance || '0', fromToken.decimals);
+                              const amount = (parseFloat(balance) * percentage / 100).toFixed(fromToken.decimals);
+                              setFromAmount(amount);
+                            }}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>0%</span>
+                            <span>25%</span>
+                            <span>50%</span>
+                            <span>75%</span>
+                            <span>100%</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Slippage Tolerance */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-gray-400">Slippage Tolerance</label>
+                        <div className="flex gap-2">
+                          {['0.1', '0.5', '1.0'].map((value) => (
+                            <button
+                              key={value}
+                              onClick={() => setSlippage(value)}
+                              className={`flex-1 py-2 text-sm rounded ${
+                                slippage === value
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                              } transition-colors`}
+                            >
+                              {value}%
+                            </button>
+                          ))}
+                          <input
+                            type="number"
+                            value={slippage}
+                            onChange={(e) => setSlippage(e.target.value)}
+                            placeholder="Custom"
+                            className="w-20 px-2 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            step="0.1"
+                            min="0"
+                            max="50"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Memo */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-gray-400">Memo (Optional)</label>
+                        <input
+                          type="text"
+                          value={memo}
+                          onChange={(e) => setMemo(e.target.value)}
+                          placeholder="Add a note to your transaction"
+                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          maxLength={256}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Swap Details */}
-              {fromToken && toToken && fromAmount && (
+              {fromToken && toToken && fromAmount && toAmount && (
                 <div className="mb-4 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Rate</span>
-                    <span className="text-white">1 {fromToken.symbol} = 1.5 {toToken.symbol}</span>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs text-gray-500">Real-time Pool Data</span>
+                    <button
+                      onClick={() => {
+                        console.log('🔄 Refreshing prices (no cache)...');
+                        loadMarketPrices();
+                        // Trigger recalculation by clearing and resetting amount
+                        const currentAmount = fromAmount;
+                        setFromAmount('');
+                        setTimeout(() => setFromAmount(currentAmount), 100);
+                      }}
+                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      ↻ Refresh
+                    </button>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Exchange Rate</span>
+                    <span className="text-white font-mono">
+                      1 {fromToken.symbol} = {
+                        fromAmount && toAmount 
+                          ? (parseFloat(toAmount) / parseFloat(fromAmount)).toFixed(6)
+                          : '0.000000'
+                      } {toToken.symbol}
+                    </span>
+                  </div>
+                  {/* Show pool price in the swap direction for clarity */}
+                  {fromToken.address === 'upaxi' && toToken.address !== 'upaxi' && marketPrices[toToken.address] && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Pool Price</span>
+                      <span className="text-gray-300">
+                        1 {toToken.symbol} = {(marketPrices[toToken.address].price_paxi || marketPrices[toToken.address].price_usd).toFixed(6)} PAXI
+                      </span>
+                    </div>
+                  )}
+                  {fromToken.address !== 'upaxi' && toToken.address === 'upaxi' && marketPrices[fromToken.address] && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Pool Price</span>
+                      <span className="text-gray-300">
+                        1 {fromToken.symbol} = {(marketPrices[fromToken.address].price_paxi || marketPrices[fromToken.address].price_usd).toFixed(6)} PAXI
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Price Impact</span>
                     <span className="text-green-400">&lt; 0.01%</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Minimum Received</span>
-                    <span className="text-white">{(parseFloat(toAmount) * 0.995).toFixed(4)} {toToken.symbol}</span>
+                    <span className="text-white">
+                      {(() => {
+                        const outputAmount = parseFloat(toAmount || '0');
+                        const slippagePct = parseFloat(slippage || '0.5');
+                        const minReceive = outputAmount * (1 - slippagePct / 100);
+                        console.log(`🔢 Minimum Received calculation:`, {
+                          toAmount,
+                          outputAmount,
+                          slippage,
+                          slippagePct,
+                          formula: `${outputAmount} * (1 - ${slippagePct}/100)`,
+                          result: minReceive,
+                          decimals: toToken.decimals
+                        });
+                        return minReceive.toFixed(Math.min(toToken.decimals, 6));
+                      })()} {toToken.symbol}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Network Fee</span>
@@ -613,6 +1383,33 @@ export default function PRC20SwapPage() {
               </div>
 
               {/* Swap Button */}
+              {/* Balance Warning */}
+              {fromToken && fromAmount && parseFloat(fromAmount) > 0 && walletAddress && (
+                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm space-y-1 w-full">
+                      <div className="flex justify-between text-gray-300">
+                        <span className="text-gray-400">Swapping:</span>
+                        <span className="font-semibold text-white">{fromAmount} {fromToken.symbol}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-300">
+                        <span className="text-gray-400">Balance:</span>
+                        <span className="font-semibold text-white">
+                          {formatBalance(fromToken.balance || '0', fromToken.decimals)} {fromToken.symbol}
+                        </span>
+                      </div>
+                      {parseFloat(fromAmount) > parseFloat(formatBalance(fromToken.balance || '0', fromToken.decimals)) && (
+                        <div className="text-red-400 font-semibold flex items-center gap-1 mt-2 pt-2 border-t border-red-500/30">
+                          <AlertCircle className="w-4 h-4" />
+                          Insufficient balance!
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {!walletAddress ? (
                 <button
                   onClick={connectWallet}

@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const chain = searchParams.get('chain') || 'paxi-mainnet';
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = parseInt(searchParams.get('limit') || '1000'); // Ambil semua token, max 1000
     const pageKey = searchParams.get('key') || undefined;
 
     // For now, only support Paxi chain
@@ -197,6 +197,38 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Try to get data from backend first (has real verified status and metadata)
+    const backendUrls = [
+      'https://ssl.winsnip.xyz',
+      'https://ssl2.winsnip.xyz'
+    ];
+    
+    for (const backendUrl of backendUrls) {
+      try {
+        const response = await fetch(`${backendUrl}/api/prc20-tokens?chain=${chain}`, {
+          signal: AbortSignal.timeout(10000),
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`✅ Fetched ${data.tokens?.length || 0} tokens from backend`);
+          
+          return NextResponse.json(data, {
+            headers: {
+              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+              'X-Data-Source': 'backend'
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to fetch from backend ${backendUrl}:`, error);
+        continue;
+      }
+    }
+
+    console.log('⚠️ Backend unavailable, falling back to LCD');
 
     // Paxi LCD endpoints - try multiple
     const lcdUrls = [
@@ -229,15 +261,14 @@ export async function GET(request: NextRequest) {
       
       const batchResults = await Promise.all(
         batch.map(async (contractAddress) => {
-          // Fetch token info, marketing, and holders in parallel
-          const [tokenInfo, marketingInfo, numHolders] = await Promise.all([
+          // Fetch token info and marketing only - holders will be lazy loaded on client side
+          const [tokenInfo, marketingInfo] = await Promise.all([
             fetchPRC20TokenInfo(lcdUrls, contractAddress),
-            fetchPRC20MarketingInfo(lcdUrls, contractAddress),
-            fetchPRC20NumHolders(lcdUrls, contractAddress)
+            fetchPRC20MarketingInfo(lcdUrls, contractAddress)
           ]);
 
           if (tokenInfo) {
-            console.log(`  ✓ ${tokenInfo.symbol} (${tokenInfo.name}) - ${numHolders} holders`);
+            console.log(`  ✓ ${tokenInfo.symbol} (${tokenInfo.name})`);
             
             // Hardcoded verified tokens (will be replaced with backend API call)
             const verifiedTokens = [
@@ -248,7 +279,8 @@ export async function GET(request: NextRequest) {
               contract_address: contractAddress,
               token_info: tokenInfo,
               marketing_info: marketingInfo,
-              num_holders: numHolders,
+              // num_holders will be lazy loaded on client side by PRC20HoldersCount component
+              num_holders: undefined,
               verified: verifiedTokens.includes(contractAddress)
             };
             return token;
