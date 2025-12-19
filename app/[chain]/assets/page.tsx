@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { ChainData } from '@/types/chain';
-import { Coins, ExternalLink, Search, TrendingUp, Users, Layers, DollarSign, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { Coins, ExternalLink, Search, TrendingUp, Users, Layers, DollarSign, TrendingUp as TrendingUpIcon, ArrowLeftRight, Send, Flame, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
@@ -1164,6 +1164,9 @@ export default function AssetsPage() {
                             <th className="hidden lg:table-cell px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               Contract
                             </th>
+                            <th className="px-3 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              Actions
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
@@ -1329,6 +1332,48 @@ export default function AssetsPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                       </svg>
                                     </button>
+                                  </div>
+                                </td>
+                                
+                                {/* Actions Column */}
+                                <td className="px-3 md:px-6 py-3 md:py-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {/* Swap Button */}
+                                    <a
+                                      href={`/${chainName}/prc20/swap?from=${token.contract_address}`}
+                                      className="inline-flex items-center gap-1.5 px-2 md:px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700 text-xs font-medium"
+                                      title="Swap this token"
+                                    >
+                                      <ArrowLeftRight className="w-3.5 h-3.5" />
+                                      <span className="hidden md:inline">Swap</span>
+                                    </a>
+
+                                    {/* Transfer Button */}
+                                    <a
+                                      href={`/${chainName}/prc20/swap?from=${token.contract_address}&tab=transfer`}
+                                      className="inline-flex items-center justify-center p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700"
+                                      title="Transfer tokens"
+                                    >
+                                      <Send className="w-3.5 h-3.5" />
+                                    </a>
+
+                                    {/* Burn Button */}
+                                    <a
+                                      href={`/${chainName}/prc20/swap?from=${token.contract_address}&tab=burn`}
+                                      className="inline-flex items-center justify-center p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700"
+                                      title="Burn tokens"
+                                    >
+                                      <Flame className="w-3.5 h-3.5" />
+                                    </a>
+
+                                    {/* Info Button */}
+                                    <a
+                                      href={`/${chainName}/prc20/swap?from=${token.contract_address}&tab=info`}
+                                      className="inline-flex items-center justify-center p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700"
+                                      title="Token information"
+                                    >
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                    </a>
                                   </div>
                                 </td>
                               </tr>

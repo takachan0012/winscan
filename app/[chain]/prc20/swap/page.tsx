@@ -39,6 +39,15 @@ export default function PRC20SwapPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [swapPercentage, setSwapPercentage] = useState(0);
   const [memo, setMemo] = useState('WinScan Swap');
+  const [activeTab, setActiveTab] = useState<'swap' | 'burn' | 'transfer' | 'info'>('swap');
+
+  // Handle tab from URL query params
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'burn' || tab === 'transfer' || tab === 'info') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const loadChains = async () => {
@@ -932,27 +941,91 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
 
         <main className="flex-1 mt-32 lg:mt-16 p-4 md:p-6 overflow-auto">
           {/* Page Header */}
-          <div className="mb-6 text-center">
-            <h1 className="text-3xl font-bold text-white mb-2">PRC20 Token Swap</h1>
-            <p className="text-gray-400">Swap between PRC20 tokens instantly</p>
-            
-            {/* Wallet Connection */}
-            {!walletAddress ? (
-              <button
-                onClick={connectWallet}
-                className="mt-4 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-              >
-                Connect Wallet
-              </button>
-            ) : (
-              <div className="mt-2 text-sm text-green-400">
-                Connected: {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
+          <div className="mb-10">
+            <div className="max-w-lg mx-auto">
+              <div className="relative bg-gradient-to-b from-[#1a1a1a] to-[#151515] rounded-2xl p-8 border border-gray-800/50 shadow-2xl shadow-black/50">
+                {/* Subtle top accent */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent rounded-full"></div>
+                
+                <div className="text-center">
+                  <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">
+                    PRC20 Token Swap
+                  </h1>
+                  <p className="text-gray-400 text-sm mb-6">Swap between PRC20 tokens instantly</p>
+                  
+                  {/* Show wallet address only when connected */}
+                  {walletAddress && (
+                    <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs font-mono text-green-400 font-medium">
+                        {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {!walletAddress && (
+                    <button
+                      onClick={connectWallet}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:scale-[1.02]"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Connect Wallet
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Swap Container */}
           <div className="max-w-lg mx-auto">
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setActiveTab('swap')}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'swap'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                Swap
+              </button>
+              <button
+                onClick={() => setActiveTab('transfer')}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'transfer'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                Transfer
+              </button>
+              <button
+                onClick={() => setActiveTab('burn')}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'burn'
+                    ? 'bg-red-500 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                Burn
+              </button>
+              <button
+                onClick={() => setActiveTab('info')}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'info'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                Info
+              </button>
+            </div>
+
+            {activeTab === 'swap' && (
             <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
               {/* Settings Button */}
               <div className="flex justify-between items-center mb-4">
@@ -1437,8 +1510,176 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                 </button>
               )}
             </div>
+            )}
+
+            {/* Transfer Tab */}
+            {activeTab === 'transfer' && selectedChain && (
+              <>
+                {!walletAddress ? (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 text-center">
+                    <p className="text-gray-400 mb-4">Connect your wallet to transfer tokens</p>
+                    <button
+                      onClick={connectWallet}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    >
+                      Connect Wallet
+                    </button>
+                  </div>
+                ) : !fromToken || fromToken.address === 'upaxi' ? (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 text-center">
+                    <p className="text-gray-400">Select a PRC20 token from the swap tab first</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Import TransferTokensSection dynamically */}
+                    {(() => {
+                      const TransferTokensSection = require('@/components/TransferTokensSection').default;
+                      return (
+                        <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                          <h2 className="text-lg font-semibold text-white mb-4">Transfer Tokens</h2>
+                          
+                          {/* Token Info - Same as Swap */}
+                          <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                {fromToken.logo ? (
+                                  <img src={fromToken.logo} alt={fromToken.symbol} className="w-10 h-10 rounded-full" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                    {fromToken.symbol.substring(0, 2)}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="text-white font-semibold">{fromToken.name}</div>
+                                  <div className="text-gray-400 text-sm">{fromToken.symbol}</div>
+                                </div>
+                              </div>
+                              {fromToken.balance && (
+                                <div className="text-right">
+                                  <div className="text-xs text-gray-400">Available Balance</div>
+                                  <div className="text-white font-semibold">
+                                    {formatBalance(fromToken.balance, fromToken.decimals)} {fromToken.symbol}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <TransferTokensSection
+                            chain={selectedChain.chain_id}
+                            token={fromToken}
+                            onTransferComplete={() => {
+                              // Reload balances
+                              loadBalances();
+                            }}
+                          />
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Burn Tab */}
+            {activeTab === 'burn' && selectedChain && (
+              <>
+                {!walletAddress ? (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 text-center">
+                    <p className="text-gray-400 mb-4">Connect your wallet to burn tokens</p>
+                    <button
+                      onClick={connectWallet}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    >
+                      Connect Wallet
+                    </button>
+                  </div>
+                ) : !fromToken || fromToken.address === 'upaxi' ? (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 text-center">
+                    <p className="text-gray-400">Select a PRC20 token from the swap tab first</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Import BurnTokensSection dynamically */}
+                    {(() => {
+                      const BurnTokensSection = require('@/components/BurnTokensSection').default;
+                      return (
+                        <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                          <h2 className="text-lg font-semibold text-white mb-4">Burn Tokens</h2>
+                          
+                          {/* Token Info - Same as Transfer */}
+                          <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                {fromToken.logo ? (
+                                  <img src={fromToken.logo} alt={fromToken.symbol} className="w-10 h-10 rounded-full" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white font-bold">
+                                    {fromToken.symbol.substring(0, 2)}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="text-white font-semibold">{fromToken.name}</div>
+                                  <div className="text-gray-400 text-sm">{fromToken.symbol}</div>
+                                </div>
+                              </div>
+                              {fromToken.balance && (
+                                <div className="text-right">
+                                  <div className="text-xs text-gray-400">Available Balance</div>
+                                  <div className="text-white font-semibold">
+                                    {formatBalance(fromToken.balance, fromToken.decimals)} {fromToken.symbol}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <BurnTokensSection
+                            chain={selectedChain}
+                            token={fromToken}
+                            onBurnComplete={() => {
+                              // Reload balances
+                              loadBalances();
+                            }}
+                          />
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Info Tab */}
+            {activeTab === 'info' && selectedChain && (
+              <>
+                {!fromToken || fromToken.address === 'upaxi' ? (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 text-center">
+                    <p className="text-gray-400">Select a PRC20 token to view information</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Import TokenMarketingInfo dynamically */}
+                    {(() => {
+                      const TokenMarketingInfo = require('@/components/TokenMarketingInfo').default;
+                      const lcdUrl = selectedChain.api && selectedChain.api.length > 0 
+                        ? selectedChain.api[0].address 
+                        : 'https://mainnet-lcd.paxinet.io';
+                      return (
+                        <TokenMarketingInfo
+                          lcdUrl={lcdUrl}
+                          contractAddress={fromToken.address}
+                          tokenSymbol={fromToken.symbol}
+                        />
+                      );
+                    })()}
+                  </>
+                )}
+              </>
+            )}
 
             {/* Info Cards */}
+            {activeTab === 'swap' && (
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
@@ -1455,6 +1696,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                 <p className="text-xs text-gray-400">Execute swaps instantly with best rates</p>
               </div>
             </div>
+            )}
           </div>
         </main>
         <Footer />
