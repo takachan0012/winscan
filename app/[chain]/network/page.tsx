@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -11,7 +11,14 @@ import { Activity, Globe, Server, Zap, Database, Clock, TrendingUp, CheckCircle,
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 
-const ValidatorWorldMap = dynamic(() => import('@/components/ValidatorWorldMap'), { ssr: false });
+const ValidatorWorldMap = dynamic(() => import('@/components/ValidatorWorldMap'), { 
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[500px] bg-[#0f0f0f]">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400"></div>
+    </div>
+  )
+});
 
 interface ValidatorLocation {
   city: string;
@@ -69,6 +76,8 @@ export default function NetworkPage() {
   const [avgBlockTime, setAvgBlockTime] = useState<number>(0);
   const [validatorLocations, setValidatorLocations] = useState<ValidatorLocation[]>([]);
   const [validators, setValidators] = useState<ValidatorData[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [loadingValidators, setLoadingValidators] = useState(false);
 
   useEffect(() => {
 
@@ -120,6 +129,9 @@ export default function NetworkPage() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     
+    setLoadingLocations(true);
+    setLoadingValidators(true);
+    
     fetch(`/api/network?chain=${chainIdentifier}`, { signal: controller.signal })
       .then(res => res.json())
       .then(data => {
@@ -141,14 +153,18 @@ export default function NetworkPage() {
         } catch (e) {}
 
         // Load validator locations (network/validators API)
+        setLoadingLocations(true);
         fetch(`/api/network/validators?chain=${chainIdentifier}`)
           .then(res => res.json())
           .then(validatorData => {
             if (validatorData?.locations && validatorData.locations.length > 0) {
               setValidatorLocations(validatorData.locations);
             }
+            setLoadingLocations(false);
           })
-          .catch(() => {});
+          .catch(() => {
+            setLoadingLocations(false);
+          });
         
         // Load validators with localStorage cache (10 minutes) - matching main page
         const validatorCacheKey = `validators_${chainIdentifier}`;
@@ -163,12 +179,14 @@ export default function NetworkPage() {
             if (age < 10 * 60 * 1000) {
               console.log('Using cached validators:', validatorData.length);
               setValidators(validatorData);
+              setLoadingValidators(false);
               return;
             }
           } catch (e) {}
         }
         
         // Fetch fresh validator data
+        setLoadingValidators(true);
         fetch(`/api/validators?chain=${chainIdentifier}`)
           .then(res => res.json())
           .then(response => {
@@ -181,6 +199,7 @@ export default function NetworkPage() {
             }
             
             setValidators(validatorsData);
+            setLoadingValidators(false);
             
             // Save to localStorage cache
             localStorage.setItem(validatorCacheKey, JSON.stringify({
@@ -190,17 +209,20 @@ export default function NetworkPage() {
           })
           .catch((err) => {
             console.error('Error loading validators:', err);
+            setLoadingValidators(false);
           });
       })
       .catch(err => {
         setLoading(false);
+        setLoadingLocations(false);
+        setLoadingValidators(false);
       })
       .finally(() => clearTimeout(timeoutId));
   }, [selectedChain]);
 
   // Calculate statistics
   const stats = useMemo(() => {
-    if (validatorLocations.length === 0) return null;
+    if (loadingLocations || loadingValidators || validatorLocations.length === 0) return null;
     
     const totalNodes = validatorLocations.reduce((sum, loc) => sum + loc.count, 0);
     const totalLocations = validatorLocations.length;
@@ -247,7 +269,7 @@ export default function NetworkPage() {
       medianBond,
       maxBond
     };
-  }, [validatorLocations, validators]);
+  }, [validatorLocations, validators, loadingLocations, loadingValidators]);
 
   // Get chain denom
   const chainDenom = useMemo(() => {
@@ -306,7 +328,24 @@ export default function NetworkPage() {
             </h1>
           </div>
 
-          {validatorLocations.length > 0 && stats ? (
+          {loadingLocations || loadingValidators ? (
+            <div className="space-y-4">
+              {/* Loading skeleton */}
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 h-[500px] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="relative w-20 h-20 mx-auto mb-4">
+                    <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <p className="text-gray-400">Loading network data...</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 h-32 animate-pulse"></div>
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 h-32 animate-pulse"></div>
+              </div>
+            </div>
+          ) : validatorLocations.length > 0 && stats ? (
             <>
               {/* World Map Section - Like THORChain */}
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg mb-4 overflow-hidden">
@@ -508,53 +547,11 @@ export default function NetworkPage() {
               </div>
 
               {/* Node Data Center - Like THORChain */}
-              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 mb-6">
-                <h3 className="text-white font-bold text-xl mb-2">Node Data Center</h3>
-                <p className="text-gray-400 text-sm mb-6">{stats.totalLocations} locations</p>
-                <div className="space-y-4">
-                  {(() => {
-                    const providerGroups = validatorLocations.reduce((acc, loc) => {
-                      const provider = loc.provider && loc.provider !== 'Unknown' ? loc.provider : 'Other';
-                      if (!acc[provider]) {
-                        acc[provider] = { locations: [], totalNodes: 0 };
-                      }
-                      acc[provider].locations.push(loc);
-                      acc[provider].totalNodes += loc.count;
-                      return acc;
-                    }, {} as Record<string, { locations: typeof validatorLocations, totalNodes: number }>);
-
-                    return Object.entries(providerGroups)
-                      .sort(([, a], [, b]) => b.totalNodes - a.totalNodes)
-                      .map(([provider, data], providerIndex) => (
-                        <div key={provider} className="bg-[#0f0f0f] border border-gray-700 rounded-lg p-5">
-                          <div className="flex items-center gap-4 mb-4">
-                            <div 
-                              className="w-12 h-12 rounded-lg flex items-center justify-center"
-                              style={{ backgroundColor: CHART_COLORS[providerIndex % CHART_COLORS.length] + '30', borderColor: CHART_COLORS[providerIndex % CHART_COLORS.length] + '50', borderWidth: '1px' }}
-                            >
-                              <Server className="w-6 h-6" style={{ color: CHART_COLORS[providerIndex % CHART_COLORS.length] }} />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-white font-bold text-lg">{provider}</p>
-                              <p className="text-gray-400 text-sm">{data.locations.length} locations</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-white text-3xl font-bold">{data.totalNodes}</p>
-                              <p className="text-gray-400 text-sm">nodes</p>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2 text-xs">
-                            {data.locations.map((loc, idx) => (
-                              <span key={idx} className="text-gray-400">
-                                {loc.city}, {loc.country} • <span className="text-white">{loc.count}</span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ));
-                  })()}
-                </div>
-              </div>
+              <NodeDataCenter 
+                validatorLocations={validatorLocations}
+                stats={stats}
+                chartColors={CHART_COLORS}
+              />
             </>
           ) : (
             <div className="bg-[#1e2838] border border-gray-700/30 rounded-lg p-16 text-center">
@@ -562,7 +559,7 @@ export default function NetworkPage() {
                 <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
                 <div className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <p className="text-gray-400 text-lg font-medium">Loading network data...</p>
+              <p className="text-gray-400 text-lg font-medium">No network data available</p>
             </div>
           )}
         </main>
@@ -570,3 +567,66 @@ export default function NetworkPage() {
     </div>
   );
 }
+
+// Memoized component for Node Data Center to avoid re-renders
+const NodeDataCenter = React.memo(({ validatorLocations, stats, chartColors }: {
+  validatorLocations: ValidatorLocation[];
+  stats: any;
+  chartColors: string[];
+}) => {
+  const providerGroups = useMemo(() => {
+    return validatorLocations.reduce((acc, loc) => {
+      const provider = loc.provider && loc.provider !== 'Unknown' ? loc.provider : 'Other';
+      if (!acc[provider]) {
+        acc[provider] = { locations: [], totalNodes: 0 };
+      }
+      acc[provider].locations.push(loc);
+      acc[provider].totalNodes += loc.count;
+      return acc;
+    }, {} as Record<string, { locations: typeof validatorLocations, totalNodes: number }>);
+  }, [validatorLocations]);
+
+  return (
+    <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 mb-6">
+      <h3 className="text-white font-bold text-xl mb-2">Node Data Center</h3>
+      <p className="text-gray-400 text-sm mb-6">{stats.totalLocations} locations</p>
+      <div className="space-y-4">
+        {Object.entries(providerGroups)
+          .sort(([, a], [, b]) => b.totalNodes - a.totalNodes)
+          .slice(0, 10)
+          .map(([provider, data], providerIndex) => (
+            <div key={provider} className="bg-[#0f0f0f] border border-gray-700 rounded-lg p-5">
+              <div className="flex items-center gap-4 mb-4">
+                <div 
+                  className="w-12 h-12 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: chartColors[providerIndex % chartColors.length] + '30', borderColor: chartColors[providerIndex % chartColors.length] + '50', borderWidth: '1px' }}
+                >
+                  <Server className="w-6 h-6" style={{ color: chartColors[providerIndex % chartColors.length] }} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-bold text-lg">{provider}</p>
+                  <p className="text-gray-400 text-sm">{data.locations.length} locations</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-white text-3xl font-bold">{data.totalNodes}</p>
+                  <p className="text-gray-400 text-sm">nodes</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {data.locations.slice(0, 5).map((loc, idx) => (
+                  <span key={idx} className="text-gray-400">
+                    {loc.city}, {loc.country} • <span className="text-white">{loc.count}</span>
+                  </span>
+                ))}
+                {data.locations.length > 5 && (
+                  <span className="text-gray-500">+{data.locations.length - 5} more</span>
+                )}
+              </div>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+});
+
+NodeDataCenter.displayName = 'NodeDataCenter';

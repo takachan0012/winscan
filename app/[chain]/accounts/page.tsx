@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChainData, TransactionData } from '@/types/chain';
-import { Users, Search, Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, DollarSign, Copy, CheckCircle, Send, X } from 'lucide-react';
+import { Users, Search, Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, DollarSign, Copy, CheckCircle, Send, X, QrCode } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { getSavedKeplrAccount, executeSend, executeWithdrawAll, executeWithdrawAllValidators } from '@/lib/keplr';
@@ -93,6 +93,9 @@ export default function AccountsPage() {
   // PRC20 tokens state
   const [prc20Tokens, setPrc20Tokens] = useState<any[]>([]);
   const [prc20Loading, setPrc20Loading] = useState(false);
+  
+  // QR Code modal state
+  const [showQRModal, setShowQRModal] = useState(false);
 
   useEffect(() => {
     fetch('/api/chains')
@@ -108,10 +111,20 @@ export default function AccountsPage() {
   }, [params]);
 
   useEffect(() => {
-    const checkWallet = () => {
+    const checkWallet = async () => {
       const saved = getSavedKeplrAccount();
       if (saved && saved.account) {
         setConnectedAddress(saved.account.address);
+        
+        // Auto-enable Keplr for this chain if wallet was previously connected
+        if (selectedChain && (window as any).keplr) {
+          try {
+            await (window as any).keplr.enable(selectedChain.chain_id);
+            console.log('Auto-enabled Keplr for', selectedChain.chain_id);
+          } catch (error) {
+            console.warn('Failed to auto-enable Keplr:', error);
+          }
+        }
       } else {
         setConnectedAddress(null);
         setWalletData(null);
@@ -130,7 +143,7 @@ export default function AccountsPage() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('keplr_wallet_changed', handleWalletChange);
     };
-  }, []);
+  }, [selectedChain]);
 
   useEffect(() => {
     if (!connectedAddress || !selectedChain) return;
@@ -201,14 +214,14 @@ export default function AccountsPage() {
   }, [connectedAddress, selectedChain]);
 
   // Retry helper for balance fetch
-  const fetchBalanceWithRetry = async (contract: string, address: string, retries = 3): Promise<string> => {
+  const fetchBalanceWithRetry = async (contract: string, address: string, retries = 2): Promise<string> => {
     for (let i = 0; i < retries; i++) {
       try {
         const balRes = await fetch(
           `/api/prc20-balance?contract=${contract}&address=${address}`,
           { 
             cache: 'no-store',
-            signal: AbortSignal.timeout(10000)
+            signal: AbortSignal.timeout(5000)
           }
         );
         
@@ -218,11 +231,11 @@ export default function AccountsPage() {
         }
         
         if (i < retries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       } catch (error) {
         if (i < retries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
     }
@@ -251,8 +264,8 @@ export default function AccountsPage() {
         return;
       }
       
-      // Progressive loading: process in batches of 3 with delays
-      const batchSize = 3;
+      // Optimized: process in larger batches with parallel requests
+      const batchSize = 10; // Increased from 3 to 10
       const allBalances: any[] = [];
       let successCount = 0;
       let failCount = 0;
@@ -294,9 +307,9 @@ export default function AccountsPage() {
           setPrc20Tokens(nonZeroSoFar);
         }
         
-        // Delay between batches to avoid overwhelming the API
+        // Reduced delay between batches
         if (i + batchSize < tokens.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 100)); // Reduced from 500ms to 100ms
         }
       }
       
@@ -726,9 +739,18 @@ export default function AccountsPage() {
                     </button>
                   </div>
                 </div>
-                <code className="text-blue-400 font-mono text-sm break-all">
-                  {connectedAddress}
-                </code>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowQRModal(true)}
+                    className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors group"
+                    title="Show QR Code"
+                  >
+                    <QrCode className="w-5 h-5 text-gray-400 group-hover:text-blue-400" />
+                  </button>
+                  <code className="text-blue-400 font-mono text-sm break-all flex-1">
+                    {connectedAddress}
+                  </code>
+                </div>
               </div>
 
               {/* Balance Stats */}
@@ -1857,6 +1879,76 @@ export default function AccountsPage() {
                     </button>
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* QR Code Modal */}
+        {showQRModal && connectedAddress && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
+            <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl animate-scale-in">
+              <div className="flex flex-col items-center text-center space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between w-full">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <QrCode className="w-5 h-5 text-blue-400" />
+                    Wallet QR Code
+                  </h3>
+                  <button
+                    onClick={() => setShowQRModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* QR Code - Using external service */}
+                <div className="bg-white p-6 rounded-xl">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(connectedAddress)}`}
+                    alt="QR Code"
+                    className="w-64 h-64"
+                  />
+                </div>
+
+                {/* Address */}
+                <div className="w-full bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 space-y-2">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Wallet Address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs text-blue-400 font-mono break-all flex-1">
+                      {connectedAddress}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(connectedAddress);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                      title="Copy to clipboard"
+                    >
+                      {copied ? (
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <p className="text-gray-400 text-sm">
+                  Scan this QR code to copy the wallet address
+                </p>
+
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

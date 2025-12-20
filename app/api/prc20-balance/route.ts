@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+// In-memory cache for balance queries (1 minute TTL)
+const balanceCache = new Map<string, { balance: any; timestamp: number }>();
+const CACHE_TTL = 60000; // 60 seconds
+
 // Paxi LCD endpoints with failover
 const LCD_ENDPOINTS = [
   'https://mainnet-lcd.paxinet.io',
@@ -9,7 +13,7 @@ const LCD_ENDPOINTS = [
   'https://api-paxi-m.maouam.xyz'
 ];
 
-async function queryWithRetry(url: string, retries: number = 2): Promise<Response | null> {
+async function queryWithRetry(url: string, retries: number = 1): Promise<Response | null> {
   for (let i = 0; i <= retries; i++) {
     try {
       const response = await fetch(url, {
@@ -18,7 +22,7 @@ async function queryWithRetry(url: string, retries: number = 2): Promise<Respons
           'Cache-Control': 'no-cache, no-store, must-revalidate'
         },
         cache: 'no-store',
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(5000) // Reduced from 10s to 5s
       });
       
       if (response.ok) {
@@ -32,12 +36,12 @@ async function queryWithRetry(url: string, retries: number = 2): Promise<Respons
       
       // Retry on 5xx (server errors)
       if (i < retries) {
-        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1))); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 200)); // Reduced from 500ms
         console.log(`[PRC20 Balance] Retrying (${i + 1}/${retries})...`);
       }
     } catch (error) {
       if (i < retries) {
-        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+        await new Promise(resolve => setTimeout(resolve, 200)); // Reduced from 500ms
         console.log(`[PRC20 Balance] Retrying after error (${i + 1}/${retries})...`);
       }
     }
@@ -58,6 +62,19 @@ export async function GET(request: NextRequest) {
         { error: 'Contract and address parameters required' },
         { status: 400 }
       );
+    }
+
+    // Check cache first
+    const cacheKey = `${contract}:${address}`;
+    const cached = balanceCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('[PRC20 Balance] Cache hit for', cacheKey);
+      return NextResponse.json(cached.balance, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'X-Cache': 'HIT'
+        }
+      });
     }
 
     // Validate contract address format (bech32 format: paxi1...)
@@ -106,9 +123,25 @@ export async function GET(request: NextRequest) {
         if (response) {
           const data = await response.json();
           console.log(`[PRC20 Balance] Success from ${lcdUrl}:`, JSON.stringify(data));
+          
+          // Cache the result
+          balanceCache.set(cacheKey, {
+            balance: data.data,
+            timestamp: Date.now()
+          });
+          
+          // Clean up old cache entries (keep cache size reasonable)
+          if (balanceCache.size > 1000) {
+            const oldestKey = balanceCache.keys().next().value;
+            if (oldestKey) {
+              balanceCache.delete(oldestKey);
+            }
+          }
+          
           return NextResponse.json(data.data, {
             headers: {
-              'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
+              'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+              'X-Cache': 'MISS'
             }
           });
         }

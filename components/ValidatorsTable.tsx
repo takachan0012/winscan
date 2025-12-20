@@ -301,6 +301,89 @@ const ValidatorRow = memo(({
       <td className="px-1.5 md:px-6 py-1.5 md:py-4 text-gray-300">
         <span className="text-[9px] md:text-sm">{formatCommission(validator.commission || '0')}</span>
       </td>
+      <td className="hidden lg:table-cell px-6 py-4">
+        {(() => {
+          // Calculate performance score
+          const uptime = validator.uptime || 0;
+          const commission = parseFloat(validator.commission || '0') * 100;
+          const votingPower = parseFloat(calculateVotingPowerPercentage(validator.votingPower || '0'));
+          const isJailed = validator.jailed;
+          
+          // Scoring logic
+          let score = 0;
+          let uptimeScore = 0;
+          let commissionScore = 0;
+          let vpScore = 0;
+          
+          // Uptime score (max 40 points)
+          if (uptime >= 99) uptimeScore = 40;
+          else if (uptime >= 95) uptimeScore = 30;
+          else if (uptime >= 90) uptimeScore = 20;
+          else if (uptime >= 80) uptimeScore = 10;
+          else uptimeScore = 0;
+          
+          // Commission score (max 30 points) - sweet spot 5-10%
+          if (commission >= 5 && commission <= 10) commissionScore = 30;
+          else if (commission > 10 && commission <= 15) commissionScore = 20;
+          else if (commission < 5 && commission >= 3) commissionScore = 25;
+          else if (commission < 3) commissionScore = 15;
+          else commissionScore = 10;
+          
+          // Voting power score (max 30 points) - prefer decentralization
+          if (votingPower < 1) vpScore = 30;
+          else if (votingPower < 3) vpScore = 25;
+          else if (votingPower < 5) vpScore = 20;
+          else if (votingPower < 10) vpScore = 15;
+          else vpScore = 5;
+          
+          score = uptimeScore + commissionScore + vpScore;
+          
+          // Penalty for jailed
+          if (isJailed) score = Math.max(0, score - 50);
+          
+          // Determine badge and color
+          let bgColor = '';
+          let textColor = '';
+          let borderColor = '';
+          
+          if (score >= 85) {
+            bgColor = 'bg-yellow-500/20';
+            textColor = 'text-yellow-400';
+            borderColor = 'border-yellow-500/30';
+          } else if (score >= 70) {
+            bgColor = 'bg-green-500/20';
+            textColor = 'text-green-400';
+            borderColor = 'border-green-500/30';
+          } else if (score >= 50) {
+            bgColor = 'bg-blue-500/20';
+            textColor = 'text-blue-400';
+            borderColor = 'border-blue-500/30';
+          } else {
+            bgColor = 'bg-gray-500/20';
+            textColor = 'text-gray-400';
+            borderColor = 'border-gray-500/30';
+          }
+          
+          return (
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-1 text-xs font-bold ${bgColor} ${textColor} border ${borderColor} rounded min-w-[45px] text-center`}>
+                {score}
+              </span>
+              <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden max-w-[60px]">
+                <div 
+                  className={`h-full transition-all duration-500 ${
+                    score >= 85 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
+                    score >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                    score >= 50 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
+                    'bg-gray-600'
+                  }`}
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
+      </td>
       <td className="hidden lg:table-cell px-6 py-4 text-gray-300">
         {validator.delegatorsCount !== undefined && validator.delegatorsCount > 0 ? (
           <div className="font-medium">{validator.delegatorsCount.toLocaleString()}</div>
@@ -1053,6 +1136,12 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                   <svg className="w-2 h-2 md:w-3 md:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                   </svg>
+                </div>
+              </th>
+              <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">
+                <div className="flex items-center space-x-1">
+                  <span>Score</span>
+                  <span className="text-[10px] text-gray-500">(0-100)</span>
                 </div>
               </th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-blue-400 transition-colors">

@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Link from 'next/link';
 import { ChainData } from '@/types/chain';
-import { ArrowLeft, Shield, TrendingUp, Users, Award, Clock, DollarSign, FileText, Send } from 'lucide-react';
+import { ArrowLeft, Shield, TrendingUp, Users, Award, Clock, DollarSign, FileText, Send, QrCode } from 'lucide-react';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { getCacheKey, setCache, getStaleCache } from '@/lib/cacheUtils';
 import { fetchApi } from '@/lib/api';
@@ -98,6 +98,7 @@ export default function ValidatorDetailPage() {
   const [txResult, setTxResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
   const [destinationValidator, setDestinationValidator] = useState<string>('');
   const [showValidatorList, setShowValidatorList] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   const [validatorSearchQuery, setValidatorSearchQuery] = useState('');
   
   // Edit Commission States
@@ -1077,8 +1078,8 @@ export default function ValidatorDetailPage() {
                     </button>
                   </div>
                   
-                  {/* Status Badges */}
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  {/* Status Badges & Performance Score */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
                     <span className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
                       validator.status === 'BOND_STATUS_BONDED' 
                         ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
@@ -1093,6 +1094,122 @@ export default function ValidatorDetailPage() {
                         JAILED
                       </span>
                     )}
+                    
+                    {/* Performance Score Badge */}
+                    {(() => {
+                      // Calculate performance score
+                      const uptime = uptimePercentage || 0;
+                      const commission = parseFloat(validator.commission) || 0;
+                      const votingPower = parseFloat(validator.votingPowerPercentage) || 0;
+                      const isJailed = validator.jailed;
+                      
+                      // Scoring logic
+                      let score = 0;
+                      let uptimeScore = 0;
+                      let commissionScore = 0;
+                      let vpScore = 0;
+                      
+                      // Uptime score (max 40 points)
+                      if (uptime >= 99) uptimeScore = 40;
+                      else if (uptime >= 95) uptimeScore = 30;
+                      else if (uptime >= 90) uptimeScore = 20;
+                      else if (uptime >= 80) uptimeScore = 10;
+                      else uptimeScore = 0;
+                      
+                      // Commission score (max 30 points) - sweet spot 5-10%
+                      if (commission >= 5 && commission <= 10) commissionScore = 30;
+                      else if (commission > 10 && commission <= 15) commissionScore = 20;
+                      else if (commission < 5 && commission >= 3) commissionScore = 25;
+                      else if (commission < 3) commissionScore = 15; // Too low might be suspicious
+                      else commissionScore = 10;
+                      
+                      // Voting power score (max 30 points) - prefer decentralization
+                      if (votingPower < 1) vpScore = 30;
+                      else if (votingPower < 3) vpScore = 25;
+                      else if (votingPower < 5) vpScore = 20;
+                      else if (votingPower < 10) vpScore = 15;
+                      else vpScore = 5;
+                      
+                      score = uptimeScore + commissionScore + vpScore;
+                      
+                      // Penalty for jailed
+                      if (isJailed) score = Math.max(0, score - 50);
+                      
+                      // Determine badge
+                      let badge = '';
+                      let color = '';
+                      let bgColor = '';
+                      let textColor = '';
+                      
+                      if (score >= 85) {
+                        badge = '🏆 Elite';
+                        color = 'from-yellow-500 to-orange-500';
+                        bgColor = 'bg-yellow-500/20';
+                        textColor = 'text-yellow-400';
+                      } else if (score >= 70) {
+                        badge = '🥇 Excellent';
+                        color = 'from-green-500 to-emerald-500';
+                        bgColor = 'bg-green-500/20';
+                        textColor = 'text-green-400';
+                      } else if (score >= 50) {
+                        badge = '🥈 Good';
+                        color = 'from-blue-500 to-cyan-500';
+                        bgColor = 'bg-blue-500/20';
+                        textColor = 'text-blue-400';
+                      } else {
+                        badge = '🥉 Fair';
+                        color = 'from-gray-500 to-gray-600';
+                        bgColor = 'bg-gray-500/20';
+                        textColor = 'text-gray-400';
+                      }
+                      
+                      return (
+                        <div className="group relative">
+                          <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${bgColor} ${textColor} hover:scale-105 transition-all duration-200 cursor-help border border-transparent hover:border-current`}>
+                            {badge} {score}/100
+                          </span>
+                          
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 animate-fade-in">
+                            <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-xl min-w-[280px]">
+                              <p className="text-white font-semibold text-sm mb-2">Performance Breakdown</p>
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-400">Uptime ({uptime.toFixed(1)}%)</span>
+                                  <span className={uptimeScore >= 30 ? 'text-green-400' : uptimeScore >= 20 ? 'text-yellow-400' : 'text-red-400'}>
+                                    {uptimeScore}/40
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-400">Commission ({commission}%)</span>
+                                  <span className={commissionScore >= 25 ? 'text-green-400' : commissionScore >= 15 ? 'text-yellow-400' : 'text-orange-400'}>
+                                    {commissionScore}/30
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-400">Decentralization</span>
+                                  <span className={vpScore >= 25 ? 'text-green-400' : vpScore >= 15 ? 'text-yellow-400' : 'text-orange-400'}>
+                                    {vpScore}/30
+                                  </span>
+                                </div>
+                                {isJailed && (
+                                  <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-700">
+                                    <span className="text-red-400">Jailed Penalty</span>
+                                    <span className="text-red-400">-50</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="mt-2 pt-2 border-t border-gray-700">
+                                <div className="flex items-center justify-between text-xs font-semibold">
+                                  <span className="text-white">Total Score</span>
+                                  <span className={textColor}>{score}/100</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {validator.website && (
@@ -1128,6 +1245,13 @@ export default function ValidatorDetailPage() {
                       >
                         {validator?.accountAddress || (validator?.address ? convertValidatorToAccountAddress(validator.address) : 'Not Available')}
                       </Link>
+                      <button 
+                        onClick={() => setShowQRModal(true)}
+                        className="text-gray-400 hover:text-blue-400 transition-all duration-200 flex-shrink-0 hover:scale-110 active:scale-95"
+                        title="Show QR Code"
+                      >
+                        <QrCode className="w-3 h-3 md:w-4 md:h-4" />
+                      </button>
                       <button 
                         onClick={() => {
                           const addr = validator?.accountAddress || (validator?.address ? convertValidatorToAccountAddress(validator.address) : '');
@@ -2905,6 +3029,65 @@ export default function ValidatorDetailPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setShowQRModal(false)}>
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-800 animate-scale-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Wallet QR Code</h2>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="bg-white p-4 rounded-xl mb-6 flex items-center justify-center">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(validator?.accountAddress || (validator?.address ? convertValidatorToAccountAddress(validator.address) : ''))}`}
+                alt="QR Code"
+                className="w-64 h-64"
+              />
+            </div>
+            
+            <div className="bg-[#0a0a0a] rounded-lg p-4 mb-4 border border-gray-800">
+              <p className="text-xs text-gray-400 mb-2">Wallet Address</p>
+              <div className="flex items-center gap-2">
+                <code className="text-sm text-blue-400 font-mono break-all flex-1">
+                  {validator?.accountAddress || (validator?.address ? convertValidatorToAccountAddress(validator.address) : '')}
+                </code>
+                <button
+                  onClick={() => {
+                    const addr = validator?.accountAddress || (validator?.address ? convertValidatorToAccountAddress(validator.address) : '');
+                    if (addr) navigator.clipboard.writeText(addr);
+                  }}
+                  className="text-gray-400 hover:text-blue-400 transition-colors p-2 hover:bg-gray-800 rounded-lg flex-shrink-0"
+                  title="Copy address"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-500 text-center">
+              Scan this QR code to get the wallet address
+            </p>
+            
+            <button
+              onClick={() => setShowQRModal(false)}
+              className="w-full mt-6 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/30"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

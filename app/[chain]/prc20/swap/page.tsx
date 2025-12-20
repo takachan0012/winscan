@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { ChainData } from '@/types/chain';
-import { ArrowDownUp, Settings, Info, Zap, AlertCircle } from 'lucide-react';
+import { ArrowDownUp, Settings, Info, Zap, AlertCircle, RefreshCw } from 'lucide-react';
 import { calculateFee } from '@/lib/keplr';
 import { getPoolPrice, calculateSwapOutput } from '@/lib/poolPriceCalculator';
 
@@ -40,6 +40,7 @@ export default function PRC20SwapPage() {
   const [swapPercentage, setSwapPercentage] = useState(0);
   const [memo, setMemo] = useState('WinScan Swap');
   const [activeTab, setActiveTab] = useState<'swap' | 'burn' | 'transfer' | 'info'>('swap');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Handle tab from URL query params
   useEffect(() => {
@@ -243,6 +244,7 @@ export default function PRC20SwapPage() {
       return;
     }
     
+    setRefreshing(true);
     try {
       console.log('🔄 Loading balances...');
       console.log('   Wallet Address:', walletAddress);
@@ -341,6 +343,8 @@ export default function PRC20SwapPage() {
       console.log('✅ Balance loading complete!');
     } catch (error) {
       console.error('❌ Error loading balances:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -932,6 +936,12 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
     return num.toFixed(4);
   };
 
+  const handleRefreshBalances = async () => {
+    if (!walletAddress) return;
+    console.log('🔄 Manual balance refresh triggered');
+    await loadBalances(true);
+  };
+
   return (
     <div className="flex min-h-screen bg-[#0a0a0a]">
       {selectedChain && <Sidebar selectedChain={selectedChain} />}
@@ -955,11 +965,21 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                   
                   {/* Show wallet address only when connected */}
                   {walletAddress && (
-                    <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs font-mono text-green-400 font-medium">
-                        {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
-                      </span>
+                    <div className="inline-flex items-center gap-3">
+                      <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs font-mono text-green-400 font-medium">
+                          {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleRefreshBalances}
+                        disabled={refreshing}
+                        className="p-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/30 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                        title="Refresh balances"
+                      >
+                        <RefreshCw className={`w-4 h-4 text-blue-400 group-hover:text-blue-300 ${refreshing ? 'animate-spin' : ''}`} />
+                      </button>
                     </div>
                   )}
                   
@@ -1157,16 +1177,26 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                           <span>{fromToken.name}</span>
                         </div>
                         {walletAddress && (
-                        <button
-                          onClick={() => {
-                            const maxAmount = formatBalance(fromToken.balance || '0', fromToken.decimals);
-                            setFromAmount(maxAmount);
-                          }}
-                          className="text-gray-400 hover:text-white transition-colors cursor-pointer"
-                          title="Click to use max balance"
-                        >
-                          Balance: <span className="text-white font-medium">{formatBalance(fromToken.balance || '0', fromToken.decimals)}</span> {fromToken.symbol}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const maxAmount = formatBalance(fromToken.balance || '0', fromToken.decimals);
+                              setFromAmount(maxAmount);
+                            }}
+                            className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                            title="Click to use max balance"
+                          >
+                            Balance: <span className="text-white font-medium">{formatBalance(fromToken.balance || '0', fromToken.decimals)}</span> {fromToken.symbol}
+                          </button>
+                          <button
+                            onClick={handleRefreshBalances}
+                            disabled={refreshing}
+                            className="p-1 hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+                            title="Refresh balance"
+                          >
+                            <RefreshCw className={`w-3 h-3 text-gray-400 hover:text-blue-400 ${refreshing ? 'animate-spin' : ''}`} />
+                          </button>
+                        </div>
                         )}
                       </div>
                       {fromToken.address !== 'upaxi' && marketPrices[fromToken.address] && (
@@ -1723,6 +1753,10 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                   <div className="space-y-2">
                     <h3 className="text-2xl font-bold text-white">Swap Successful!</h3>
                     <p className="text-gray-400">Your swap has been broadcast to the network</p>
+                    <div className="flex items-center justify-center gap-2 text-sm text-blue-400 mt-2">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Refreshing balances...</span>
+                    </div>
                   </div>
                   
                   {/* Transaction Hash */}
