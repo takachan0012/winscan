@@ -328,6 +328,21 @@ export async function fetchTransactionsDirectly(
     }
   }
   
+  // All LCD endpoints failed - try backend API as fallback
+  try {
+    console.warn('[fetchTransactions] All LCD failed, trying backend API fallback...');
+    const backendUrl = `/api/transactions?chain=${endpoints[0]?.chain || 'paxi-mainnet'}&page=${page}&limit=${limit}`;
+    const fallbackResponse = await fetch(backendUrl);
+    
+    if (fallbackResponse.ok) {
+      const fallbackData = await fallbackResponse.json();
+      console.log('[fetchTransactions] ✅ Backend API fallback success');
+      return fallbackData;
+    }
+  } catch (fallbackError) {
+    console.error('[fetchTransactions] Backend API fallback also failed:', fallbackError);
+  }
+  
   throw new Error(`All LCD endpoints failed:\n${errors.join('\n')}`);
 }
 
