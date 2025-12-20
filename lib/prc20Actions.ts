@@ -114,7 +114,28 @@ export async function burnPRC20Tokens(
 
     // Create CosmWasm client with automatic failover
     const client = await connectCosmWasmClient(rpcEndpoint, offlineSigner) as any;
+    // Check balance before burning
+    const balanceQuery = {
+      balance: { address: signerAddress }
+    };
+    
+    try {
+      const balanceResult = await client.queryContractSmart(contractAddress, balanceQuery);
+      const currentBalance = BigInt(balanceResult.balance);
+      const burnAmount = BigInt(amount);
 
+      console.log('💰 Current balance:', currentBalance.toString());
+      console.log('🔥 Burn amount:', burnAmount.toString());
+
+      if (currentBalance < burnAmount) {
+        throw new Error(`Insufficient balance. You have ${currentBalance.toString()} but trying to burn ${burnAmount.toString()}`);
+      }
+    } catch (error: any) {
+      if (error.message.includes('Insufficient balance')) {
+        throw error;
+      }
+      console.warn('⚠️ Could not verify balance, proceeding with burn...');
+    }
     // Burn message
     const burnMsg = {
       burn: {
