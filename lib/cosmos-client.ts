@@ -827,9 +827,10 @@ export async function fetchValidatorUptime(
 
   if (chainPath && consensusAddress) {
     try {
-      const fallbackUrl = `https://ssl.winsnip.xyz/api/validators/uptime?chain=${chainPath}&consensus=${consensusAddress}`;
+      // Try local API proxy first (will fallback to backend internally)
+      const localUrl = `/api/validators/uptime?chain=${chainPath}&consensus=${encodeURIComponent(consensusAddress)}`;
       
-      const response = await fetch(fallbackUrl, {
+      const response = await fetch(localUrl, {
         headers: { 'Accept': 'application/json' },
       });
       
@@ -838,7 +839,7 @@ export async function fetchValidatorUptime(
         return data.uptime || 100;
       }
     } catch (fallbackError) {
-
+      console.warn('[fetchValidatorUptime] Fallback failed:', fallbackError);
     }
   }
   
