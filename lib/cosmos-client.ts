@@ -294,7 +294,8 @@ export async function fetchBlockByHeightDirectly(
 export async function fetchTransactionsDirectly(
   endpoints: LCDEndpoint[],
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
+  chainName?: string
 ): Promise<any> {
   const errors: string[] = [];
   const offset = (page - 1) * limit;
@@ -331,7 +332,8 @@ export async function fetchTransactionsDirectly(
   // All LCD endpoints failed - try backend API as fallback
   try {
     console.warn('[fetchTransactions] All LCD failed, trying backend API fallback...');
-    const backendUrl = `/api/transactions?chain=${endpoints[0]?.chain || 'paxi-mainnet'}&page=${page}&limit=${limit}`;
+    const chain = chainName || 'paxi-mainnet';
+    const backendUrl = `/api/transactions?chain=${chain}&page=${page}&limit=${limit}`;
     const fallbackResponse = await fetch(backendUrl);
     
     if (fallbackResponse.ok) {

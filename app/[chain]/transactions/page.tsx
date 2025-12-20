@@ -120,7 +120,8 @@ export default function TransactionsPage() {
       })) || [];
       
       if (endpoints.length > 0) {
-        const directData = await fetchTransactionsDirectly(endpoints, currentPage, txsPerPage);
+        const chainIdentifier = selectedChain.chain_id || selectedChain.chain_name;
+        const directData = await fetchTransactionsDirectly(endpoints, currentPage, txsPerPage, chainIdentifier);
         
         // Transform LCD format to backend format
         const txData = (directData.tx_responses || directData.txs || []).map((tx: any) => {
