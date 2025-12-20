@@ -338,7 +338,27 @@ export async function fetchTransactionsDirectly(
     
     if (fallbackResponse.ok) {
       const fallbackData = await fallbackResponse.json();
-      console.log('[fetchTransactions] ✅ Backend API fallback success');
+      console.log('[fetchTransactions] ✅ Backend API fallback success, received:', fallbackData);
+      
+      // Backend API returns array directly, wrap it in LCD format for compatibility
+      if (Array.isArray(fallbackData)) {
+        return {
+          tx_responses: fallbackData.map((tx: any) => ({
+            txhash: tx.hash,
+            height: tx.height,
+            timestamp: tx.time,
+            code: tx.code || 0,
+            tx: {
+              body: {
+                messages: [{
+                  '@type': `cosmos.${tx.type}.v1beta1.Msg${tx.type}`
+                }]
+              }
+            }
+          }))
+        };
+      }
+      
       return fallbackData;
     }
   } catch (fallbackError) {

@@ -163,7 +163,8 @@ class SSLLoadBalancer {
     const checks = this.endpoints.map(async (endpoint) => {
       const startTime = Date.now();
       try {
-        const response = await fetch(`${endpoint.url}/api/health`, {
+        // Use /api/chains as health check since /api/health doesn't exist
+        const response = await fetch(`${endpoint.url}/api/chains`, {
           signal: AbortSignal.timeout(5000),
         });
 
