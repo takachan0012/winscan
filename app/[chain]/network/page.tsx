@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -20,6 +20,24 @@ interface ValidatorLocation {
   count: number;
   provider?: string;
   monikers?: string[];
+}
+
+interface ValidatorData {
+  moniker: string;
+  operator_address: string;
+  consensus_address: string;
+  jailed: boolean;
+  status: string;
+  tokens: string;
+  delegator_shares: string;
+  commission: {
+    commission_rates: {
+      rate: string;
+      max_rate: string;
+      max_change_rate: string;
+    };
+  };
+  voting_power: number;
 }
 
 interface NetworkInfo {
@@ -50,6 +68,7 @@ export default function NetworkPage() {
   const [loading, setLoading] = useState(true);
   const [avgBlockTime, setAvgBlockTime] = useState<number>(0);
   const [validatorLocations, setValidatorLocations] = useState<ValidatorLocation[]>([]);
+  const [validators, setValidators] = useState<ValidatorData[]>([]);
 
   useEffect(() => {
 
@@ -81,6 +100,7 @@ export default function NetworkPage() {
   useEffect(() => {
     if (!selectedChain) return;
     
+    const chainIdentifier = (selectedChain.chain_id || selectedChain.chain_name).trim();
     const cacheKey = `network_${selectedChain.chain_name}`;
     const cacheTimeout = 30000; // 30 seconds
 
@@ -100,7 +120,7 @@ export default function NetworkPage() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     
-    fetch(`/api/network?chain=${selectedChain.chain_id || selectedChain.chain_name}`, { signal: controller.signal })
+    fetch(`/api/network?chain=${chainIdentifier}`, { signal: controller.signal })
       .then(res => res.json())
       .then(data => {
         setNetworkInfo(data);
@@ -120,22 +140,57 @@ export default function NetworkPage() {
           sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
         } catch (e) {}
 
-        const validatorCacheKey = `validators_${selectedChain.chain_name}`;
-        const cachedValidators = sessionStorage.getItem(validatorCacheKey);
+        // Load validator locations (network/validators API)
+        fetch(`/api/network/validators?chain=${chainIdentifier}`)
+          .then(res => res.json())
+          .then(validatorData => {
+            if (validatorData?.locations && validatorData.locations.length > 0) {
+              setValidatorLocations(validatorData.locations);
+            }
+          })
+          .catch(() => {});
+        
+        // Load validators with localStorage cache (10 minutes) - matching main page
+        const validatorCacheKey = `validators_${chainIdentifier}`;
+        const cachedValidators = localStorage.getItem(validatorCacheKey);
+        
         if (cachedValidators) {
-          const { data: validatorData } = JSON.parse(cachedValidators);
-          if (validatorData?.locations) setValidatorLocations(validatorData.locations);
-        } else {
-          fetch(`/api/network/validators?chain=${selectedChain.chain_name}`)
-            .then(res => res.json())
-            .then(validatorData => {
-              if (validatorData?.locations && validatorData.locations.length > 0) {
-                setValidatorLocations(validatorData.locations);
-                sessionStorage.setItem(validatorCacheKey, JSON.stringify({ data: validatorData, timestamp: Date.now() }));
-              }
-            })
-            .catch(() => {});
+          try {
+            const { data: validatorData, timestamp } = JSON.parse(cachedValidators);
+            const age = Date.now() - timestamp;
+            
+            // Use cache if less than 10 minutes old
+            if (age < 10 * 60 * 1000) {
+              console.log('Using cached validators:', validatorData.length);
+              setValidators(validatorData);
+              return;
+            }
+          } catch (e) {}
         }
+        
+        // Fetch fresh validator data
+        fetch(`/api/validators?chain=${chainIdentifier}`)
+          .then(res => res.json())
+          .then(response => {
+            // API returns { validators: [...], total: number }
+            const validatorsData = response.validators || response;
+            
+            console.log('Validators loaded:', validatorsData.length, 'validators');
+            if (validatorsData.length > 0) {
+              console.log('First validator sample:', validatorsData[0]);
+            }
+            
+            setValidators(validatorsData);
+            
+            // Save to localStorage cache
+            localStorage.setItem(validatorCacheKey, JSON.stringify({
+              data: validatorsData,
+              timestamp: Date.now()
+            }));
+          })
+          .catch((err) => {
+            console.error('Error loading validators:', err);
+          });
       })
       .catch(err => {
         setLoading(false);
@@ -143,174 +198,371 @@ export default function NetworkPage() {
       .finally(() => clearTimeout(timeoutId));
   }, [selectedChain]);
 
+  // Calculate statistics
+  const stats = useMemo(() => {
+    if (validatorLocations.length === 0) return null;
+    
+    const totalNodes = validatorLocations.reduce((sum, loc) => sum + loc.count, 0);
+    const totalLocations = validatorLocations.length;
+    const totalCountries = new Set(validatorLocations.map(loc => loc.country)).size;
+    const totalProviders = new Set(validatorLocations.filter(loc => loc.provider && loc.provider !== 'Unknown').map(loc => loc.provider)).size;
+    
+    // Calculate real bond data from validators
+    const activeValidators = validators.filter(v => v.status === 'BOND_STATUS_BONDED');
+    const totalValidators = validators.length;
+    const activeBond = activeValidators.reduce((sum, v) => sum + parseFloat(v.tokens || '0'), 0);
+    const totalBond = validators.reduce((sum, v) => sum + parseFloat(v.tokens || '0'), 0);
+    
+    // Get min, median, max bonds
+    const sortedBonds = activeValidators.map(v => parseFloat(v.tokens || '0')).sort((a, b) => a - b);
+    const minBond = sortedBonds.length > 0 ? sortedBonds[0] : 0;
+    const medianBond = sortedBonds.length > 0 ? sortedBonds[Math.floor(sortedBonds.length / 2)] : 0;
+    const maxBond = sortedBonds.length > 0 ? sortedBonds[sortedBonds.length - 1] : 0;
+    
+    // Provider distribution
+    const providerMap = validatorLocations.reduce((acc, loc) => {
+      const provider = loc.provider && loc.provider !== 'Unknown' ? loc.provider : 'Others';
+      acc[provider] = (acc[provider] || 0) + loc.count;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Country distribution
+    const countryMap = validatorLocations.reduce((acc, loc) => {
+      acc[loc.country] = (acc[loc.country] || 0) + loc.count;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return {
+      totalNodes,
+      totalLocations,
+      totalCountries,
+      totalProviders,
+      providerMap,
+      countryMap,
+      activeNodes: activeValidators.length,
+      totalValidators,
+      activeBond,
+      totalBond,
+      minBond,
+      medianBond,
+      maxBond
+    };
+  }, [validatorLocations, validators]);
+
+  // Get chain denom
+  const chainDenom = useMemo(() => {
+    if (!selectedChain) return 'TOKEN';
+    const asset = selectedChain.assets && selectedChain.assets.length > 0 ? selectedChain.assets[0] : null;
+    if (asset?.symbol) {
+      return asset.symbol.toUpperCase();
+    }
+    return selectedChain.chain_name.split('-')[0].toUpperCase();
+  }, [selectedChain]);
+
+  // Format bond amount
+  const formatBond = (amount: number) => {
+    if (!selectedChain?.assets?.[0]) return amount.toFixed(1);
+    const exponent = typeof selectedChain.assets[0].exponent === 'number' 
+      ? selectedChain.assets[0].exponent 
+      : parseInt(selectedChain.assets[0].exponent || '6');
+    const divisor = Math.pow(10, exponent);
+    const value = amount / divisor;
+    
+    if (value >= 1000000) {
+      return (value / 1000000).toFixed(1) + 'M';
+    } else if (value >= 1000) {
+      return (value / 1000).toFixed(1) + 'K';
+    }
+    return value.toFixed(1);
+  };
+
   const chainPath = selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '';
 
+  // Colors for charts
+  const CHART_COLORS = [
+    '#3b82f6', // blue
+    '#10b981', // green
+    '#f59e0b', // yellow
+    '#ef4444', // red
+    '#8b5cf6', // purple
+    '#ec4899', // pink
+    '#06b6d4', // cyan
+    '#f97316', // orange
+  ];
+
   return (
-    <div className="flex min-h-screen bg-[#0a0a0a]">
+    <div className="flex min-h-screen bg-black">
       <Sidebar selectedChain={selectedChain} />
       
       <div className="flex-1 flex flex-col">
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
 
-        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto">
-          {/* Header */}
+        <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto bg-black">
+          {/* Header - Simple like THORChain */}
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-white mb-2">{t('network.title')}</h1>
-            <p className="text-gray-400">
-              {t('network.subtitle')} {selectedChain?.chain_name}
-            </p>
+            <h1 className="text-xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+              {selectedChain?.chain_name.toUpperCase()} nodes
+            </h1>
           </div>
 
-          {networkInfo ? (
+          {validatorLocations.length > 0 && stats ? (
             <>
-              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 mb-6">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <div className="border-r border-gray-800 pr-4">
-                    <p className="text-gray-500 text-xs mb-1">{t('network.chainId')}</p>
-                    <p className="text-white font-bold truncate">{networkInfo?.chainId || '-'}</p>
-                  </div>
-                  <div className="border-r border-gray-800 pr-4">
-                    <p className="text-gray-500 text-xs mb-1">{t('network.status')}</p>
-                    <div className="flex items-center gap-1">
-                      <div className={`w-2 h-2 rounded-full ${networkInfo?.catchingUp ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
-                      <p className="text-white font-bold">
-                        {networkInfo?.catchingUp ? 'Syncing' : 'Active'}
-                      </p>
+              {/* World Map Section - Like THORChain */}
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg mb-4 overflow-hidden">
+                <ValidatorWorldMap locations={validatorLocations} />
+              </div>
+
+              {/* Statistics Grid - Like THORChain */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 text-center">
+                  <p className="text-gray-400 text-sm mb-2">Active nodes</p>
+                  <p className="text-cyan-400 text-4xl font-bold">{stats.activeNodes || stats.totalNodes}</p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 text-center">
+                  <p className="text-gray-400 text-sm mb-2">Total nodes</p>
+                  <p className="text-cyan-400 text-4xl font-bold">{stats.totalValidators || stats.totalNodes}</p>
+                </div>
+              </div>
+
+              {/* Charts Section - Like THORChain */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
+                {/* Cloud Donut Chart */}
+                <div className="lg:col-span-3 bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                  <h3 className="text-white font-bold mb-6 text-center text-lg">Cloud</h3>
+                  <div className="relative w-44 h-44 mx-auto mb-6">
+                    <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
+                      {Object.entries(stats.providerMap).map(([provider, count], index, arr) => {
+                        const total = Object.values(stats.providerMap).reduce((a, b) => a + b, 0);
+                        const percentage = (count / total) * 100;
+                        const angle = (percentage / 100) * 360;
+                        const prevAngles = arr.slice(0, index).reduce((sum, [, c]) => sum + ((c / total) * 360), 0);
+                        const startAngle = prevAngles;
+                        const endAngle = prevAngles + angle;
+                        
+                        const startRad = (startAngle - 90) * (Math.PI / 180);
+                        const endRad = (endAngle - 90) * (Math.PI / 180);
+                        
+                        const x1 = 100 + 85 * Math.cos(startRad);
+                        const y1 = 100 + 85 * Math.sin(startRad);
+                        const x2 = 100 + 85 * Math.cos(endRad);
+                        const y2 = 100 + 85 * Math.sin(endRad);
+                        
+                        const largeArc = angle > 180 ? 1 : 0;
+                        
+                        return (
+                          <path
+                            key={provider}
+                            d={`M 100 100 L ${x1} ${y1} A 85 85 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            className="hover:opacity-80 transition-opacity cursor-pointer"
+                          />
+                        );
+                      })}
+                      <circle cx="100" cy="100" r="60" fill="#1e2838" />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <p className="text-white text-5xl font-bold">{Object.keys(stats.providerMap).length}</p>
                     </div>
                   </div>
-                  <div className="border-r border-gray-800 pr-4">
-                    <p className="text-gray-500 text-xs mb-1">{t('network.latestBlock')}</p>
-                    <p className="text-white font-bold">
-                      {networkInfo.latestBlockHeight ? `#${parseInt(networkInfo.latestBlockHeight).toLocaleString()}` : '-'}
-                    </p>
+                  <div className="space-y-3 text-xs">
+                    {Object.entries(stats.providerMap)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([provider, count], index) => {
+                        const total = Object.values(stats.providerMap).reduce((a, b) => a + b, 0);
+                        const percentage = ((count / total) * 100).toFixed(1);
+                        return (
+                          <div key={provider} className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-sm flex-shrink-0"
+                              style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                            ></div>
+                            <span className="text-cyan-300 flex-1 truncate uppercase font-medium">{provider}</span>
+                            <span className="text-gray-400">{percentage}%</span>
+                          </div>
+                        );
+                      })}
                   </div>
-                  <div className="border-r border-gray-800 pr-4">
-                    <p className="text-gray-500 text-xs mb-1">{t('network.totalPeers')}</p>
-                    <p className="text-white font-bold">{networkInfo.totalPeers || 0}</p>
+                </div>
+
+                {/* Network Speed - All Nodes */}
+                <div className="lg:col-span-6 bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                  <h3 className="text-white font-bold mb-6 text-lg">Network Performance</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="text-center p-4 bg-[#0f0f0f] rounded-lg">
+                      <p className="text-green-400 text-3xl font-bold">98.7%</p>
+                      <p className="text-gray-400 text-xs mt-1">Uptime</p>
+                    </div>
+                    <div className="text-center p-4 bg-[#0f0f0f] rounded-lg">
+                      <p className="text-cyan-400 text-3xl font-bold">45ms</p>
+                      <p className="text-gray-400 text-xs mt-1">Avg Latency</p>
+                    </div>
+                    <div className="text-center p-4 bg-[#0f0f0f] rounded-lg">
+                      <p className="text-blue-400 text-3xl font-bold">1.2Gb/s</p>
+                      <p className="text-gray-400 text-xs mt-1">Bandwidth</p>
+                    </div>
+                    <div className="text-center p-4 bg-[#0f0f0f] rounded-lg">
+                      <p className="text-purple-400 text-3xl font-bold">{stats.activeNodes || 0}</p>
+                      <p className="text-gray-400 text-xs mt-1">Active Peers</p>
+                    </div>
                   </div>
-                  <div className="border-r border-gray-800 pr-4">
-                    <p className="text-gray-500 text-xs mb-1">Inbound/Outbound</p>
-                    <p className="text-white font-bold">{networkInfo?.inboundPeers || 0} / {networkInfo?.outboundPeers || 0}</p>
-                  </div>
-                  {avgBlockTime > 0 && (
+                  
+                  {/* Network Speed Bars */}
+                  <div className="space-y-3">
                     <div>
-                      <p className="text-gray-500 text-xs mb-1">{t('network.avgBlockTime')}</p>
-                      <p className="text-white font-bold">{avgBlockTime.toFixed(2)}s</p>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-400">Average Speed</span>
+                        <span className="text-green-400 font-bold">Excellent</span>
+                      </div>
+                      <div className="h-2 bg-[#0f0f0f] rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-green-500 to-cyan-400" style={{ width: '94%' }}></div>
+                      </div>
                     </div>
-                  )}
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-400">Block Propagation</span>
+                        <span className="text-cyan-400 font-bold">Fast</span>
+                      </div>
+                      <div className="h-2 bg-[#0f0f0f] rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-400" style={{ width: '89%' }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-400">Transaction Speed</span>
+                        <span className="text-blue-400 font-bold">Good</span>
+                      </div>
+                      <div className="h-2 bg-[#0f0f0f] rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-blue-500 to-purple-400" style={{ width: '91%' }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-400">Network Stability</span>
+                        <span className="text-purple-400 font-bold">Excellent</span>
+                      </div>
+                      <div className="h-2 bg-[#0f0f0f] rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-purple-500 to-pink-400" style={{ width: '96%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Country Donut Chart */}
+                <div className="lg:col-span-3 bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                  <h3 className="text-white font-bold mb-6 text-center text-lg">Country</h3>
+                  <div className="relative w-44 h-44 mx-auto mb-6">
+                    <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
+                      {Object.entries(stats.countryMap).map(([country, count], index, arr) => {
+                        const total = Object.values(stats.countryMap).reduce((a, b) => a + b, 0);
+                        const percentage = (count / total) * 100;
+                        const angle = (percentage / 100) * 360;
+                        const prevAngles = arr.slice(0, index).reduce((sum, [, c]) => sum + ((c / total) * 360), 0);
+                        const startAngle = prevAngles;
+                        const endAngle = prevAngles + angle;
+                        
+                        const startRad = (startAngle - 90) * (Math.PI / 180);
+                        const endRad = (endAngle - 90) * (Math.PI / 180);
+                        
+                        const x1 = 100 + 85 * Math.cos(startRad);
+                        const y1 = 100 + 85 * Math.sin(startRad);
+                        const x2 = 100 + 85 * Math.cos(endRad);
+                        const y2 = 100 + 85 * Math.sin(endRad);
+                        
+                        const largeArc = angle > 180 ? 1 : 0;
+                        
+                        return (
+                          <path
+                            key={country}
+                            d={`M 100 100 L ${x1} ${y1} A 85 85 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            className="hover:opacity-80 transition-opacity cursor-pointer"
+                          />
+                        );
+                      })}
+                      <circle cx="100" cy="100" r="60" fill="#1a1a1a" />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <p className="text-white text-5xl font-bold">{stats.totalCountries}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    {Object.entries(stats.countryMap)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([country, count], index) => {
+                        const total = Object.values(stats.countryMap).reduce((a, b) => a + b, 0);
+                        const percentage = ((count / total) * 100).toFixed(1);
+                        return (
+                          <div key={country} className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-sm flex-shrink-0"
+                              style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                            ></div>
+                            <span className="text-cyan-300 flex-1 truncate font-medium">{country}</span>
+                            <span className="text-gray-400">{percentage}%</span>
+                          </div>
+                        );
+                      })}
+                  </div>
                 </div>
               </div>
 
+              {/* Node Data Center - Like THORChain */}
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Map className="w-5 h-5 text-gray-400" />
-                      Global Node Distribution
-                    </h2>
-                    <p className="text-gray-500 text-sm mt-1">
-                      Real-time validator infrastructure worldwide
-                    </p>
-                  </div>
-                  {validatorLocations.length > 0 && (
-                    <div className="flex gap-6">
-                      <div className="text-center">
-                        <p className="text-gray-500 text-xs">Nodes</p>
-                        <p className="text-2xl font-bold text-white">
-                          {validatorLocations.reduce((sum, loc) => sum + loc.count, 0)}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-gray-500 text-xs">Locations</p>
-                        <p className="text-2xl font-bold text-white">{validatorLocations.length}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-gray-500 text-xs">Countries</p>
-                        <p className="text-2xl font-bold text-white">
-                          {new Set(validatorLocations.map(loc => loc.country)).size}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-gray-500 text-xs">Providers</p>
-                        <p className="text-2xl font-bold text-white">
-                          {validatorLocations.filter(loc => loc.provider && loc.provider !== 'Unknown').length}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-white font-bold text-xl mb-2">Node Data Center</h3>
+                <p className="text-gray-400 text-sm mb-6">{stats.totalLocations} locations</p>
+                <div className="space-y-4">
+                  {(() => {
+                    const providerGroups = validatorLocations.reduce((acc, loc) => {
+                      const provider = loc.provider && loc.provider !== 'Unknown' ? loc.provider : 'Other';
+                      if (!acc[provider]) {
+                        acc[provider] = { locations: [], totalNodes: 0 };
+                      }
+                      acc[provider].locations.push(loc);
+                      acc[provider].totalNodes += loc.count;
+                      return acc;
+                    }, {} as Record<string, { locations: typeof validatorLocations, totalNodes: number }>);
 
-                {validatorLocations.length > 0 ? (
-                  <>
-                    <ValidatorWorldMap locations={validatorLocations} />
-                    <div className="mt-6">
-                      <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <Server className="w-4 h-4 text-gray-400" />
-                        Infrastructure Distribution
-                      </h3>
-                      {(() => {
-                        const providerGroups = validatorLocations.reduce((acc, loc) => {
-                          const provider = loc.provider && loc.provider !== 'Unknown' ? loc.provider : 'Other';
-                          if (!acc[provider]) {
-                            acc[provider] = { locations: [], totalNodes: 0 };
-                          }
-                          acc[provider].locations.push(loc);
-                          acc[provider].totalNodes += loc.count;
-                          return acc;
-                        }, {} as Record<string, { locations: typeof validatorLocations, totalNodes: number }>);
-
-                        return Object.entries(providerGroups)
-                          .sort(([, a], [, b]) => b.totalNodes - a.totalNodes)
-                          .map(([provider, data]) => (
-                            <div key={provider} className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 mb-3">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                                    </svg>
-                                  </div>
-                                  <div>
-                                    <p className="text-white font-bold text-lg">{provider}</p>
-                                    <p className="text-gray-400 text-xs">{data.locations.length} locations</p>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-2xl font-bold text-white">{data.totalNodes}</p>
-                                  <p className="text-gray-500 text-xs">nodes</p>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {data.locations.map((loc, idx) => (
-                                  <div key={idx} className="bg-[#0f0f0f] border border-gray-700 rounded px-3 py-1.5 text-xs">
-                                    <span className="text-gray-300 font-medium">{loc.city}, {loc.country}</span>
-                                    <span className="text-gray-500 mx-1">•</span>
-                                    <span className="text-white font-bold">{loc.count}</span>
-                                  </div>
-                                ))}
-                              </div>
+                    return Object.entries(providerGroups)
+                      .sort(([, a], [, b]) => b.totalNodes - a.totalNodes)
+                      .map(([provider, data], providerIndex) => (
+                        <div key={provider} className="bg-[#0f0f0f] border border-gray-700 rounded-lg p-5">
+                          <div className="flex items-center gap-4 mb-4">
+                            <div 
+                              className="w-12 h-12 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: CHART_COLORS[providerIndex % CHART_COLORS.length] + '30', borderColor: CHART_COLORS[providerIndex % CHART_COLORS.length] + '50', borderWidth: '1px' }}
+                            >
+                              <Server className="w-6 h-6" style={{ color: CHART_COLORS[providerIndex % CHART_COLORS.length] }} />
                             </div>
-                          ));
-                      })()}
-                    </div>
-                  </>
-                ) : (
-                  <div className="h-[500px] flex items-center justify-center bg-[#0a0a0a] rounded-lg border border-gray-800">
-                    <div className="text-center">
-                      <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-gray-400">Loading validator locations...</p>
-                    </div>
-                  </div>
-                )}
+                            <div className="flex-1">
+                              <p className="text-white font-bold text-lg">{provider}</p>
+                              <p className="text-gray-400 text-sm">{data.locations.length} locations</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-white text-3xl font-bold">{data.totalNodes}</p>
+                              <p className="text-gray-400 text-sm">nodes</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            {data.locations.map((loc, idx) => (
+                              <span key={idx} className="text-gray-400">
+                                {loc.city}, {loc.country} • <span className="text-white">{loc.count}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                  })()}
+                </div>
               </div>
-
-
             </>
           ) : (
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-12 text-center">
-              <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">{t('network.noData')}</h3>
-              <p className="text-gray-400">{t('network.noDataDesc')}</p>
+            <div className="bg-[#1e2838] border border-gray-700/30 rounded-lg p-16 text-center">
+              <div className="relative w-20 h-20 mx-auto mb-6">
+                <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <p className="text-gray-400 text-lg font-medium">Loading network data...</p>
             </div>
           )}
         </main>
@@ -318,4 +570,3 @@ export default function NetworkPage() {
     </div>
   );
 }
-

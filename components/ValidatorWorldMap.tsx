@@ -30,8 +30,27 @@ const ValidatorWorldMap: React.FC<ValidatorWorldMapProps> = ({ locations }) => {
   const mainHub = sortedLocations[0];
   const [selectedLocation, setSelectedLocation] = useState<ValidatorLocation | null>(null);
   
+  // Create country color map based on validator count
+  const countryValidatorCount = locations.reduce((acc, loc) => {
+    acc[loc.country] = (acc[loc.country] || 0) + loc.count;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const maxValidators = Math.max(...Object.values(countryValidatorCount));
+  
+  const getCountryColor = (countryName: string) => {
+    const count = countryValidatorCount[countryName] || 0;
+    if (count === 0) return '#1e3a5f'; // Default dark blue
+    
+    const intensity = count / maxValidators;
+    if (intensity > 0.7) return '#3b82f6'; // Bright blue for high count
+    if (intensity > 0.4) return '#2563eb'; // Medium blue
+    if (intensity > 0.2) return '#1d4ed8'; // Lower blue
+    return '#1e40af'; // Dark blue
+  };
+  
   return (
-    <div className="w-full h-[600px] bg-[#0a0a0a] rounded-lg border border-gray-800 overflow-hidden relative">
+    <div className="w-full h-[600px] bg-[#0d1829] rounded-lg border border-gray-800 overflow-hidden relative">
       <style jsx global>{`
         @keyframes flowLine {
           0% {
@@ -65,20 +84,26 @@ const ValidatorWorldMap: React.FC<ValidatorWorldMapProps> = ({ locations }) => {
         <ZoomableGroup center={[20, 20]} zoom={1}>
           <Geographies geography={geoUrl}>
             {({ geographies }) =>
-              geographies.map((geo) => (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill="#1e293b"
-                  stroke="#334155"
-                  strokeWidth={0.5}
-                  style={{
-                    default: { outline: 'none' },
-                    hover: { fill: '#334155', outline: 'none' },
-                    pressed: { outline: 'none' }
-                  }}
-                />
-              ))
+              geographies.map((geo) => {
+                const countryName = geo.properties.name;
+                const fillColor = getCountryColor(countryName);
+                const hasValidators = countryValidatorCount[countryName] > 0;
+                
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={fillColor}
+                    stroke={hasValidators ? "#60a5fa" : "#3b82f6"}
+                    strokeWidth={hasValidators ? 0.8 : 0.5}
+                    style={{
+                      default: { outline: 'none' },
+                      hover: { fill: hasValidators ? '#60a5fa' : '#2563eb', outline: 'none' },
+                      pressed: { outline: 'none' }
+                    }}
+                  />
+                );
+              })
             }
           </Geographies>
           
@@ -87,8 +112,8 @@ const ValidatorWorldMap: React.FC<ValidatorWorldMapProps> = ({ locations }) => {
               key={`hub-${i}`}
               from={mainHub.coordinates}
               to={location.coordinates}
-              stroke="#60a5fa"
-              strokeWidth={1}
+              stroke="#22d3ee"
+              strokeWidth={1.5}
               strokeLinecap="round"
               className="connection-line"
             />
@@ -107,15 +132,15 @@ const ValidatorWorldMap: React.FC<ValidatorWorldMapProps> = ({ locations }) => {
                   {isMainHub && (
                     <circle
                       r={15}
-                      fill="#60a5fa"
-                      fillOpacity={0.2}
+                      fill="#22d3ee"
+                      fillOpacity={0.3}
                       className="animate-ping"
                       style={{ animationDuration: '2s' }}
                     />
                   )}
                   <path
                     d="M0,-8 C-3,-8 -5,-6 -5,-3 C-5,0 0,8 0,8 C0,8 5,0 5,-3 C5,-6 3,-8 0,-8 Z"
-                    fill={isMainHub ? "#f59e0b" : "#60a5fa"}
+                    fill={isMainHub ? "#06b6d4" : "#22d3ee"}
                     stroke="#ffffff"
                     strokeWidth={1.5}
                     className="hover:opacity-80 transition-opacity"

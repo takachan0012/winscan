@@ -3,12 +3,12 @@
   "chain_id": "safro-testnet-1",
   "pretty_name": "SafroChain Testnet",
   "network_type": "testnet",
-  "bech32_prefix": "safro",
+  "bech32_prefix": "addr_safro",
   "slip44": 118,
   "fees": {
     "fee_tokens": [
       {
-        "denom": "usafro",
+        "denom": "usaf",
         "fixed_min_gas_price": 800,
         "low_gas_price": 800,
         "average_gas_price": 1000,
@@ -19,7 +19,7 @@
   "staking": {
     "staking_tokens": [
       {
-        "denom": "usafro"
+        "denom": "usaf"
       }
     ]
   },
@@ -31,28 +31,29 @@
     "tendermint_version": "0.34.0"
   },
   "api": [
+
+    {
+      "address": "https://api-t.safrochain.nodestake.org",
+      "provider": "NodeStake"
+    },
     {
       "address": "https://rest.testnet.safrochain.com",
       "provider": "Safro Official"
-    },
-    {
-      "address": "https://api-safrochain-testnet.cosmos-spaces.cloud",
-      "provider": "Cosmos Spaces"
     }
   ],
   "rpc": [
     {
-      "address": "https://rpc.testnet.safrochain.com",
-      "provider": "Safro Official"
+      "address": "https://rpc-t.safrochain.nodestake.org",
+      "provider": "NodeStake"
     },
     {
-      "address": "https://rpc-safrochain-testnet.cosmos-spaces.cloud",
-      "provider": "Cosmos Spaces"
+      "address": "https://rpc.testnet.safrochain.com",
+      "provider": "Safro Official"
     }
   ],
   "assets": [
     {
-      "base": "usafro",
+      "base": "usaf",
       "symbol": "SAF",
       "exponent": "6",
       "coingecko_id": "unknown",

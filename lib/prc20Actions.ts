@@ -96,8 +96,8 @@ export async function burnPRC20Tokens(
     const signerAddress = accounts[0].address;
 
     // Import required modules
-    const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate');
     const { GasPrice } = await import('@cosmjs/stargate');
+    const { connectCosmWasmClient } = await import('./cosmosClient');
 
     // Get RPC endpoint
     const rpcList = chain.rpc || [];
@@ -112,12 +112,8 @@ export async function burnPRC20Tokens(
       rpcEndpoint = rpcList[0].address;
     }
 
-    // Create CosmWasm client
-    const client = await SigningCosmWasmClient.connectWithSigner(
-      rpcEndpoint,
-      offlineSigner,
-      { gasPrice: GasPrice.fromString('0.025upaxi') }
-    );
+    // Create CosmWasm client with automatic failover
+    const client = await connectCosmWasmClient(rpcEndpoint, offlineSigner) as any;
 
     // Burn message
     const burnMsg = {
@@ -184,10 +180,10 @@ export async function mintPRC20Tokens(
     const signerAddress = accounts[0].address;
 
     // Import required modules
-    const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate');
     const { GasPrice } = await import('@cosmjs/stargate');
+    const { connectCosmWasmClient } = await import('./cosmosClient');
 
-    // Get RPC endpoint
+    // Get RPC endpoint with fallback
     const rpcList = chain.rpc || [];
     let rpcEndpoint = '';
     for (const rpc of rpcList) {
@@ -199,13 +195,15 @@ export async function mintPRC20Tokens(
     if (!rpcEndpoint && rpcList.length > 0) {
       rpcEndpoint = rpcList[0].address;
     }
+    // Fallback to default Paxi RPC if no RPC found
+    if (!rpcEndpoint) {
+      rpcEndpoint = 'https://mainnet-rpc.paxinet.io';
+    }
 
-    // Create CosmWasm client
-    const client = await SigningCosmWasmClient.connectWithSigner(
-      rpcEndpoint,
-      offlineSigner,
-      { gasPrice: GasPrice.fromString('0.025upaxi') }
-    );
+    console.log('🔗 Using RPC endpoint:', rpcEndpoint);
+
+    // Create CosmWasm client with automatic failover
+    const client = await connectCosmWasmClient(rpcEndpoint, offlineSigner) as any;
 
     // Mint message
     const mintMsg = {
@@ -357,18 +355,16 @@ export async function transferPRC20Tokens(
     const signerAddress = accounts[0].address;
 
     // Import required modules
-    const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate');
     const { GasPrice } = await import('@cosmjs/stargate');
+    const { connectCosmWasmClient } = await import('./cosmosClient');
 
     // Use RPC endpoint - for paxi-mainnet
     const rpcEndpoint = 'https://mainnet-rpc.paxinet.io';
 
-    // Create CosmWasm client
-    const client = await SigningCosmWasmClient.connectWithSigner(
-      rpcEndpoint,
-      offlineSigner,
-      { gasPrice: GasPrice.fromString('0.025upaxi') }
-    );
+    console.log('🔗 Using RPC endpoint:', rpcEndpoint);
+
+    // Create CosmWasm client with automatic failover
+    const client = await connectCosmWasmClient(rpcEndpoint, offlineSigner) as any;
 
     // Transfer message
     const transferMsg = {

@@ -990,11 +990,9 @@ export async function executeStaking(
       }
     }
     
-    const client = await SigningStargateClient.connectWithSigner(
-      rpcEndpoint,
-      actualSigner,
-      clientOptions
-    );
+    // Use robust client connection with automatic failover
+    const { connectStargateClient } = await import('./cosmosClient');
+    const client = await connectStargateClient(rpcEndpoint, actualSigner) as any;
     
     console.log('✅ SigningStargateClient connected');
 
@@ -2403,6 +2401,15 @@ export async function executeEditValidatorCommission(
 }
 
 /**
+ * Safe JSON stringify that handles BigInt
+ */
+function safeStringify(obj: any, space?: number): string {
+  return JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  , space);
+}
+
+/**
  * Check and approve PRC20 allowance for swap pool
  */
 async function ensurePRC20Allowance(
@@ -2465,12 +2472,12 @@ async function ensurePRC20Allowance(
       }
     };
     
-    console.log('📝 Approval message:', JSON.stringify(increaseAllowanceMsg, null, 2));
+    console.log('📝 Approval message:', safeStringify(increaseAllowanceMsg, 2));
     
     try {
       // Calculate fee - use 300k gas (actual usage ~254k)
       const fee = calculateFee(chain, '300000');
-      console.log('💰 Fee:', JSON.stringify(fee));
+      console.log('💰 Fee:', safeStringify(fee));
       
       console.log('🔐 Requesting wallet signature for approval...');
       
@@ -2484,7 +2491,7 @@ async function ensurePRC20Allowance(
       );
       
       console.log('📡 Approval transaction broadcast!');
-      console.log('   Result:', JSON.stringify(result, null, 2));
+      console.log('   Result:', safeStringify(result, 2));
       
       if (result.transactionHash) {
         console.log('✅ Approval successful!');
