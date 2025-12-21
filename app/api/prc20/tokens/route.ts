@@ -20,9 +20,13 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch real PRC20 tokens from existing API - no limit to get all tokens
-    const baseUrl = request.nextUrl.origin;
-    const response = await fetch(`${baseUrl}/api/prc20-tokens?chain=${chainName}`);
+    // Fetch real PRC20 tokens from backend SSL API directly
+    const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
+    const response = await fetch(`${backendUrl}/api/prc20-tokens?chain=${chainName}`, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
     
     if (!response.ok) {
       throw new Error('Failed to fetch PRC20 tokens');
