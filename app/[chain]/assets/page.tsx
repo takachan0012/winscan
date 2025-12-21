@@ -69,6 +69,41 @@ interface AssetsResponse {
 
 type FilterType = 'all' | 'native' | 'tokens' | 'prc20';
 
+// Cleanup old localStorage entries to prevent quota exceeded
+function cleanupOldPriceCache() {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const keys = Object.keys(localStorage);
+    const priceKeys = keys.filter(k => k.startsWith('prc20_price_'));
+    const now = Date.now();
+    const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+    
+    let removed = 0;
+    priceKeys.forEach(key => {
+      try {
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          const { timestamp } = JSON.parse(cached);
+          if (now - timestamp > MAX_AGE) {
+            localStorage.removeItem(key);
+            removed++;
+          }
+        }
+      } catch (e) {
+        localStorage.removeItem(key);
+        removed++;
+      }
+    });
+    
+    if (removed > 0) {
+      console.log(`🧹 Cleaned ${removed} old price cache entries`);
+    }
+  } catch (e) {
+    console.warn('Cleanup failed:', e);
+  }
+}
+
 export default function AssetsPage() {
   const params = useParams();
   const chainName = params.chain as string;
@@ -89,6 +124,11 @@ export default function AssetsPage() {
   const priceUpdateInProgress = useRef(false);
   const initialPriceLoadDone = useRef(false);
   const [priceChangesLoading, setPriceChangesLoading] = useState(false);
+
+  // Cleanup old cache on mount
+  useEffect(() => {
+    cleanupOldPriceCache();
+  }, []);
 
   useEffect(() => {
     async function loadChainData() {
@@ -381,8 +421,23 @@ export default function AssetsPage() {
                           price_change_24h: priceChange,
                           timestamp: Date.now()
                         }));
-                      } catch (e) {
-                        console.warn('Failed to cache price:', e);
+                      } catch (e: any) {
+                        // If quota exceeded, cleanup old entries and retry
+                        if (e.name === 'QuotaExceededError') {
+                          cleanupOldPriceCache();
+                          try {
+                            localStorage.setItem(cacheKey, JSON.stringify({
+                              price_usd: latestPrice.price_usd,
+                              price_paxi: latestPrice.price_paxi,
+                              price_change_24h: priceChange,
+                              timestamp: Date.now()
+                            }));
+                          } catch (retryError) {
+                            console.warn('Failed to cache price after cleanup:', retryError);
+                          }
+                        } else {
+                          console.warn('Failed to cache price:', e);
+                        }
                       }
                     }
                   }
@@ -472,8 +527,10 @@ export default function AssetsPage() {
                         price_change_24h: priceChange,
                         timestamp: Date.now()
                       }));
-                    } catch (e) {
-                      // Ignore cache errors
+                    } catch (e: any) {
+                      if (e.name === 'QuotaExceededError') {
+                        cleanupOldPriceCache();
+                      }
                     }
                   }
                   
