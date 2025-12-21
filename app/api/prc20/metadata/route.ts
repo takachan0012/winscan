@@ -91,7 +91,11 @@ export async function GET(request: NextRequest) {
         logo: marketingInfo?.logo?.url || null,
         description: marketingInfo?.description || null,
         website: null,
-        verified: address === 'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u', // COBRA fallback
+        verified: [
+          'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u',
+          'paxi1fka7t9avjmx7yphqxn3lzy3880tgcc0wu23xwfwxe5e5y3lkmzfqp07whx',
+          'paxi1l2fvuecjpakxxh6k0mhpxzeln2veqpjs7znm8mfavuwx506v0qnsmpnt55'
+        ].includes(address), // Fallback verified tokens
         verifiedAt: null,
         verifiedBy: null,
         twitter: null,

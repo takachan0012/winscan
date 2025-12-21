@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import PRC20PriceChart from '@/components/PRC20PriceChart';
 import { ChainData } from '@/types/chain';
 import { ArrowDownUp, Settings, Info, Zap, AlertCircle, RefreshCw } from 'lucide-react';
 import { calculateFee } from '@/lib/keplr';
@@ -958,10 +960,10 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent rounded-full"></div>
                 
                 <div className="text-center">
-                  <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">
+                  <h1 className="text-xl md:text-2xl font-bold text-white mb-2 tracking-tight">
                     PRC20 Token Swap
                   </h1>
-                  <p className="text-gray-400 text-sm mb-6">Swap between PRC20 tokens instantly</p>
+                  <p className="text-gray-400 text-xs mb-4">Swap between PRC20 tokens instantly</p>
                   
                   {/* Show wallet address only when connected */}
                   {walletAddress && (
@@ -1044,6 +1046,30 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                 Info
               </button>
             </div>
+
+            {/* Price Chart - Show after tabs, before swap content */}
+            {activeTab === 'swap' && (
+              <>
+                {/* Show chart for fromToken if it's PRC20 */}
+                {fromToken?.address !== 'upaxi' && fromToken && (
+                  <div className="mb-4">
+                    <PRC20PriceChart
+                      contractAddress={fromToken.address}
+                      symbol={fromToken.symbol}
+                    />
+                  </div>
+                )}
+                {/* Show chart for toToken if it's PRC20 and fromToken is not PRC20 */}
+                {!fromToken && toToken?.address !== 'upaxi' && toToken && (
+                  <div className="mb-4">
+                    <PRC20PriceChart
+                      contractAddress={toToken.address}
+                      symbol={toToken.symbol}
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
             {activeTab === 'swap' && (
             <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
@@ -1173,7 +1199,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2 text-gray-500">
-                          {fromToken.logo && <img src={fromToken.logo} alt={fromToken.name} className="w-4 h-4 rounded-full" />}
+                          {fromToken.logo && <Image src={fromToken.logo} alt={fromToken.name} width={16} height={16} className="w-4 h-4 rounded-full" unoptimized />}
                           <span>{fromToken.name}</span>
                         </div>
                         {walletAddress && (
@@ -1272,7 +1298,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2 text-gray-500">
-                          {toToken.logo && <img src={toToken.logo} alt={toToken.name} className="w-4 h-4 rounded-full" />}
+                          {toToken.logo && <Image src={toToken.logo} alt={toToken.name} width={16} height={16} className="w-4 h-4 rounded-full" unoptimized />}
                           <span>{toToken.name}</span>
                         </div>
                         {walletAddress && (
@@ -1573,7 +1599,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-3">
                                 {fromToken.logo ? (
-                                  <img src={fromToken.logo} alt={fromToken.symbol} className="w-10 h-10 rounded-full" />
+                                  <Image src={fromToken.logo} alt={fromToken.symbol} width={40} height={40} className="w-10 h-10 rounded-full" unoptimized />
                                 ) : (
                                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
                                     {fromToken.symbol.substring(0, 2)}
@@ -1642,7 +1668,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-3">
                                 {fromToken.logo ? (
-                                  <img src={fromToken.logo} alt={fromToken.symbol} className="w-10 h-10 rounded-full" />
+                                  <Image src={fromToken.logo} alt={fromToken.symbol} width={40} height={40} className="w-10 h-10 rounded-full" unoptimized />
                                 ) : (
                                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white font-bold">
                                     {fromToken.symbol.substring(0, 2)}
@@ -1706,26 +1732,6 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                   </>
                 )}
               </>
-            )}
-
-            {/* Info Cards */}
-            {activeTab === 'swap' && (
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Info className="w-4 h-4 text-blue-400" />
-                  <h3 className="text-sm font-semibold text-white">Low Fees</h3>
-                </div>
-                <p className="text-xs text-gray-400">Trade with minimal network fees on PAXI</p>
-              </div>
-              <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-4 h-4 text-yellow-400" />
-                  <h3 className="text-sm font-semibold text-white">Instant Swaps</h3>
-                </div>
-                <p className="text-xs text-gray-400">Execute swaps instantly with best rates</p>
-              </div>
-            </div>
             )}
           </div>
         </main>

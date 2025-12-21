@@ -203,9 +203,12 @@ export default function PRC20TokensPage() {
                   <img
                     src={token.marketing_info.logo.url}
                     alt={token.token_info?.symbol || 'Token'}
-                    className="w-12 h-12 rounded-full"
+                    className="w-12 h-12 rounded-full object-cover"
+                    loading="lazy"
                     onError={(e) => {
-                      e.currentTarget.src = 'https://via.placeholder.com/48?text=?';
+                      const target = e.currentTarget;
+                      target.onerror = null; // Prevent infinite loop
+                      target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(token.token_info?.symbol || '?')}&size=48&background=random`;
                     }}
                   />
                 ) : (

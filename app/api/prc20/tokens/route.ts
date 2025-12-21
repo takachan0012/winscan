@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
     // Verified tokens list (manually curated)
     const verifiedTokens = [
       'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u', // COBRA - First Token on Paxi
+      'paxi1fka7t9avjmx7yphqxn3lzy3880tgcc0wu23xwfwxe5e5y3lkmzfqp07whx',
+      'paxi1l2fvuecjpakxxh6k0mhpxzeln2veqpjs7znm8mfavuwx506v0qnsmpnt55'
     ];
     
     // Transform to expected format

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     
     for (const lcdUrl of lcdUrls) {
       try {
-        console.log(`[Holders API] Fetching holders for ${contract} from ${lcdUrl}...`);
+        // console.log(`[Holders API] Fetching holders for ${contract} from ${lcdUrl}...`);
         
         for (let page = 0; page < maxPages && hasMore; page++) {
           const query: any = { all_accounts: { limit: 100 } };
@@ -50,13 +50,13 @@ export async function GET(request: NextRequest) {
             const accounts = data.data?.accounts || [];
             totalAccounts += accounts.length;
             
-            console.log(`[Holders API] Page ${page + 1}: ${accounts.length} accounts (total: ${totalAccounts})`);
+            // console.log(`[Holders API] Page ${page + 1}: ${accounts.length} accounts (total: ${totalAccounts})`);
             
             // LCD API returns ~30 accounts max per query
             // If we get less than 30, we've reached the end
             if (accounts.length < 30) {
               hasMore = false;
-              console.log(`[Holders API] Last page reached`);
+              // console.log(`[Holders API] Last page reached`);
             } else {
               nextKey = accounts[accounts.length - 1];
             }
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         }
         
         if (totalAccounts > 0) {
-          console.log(`[Holders API] ✅ Total holders for ${contract}: ${totalAccounts}${hasMore ? '+' : ''}`);
+          // console.log(`[Holders API] ✅ Total holders for ${contract}: ${totalAccounts}${hasMore ? '+' : ''}`);
           return NextResponse.json({ 
             contract,
             count: totalAccounts,

@@ -24,9 +24,31 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'i.ibb.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'paxi.mypinata.cloud',
+      },
+      {
+        protocol: 'https',
         hostname: '**',
       },
     ],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    minimumCacheTTL: 60,
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    formats: ['image/webp'],
+    unoptimized: false,
+    loader: 'default',
+    loaderFile: undefined,
+  },
+  experimental: {
+    // Increase fetch timeout for external images (IPFS can be slow)
+    fetchCacheKeyPrefix: '',
   },
   async rewrites() {
     const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;

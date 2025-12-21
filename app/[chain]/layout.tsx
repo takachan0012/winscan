@@ -8,26 +8,38 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const chain = params.chain;
 
-  // fetch chain data using route param
-  const res = await fetch(`https://winscan.winsnip.xyz/api/chains`, {
-    cache: "no-store",
-  });
-  const chains = await res.json();
+  try {
+    // fetch chain data using route param
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/chains`, {
+      cache: "no-store",
+    });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    const contentType = res.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      console.error("Response is not JSON:", await res.text());
+      throw new Error("Response is not JSON");
+    }
+    
+    const chains = await res.json();
 
-  const selected = chains.find(
-    (c: any) =>
-      c.chain_name.toLowerCase().replace(/\s+/g, "-") === chain.toLowerCase()
-  );
+    const selected = chains.find(
+      (c: any) =>
+        c.chain_name.toLowerCase().replace(/\s+/g, "-") === chain.toLowerCase()
+    );
 
-  if (!selected) {
-    return {
-      title: "Chain Not Found — WinScan",
-      description: "Explore blockchain data with WinScan",
-    };
-  }
+    if (!selected) {
+      return {
+        title: "Chain Not Found — WinScan",
+        description: "Explore blockchain data with WinScan",
+      };
+    }
 
-  const chain_name = selected.chain_name
-    .split("-")
+    const chain_name = selected.chain_name
+      .split("-")
     .map(
       (content: string) => content.charAt(0).toUpperCase() + content.slice(1)
     )
@@ -61,6 +73,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: [image],
     },
   };
+  } catch (error) {
+    console.error("Error fetching chain metadata:", error);
+    
+    // Return fallback metadata
+    return {
+      title: "Blockchain Explorer — WinScan",
+      description: "Explore blockchain data with WinScan",
+      keywords: ["WinScan", "blockchain explorer", "crypto explorer"],
+      openGraph: {
+        title: "WinScan — Blockchain Explorer",
+        description: "Explore blockchain data with WinScan",
+        type: "website",
+      },
+    };
+  }
 }
 
 export default function Layout({ children }: Props) {

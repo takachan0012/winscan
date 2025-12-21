@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -53,7 +53,9 @@ interface PRC20Token {
   } | null;
   num_holders?: number;
   price_usd?: number;
+  price_paxi?: number;
   price_change_24h?: number;
+  price_change_percent?: number;
   verified?: boolean;
 }
 
@@ -80,10 +82,13 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [prc20Loading, setPrc20Loading] = useState(false);
   const [totalAssets, setTotalAssets] = useState(0);
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [filterType, setFilterType] = useState<FilterType>('native');
   const [searchQuery, setSearchQuery] = useState('');
   const [prc20NextKey, setPrc20NextKey] = useState<string | null>(null);
   const [showPRC20Support, setShowPRC20Support] = useState(false);
+  const priceUpdateInProgress = useRef(false);
+  const initialPriceLoadDone = useRef(false);
+  const [priceChangesLoading, setPriceChangesLoading] = useState(false);
 
   useEffect(() => {
     async function loadChainData() {
@@ -293,6 +298,210 @@ export default function AssetsPage() {
       setShowPRC20Support(false);
     }
   }, [chainName]);
+
+  // Fetch price changes for PRC20 tokens from price history API with localStorage cache
+  useEffect(() => {
+    let isMounted = true;
+    const PRICE_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache for prices
+    
+    async function fetchPriceChanges() {
+      if (prc20Tokens.length === 0 || chainName !== 'paxi-mainnet' || priceUpdateInProgress.current) {
+        return;
+      }
+      
+      priceUpdateInProgress.current = true;
+      
+      try {
+        const updatedTokens = [...prc20Tokens];
+        
+        // Fetch prices in batches of 10 to avoid overwhelming the API
+        for (let i = 0; i < prc20Tokens.length; i += 10) {
+          const batch = prc20Tokens.slice(i, i + 10);
+          
+          await Promise.all(
+            batch.map(async (token, batchIndex) => {
+              const tokenIndex = i + batchIndex;
+              const cacheKey = `prc20_price_${token.contract_address}`;
+              
+              // Check localStorage cache first
+              if (typeof window !== 'undefined') {
+                try {
+                  const cached = localStorage.getItem(cacheKey);
+                  if (cached) {
+                    const { price_usd, price_paxi, price_change_24h, timestamp } = JSON.parse(cached);
+                    const age = Date.now() - timestamp;
+                    if (age < PRICE_CACHE_DURATION) {
+                      // Use cached data
+                      updatedTokens[tokenIndex] = {
+                        ...updatedTokens[tokenIndex],
+                        price_usd,
+                        price_paxi,
+                        price_change_24h,
+                      };
+                      return; // Skip API call
+                    }
+                  }
+                } catch (e) {
+                  localStorage.removeItem(cacheKey);
+                }
+              }
+              
+              // Fetch from API if no valid cache
+              try {
+                const response = await fetch(
+                  `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
+                  { 
+                    signal: AbortSignal.timeout(8000),
+                    headers: {
+                      'Accept': 'application/json'
+                    }
+                  }
+                );
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  
+                  if (data.history && data.history.length > 0 && isMounted) {
+                    const latestPrice = data.history[data.history.length - 1];
+                    const priceChange = data.price_change?.change_percent || 0;
+                    
+                    updatedTokens[tokenIndex] = {
+                      ...updatedTokens[tokenIndex],
+                      price_usd: latestPrice.price_usd,
+                      price_paxi: latestPrice.price_paxi,
+                      price_change_24h: priceChange,
+                    };
+                    
+                    // Cache the result
+                    if (typeof window !== 'undefined') {
+                      try {
+                        localStorage.setItem(cacheKey, JSON.stringify({
+                          price_usd: latestPrice.price_usd,
+                          price_paxi: latestPrice.price_paxi,
+                          price_change_24h: priceChange,
+                          timestamp: Date.now()
+                        }));
+                      } catch (e) {
+                        console.warn('Failed to cache price:', e);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                // Silent fail for price updates
+              }
+            })
+          );
+          
+          // Update UI after each batch if still mounted
+          if (isMounted) {
+            setPrc20Tokens([...updatedTokens]);
+          }
+        }
+        
+        initialPriceLoadDone.current = true;
+      } catch (error) {
+        console.error('Error fetching price changes:', error);
+      } finally {
+        priceUpdateInProgress.current = false;
+      }
+    }
+    
+    // Only fetch if we haven't done initial load and have tokens
+    if (prc20Tokens.length > 0 && !initialPriceLoadDone.current) {
+      fetchPriceChanges();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [prc20Tokens.length > 0 && !initialPriceLoadDone.current, chainName]);
+  
+  // Separate effect for periodic updates (every 3 minutes instead of constant updates)
+  useEffect(() => {
+    if (chainName !== 'paxi-mainnet' || !initialPriceLoadDone.current) return;
+    
+    const interval = setInterval(async () => {
+      if (prc20Tokens.length === 0 || priceUpdateInProgress.current) return;
+      
+      priceUpdateInProgress.current = true;
+      const PRICE_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+      
+      try {
+        const updatedTokens = await Promise.all(
+          prc20Tokens.map(async (token) => {
+            const cacheKey = `prc20_price_${token.contract_address}`;
+            
+            // Check cache age - only update if cache is old
+            if (typeof window !== 'undefined') {
+              try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                  const { timestamp } = JSON.parse(cached);
+                  const age = Date.now() - timestamp;
+                  if (age < PRICE_CACHE_DURATION) {
+                    return token; // Skip update if cache is fresh
+                  }
+                }
+              } catch (e) {
+                // Continue to fetch
+              }
+            }
+            
+            try {
+              const response = await fetch(
+                `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
+                { 
+                  signal: AbortSignal.timeout(8000)
+                }
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                
+                if (data.history && data.history.length > 0) {
+                  const latestPrice = data.history[data.history.length - 1];
+                  const priceChange = data.price_change?.change_percent || 0;
+                  
+                  // Cache the new price
+                  if (typeof window !== 'undefined') {
+                    try {
+                      localStorage.setItem(cacheKey, JSON.stringify({
+                        price_usd: latestPrice.price_usd,
+                        price_paxi: latestPrice.price_paxi,
+                        price_change_24h: priceChange,
+                        timestamp: Date.now()
+                      }));
+                    } catch (e) {
+                      // Ignore cache errors
+                    }
+                  }
+                  
+                  return {
+                    ...token,
+                    price_usd: latestPrice.price_usd,
+                    price_paxi: latestPrice.price_paxi,
+                    price_change_24h: priceChange,
+                  };
+                }
+              }
+            } catch (error) {
+              // Silent fail for individual tokens
+            }
+            return token;
+          })
+        );
+        
+        setPrc20Tokens(updatedTokens);
+      } catch (error) {
+        console.error('Error in periodic price update:', error);
+      } finally {
+        priceUpdateInProgress.current = false;
+      }
+    }, 180000); // Update every 3 minutes (reduced frequency)
+    
+    return () => clearInterval(interval);
+  }, [chainName, initialPriceLoadDone.current]);
 
   const fetchPRC20Tokens = async (pageKey?: string) => {
     const cacheKey = `prc20_tokens_${chainName}`;
@@ -558,19 +767,30 @@ export default function AssetsPage() {
   const nativeCount = assets.filter(isNativeAsset).length;
   const tokensCount = assets.length - nativeCount;
 
-  // Filter PRC20 tokens based on search query
-  const filteredPRC20Tokens = prc20Tokens.filter(token => {
-    if (!searchQuery.trim()) return true;
-    
-    const query = searchQuery.toLowerCase();
-    return (
-      token.token_info?.name?.toLowerCase().includes(query) ||
-      token.token_info?.symbol?.toLowerCase().includes(query) ||
-      token.contract_address?.toLowerCase().includes(query) ||
-      token.marketing_info?.project?.toLowerCase().includes(query) ||
-      token.marketing_info?.description?.toLowerCase().includes(query)
-    );
-  });
+  // Filter PRC20 tokens based on search query and sort by verified status
+  const filteredPRC20Tokens = prc20Tokens
+    .filter(token => {
+      if (!searchQuery.trim()) return true;
+      
+      const query = searchQuery.toLowerCase();
+      return (
+        token.token_info?.name?.toLowerCase().includes(query) ||
+        token.token_info?.symbol?.toLowerCase().includes(query) ||
+        token.contract_address?.toLowerCase().includes(query) ||
+        token.marketing_info?.project?.toLowerCase().includes(query) ||
+        token.marketing_info?.description?.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      // Verified tokens first
+      if (a.verified && !b.verified) return -1;
+      if (!a.verified && b.verified) return 1;
+      
+      // Then sort by symbol/name
+      const aName = (a.token_info?.symbol || a.token_info?.name || '').toLowerCase();
+      const bName = (b.token_info?.symbol || b.token_info?.name || '').toLowerCase();
+      return aName.localeCompare(bName);
+    });
 
   // Update totalAssets state when assets or prc20Tokens change
   useEffect(() => {
@@ -673,25 +893,6 @@ export default function AssetsPage() {
           {/* Filter Tabs */}
           {assets.length > 0 && (
             <div className="mb-4 md:mb-6 flex flex-wrap gap-2 md:gap-3">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`flex items-center justify-between min-w-[90px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
-                  filterType === 'all'
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/30'
-                    : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Layers className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
-                  <span className="hidden sm:inline">{t('assets.allAssets')}</span>
-                  <span className="sm:hidden">All</span>
-                </div>
-                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium flex-shrink-0 ${
-                  filterType === 'all' ? 'bg-white/20' : 'bg-gray-700'
-                }`}>
-                  {totalAssets}
-                </span>
-              </button>
               <button
                 onClick={() => setFilterType('native')}
                 className={`flex items-center justify-between min-w-[105px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
@@ -1058,9 +1259,22 @@ export default function AssetsPage() {
                           
                           {/* Price */}
                           <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 text-right">
-                            {token.price_usd !== undefined ? (
-                              <div className="text-xs md:text-sm font-medium text-white">
-                                {token.price_usd.toFixed(8)} PAXI
+                            {token.price_paxi !== undefined || token.price_usd !== undefined ? (
+                              <div>
+                                {token.price_paxi && (
+                                  <div className="text-xs md:text-sm font-bold text-white">
+                                    {token.price_paxi < 0.000001 
+                                      ? token.price_paxi.toExponential(4)
+                                      : token.price_paxi.toFixed(8)} PAXI
+                                  </div>
+                                )}
+                                {token.price_usd && token.price_usd > 0 && (
+                                  <div className="text-[10px] text-gray-500 mt-0.5">
+                                    ${token.price_usd < 0.000001 
+                                      ? token.price_usd.toExponential(4)
+                                      : token.price_usd.toFixed(8)}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <span className="text-xs md:text-sm text-gray-500">-</span>
@@ -1069,21 +1283,30 @@ export default function AssetsPage() {
                           
                           {/* 24h Change */}
                           <td className="hidden xl:table-cell px-6 py-4 text-right">
-                            {token.price_change_24h !== undefined && token.price_change_24h !== 0 ? (
-                              <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                            {token.price_change_24h !== undefined && Math.abs(token.price_change_24h) > 0 ? (
+                              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg transition-all ${
                                 token.price_change_24h >= 0 
-                                  ? 'bg-green-500/10 text-green-400' 
-                                  : 'bg-red-500/10 text-red-400'
+                                  ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-400 border border-green-500/30' 
+                                  : 'bg-gradient-to-r from-red-500/20 to-rose-500/10 text-red-400 border border-red-500/30'
                               }`}>
-                                <span className="text-[10px]">
-                                  {token.price_change_24h >= 0 ? '▲' : '▼'}
-                                </span>
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  {token.price_change_24h >= 0 ? (
+                                    <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                  ) : (
+                                    <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  )}
+                                </svg>
                                 <span>
                                   {Math.abs(token.price_change_24h).toFixed(2)}%
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-sm text-gray-500">-</span>
+                              <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-gray-800/30 text-gray-500 border border-gray-700/30">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                                </svg>
+                                <span>0.00%</span>
+                              </div>
                             )}
                           </td>
                           
@@ -1258,9 +1481,22 @@ export default function AssetsPage() {
                                 
                                 {/* Price Column */}
                                 <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 text-right">
-                                  {token.price_usd !== undefined ? (
-                                    <div className="text-xs md:text-sm font-medium text-white">
-                                      {token.price_usd.toFixed(8)} PAXI
+                                  {token.price_paxi !== undefined || token.price_usd !== undefined ? (
+                                    <div>
+                                      {token.price_paxi && (
+                                        <div className="text-xs md:text-sm font-bold text-white">
+                                          {token.price_paxi < 0.000001 
+                                            ? token.price_paxi.toExponential(4)
+                                            : token.price_paxi.toFixed(8)} PAXI
+                                        </div>
+                                      )}
+                                      {token.price_usd && token.price_usd > 0 && (
+                                        <div className="text-[10px] text-gray-500 mt-0.5">
+                                          ${token.price_usd < 0.000001 
+                                            ? token.price_usd.toExponential(4)
+                                            : token.price_usd.toFixed(8)}
+                                        </div>
+                                      )}
                                     </div>
                                   ) : (
                                     <span className="text-xs md:text-sm text-gray-500">-</span>
@@ -1269,21 +1505,30 @@ export default function AssetsPage() {
                                 
                                 {/* 24h Change Column */}
                                 <td className="hidden xl:table-cell px-6 py-4 text-right">
-                                  {token.price_change_24h !== undefined && token.price_change_24h !== 0 ? (
-                                    <div className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                                  {token.price_change_24h !== undefined && Math.abs(token.price_change_24h) > 0 ? (
+                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg transition-all ${
                                       token.price_change_24h >= 0 
-                                        ? 'bg-green-500/10 text-green-400' 
-                                        : 'bg-red-500/10 text-red-400'
+                                        ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-400 border border-green-500/30' 
+                                        : 'bg-gradient-to-r from-red-500/20 to-rose-500/10 text-red-400 border border-red-500/30'
                                     }`}>
-                                      <span className="text-xs">
-                                        {token.price_change_24h >= 0 ? '▲' : '▼'}
-                                      </span>
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        {token.price_change_24h >= 0 ? (
+                                          <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                        ) : (
+                                          <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        )}
+                                      </svg>
                                       <span>
                                         {Math.abs(token.price_change_24h).toFixed(2)}%
                                       </span>
                                     </div>
                                   ) : (
-                                    <span className="text-sm text-gray-500">-</span>
+                                    <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-gray-800/30 text-gray-500 border border-gray-700/30">
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                      <span>0.00%</span>
+                                    </div>
                                   )}
                                 </td>
                                 
@@ -1337,42 +1582,15 @@ export default function AssetsPage() {
                                 
                                 {/* Actions Column */}
                                 <td className="px-3 md:px-6 py-3 md:py-4 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
+                                  <div className="flex items-center justify-end">
                                     {/* Swap Button */}
                                     <a
                                       href={`/${chainName}/prc20/swap?from=${token.contract_address}`}
-                                      className="inline-flex items-center gap-1.5 px-2 md:px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700 text-xs font-medium"
+                                      className="inline-flex items-center gap-1.5 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-xs md:text-sm font-medium shadow-sm"
                                       title="Swap this token"
                                     >
-                                      <ArrowLeftRight className="w-3.5 h-3.5" />
-                                      <span className="hidden md:inline">Swap</span>
-                                    </a>
-
-                                    {/* Transfer Button */}
-                                    <a
-                                      href={`/${chainName}/prc20/swap?from=${token.contract_address}&tab=transfer`}
-                                      className="inline-flex items-center justify-center p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700"
-                                      title="Transfer tokens"
-                                    >
-                                      <Send className="w-3.5 h-3.5" />
-                                    </a>
-
-                                    {/* Burn Button */}
-                                    <a
-                                      href={`/${chainName}/prc20/swap?from=${token.contract_address}&tab=burn`}
-                                      className="inline-flex items-center justify-center p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700"
-                                      title="Burn tokens"
-                                    >
-                                      <Flame className="w-3.5 h-3.5" />
-                                    </a>
-
-                                    {/* Info Button */}
-                                    <a
-                                      href={`/${chainName}/prc20/swap?from=${token.contract_address}&tab=info`}
-                                      className="inline-flex items-center justify-center p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-colors border border-gray-700"
-                                      title="Token information"
-                                    >
-                                      <Sparkles className="w-3.5 h-3.5" />
+                                      <ArrowLeftRight className="w-4 h-4" />
+                                      <span>Swap</span>
                                     </a>
                                   </div>
                                 </td>

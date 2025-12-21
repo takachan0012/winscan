@@ -10,6 +10,7 @@ import { ArrowLeft, Coins, ExternalLink, Copy, Check, TrendingUp } from 'lucide-
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import PRC20PriceChart from '@/components/PRC20PriceChart';
 
 interface DenomUnit {
   denom: string;
@@ -105,6 +106,8 @@ export default function AssetDetailPage() {
           // Verified tokens list
           const verifiedTokens = [
             'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u', // COBRA
+            'paxi1fka7t9avjmx7yphqxn3lzy3880tgcc0wu23xwfwxe5e5y3lkmzfqp07whx',
+            'paxi1l2fvuecjpakxxh6k0mhpxzeln2veqpjs7znm8mfavuwx506v0qnsmpnt55'
           ];
           
           // Fetch PRC20 token info
@@ -344,6 +347,8 @@ export default function AssetDetailPage() {
                       width={80}
                       height={80}
                       className="object-cover w-full h-full"
+                      unoptimized={tokenLogo.includes('ipfs') || tokenLogo.includes('pinata')}
+                      loading="lazy"
                       onError={(e) => {
                         const target = e.currentTarget;
                         target.style.display = 'none';
@@ -467,6 +472,16 @@ export default function AssetDetailPage() {
             </div>
           )}
 
+          {/* Price Chart for PRC20 */}
+          {asset && asset.holders_type === 'prc20' && (
+            <div className="mb-4 md:mb-6">
+              <PRC20PriceChart
+                contractAddress={asset.denom}
+                symbol={asset.metadata?.symbol || 'Token'}
+              />
+            </div>
+          )}
+
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
             {/* Total Supply */}
@@ -544,14 +559,6 @@ export default function AssetDetailPage() {
                 </div>
               </div>
 
-              {/* Display Denom */}
-              <div className="px-4 md:px-6 py-3 md:py-4">
-                <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.displayDenom')}</div>
-                <div className="text-xs md:text-sm text-white">
-                  {asset.metadata?.display || '-'}
-                </div>
-              </div>
-
               {/* Name */}
               <div className="px-4 md:px-6 py-3 md:py-4">
                 <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.name')}</div>
@@ -560,12 +567,12 @@ export default function AssetDetailPage() {
                 </div>
               </div>
 
-              {/* URI Hash */}
-              {asset.metadata?.uri_hash && (
+              {/* Description */}
+              {asset.metadata?.description && (
                 <div className="px-4 md:px-6 py-3 md:py-4">
-                  <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.uriHash')}</div>
-                  <div className="text-xs md:text-sm text-white font-mono break-all">
-                    {asset.metadata.uri_hash}
+                  <div className="text-xs md:text-sm text-gray-400 mb-1">Description</div>
+                  <div className="text-xs md:text-sm text-white">
+                    {asset.metadata.description}
                   </div>
                 </div>
               )}
@@ -594,48 +601,7 @@ export default function AssetDetailPage() {
             </div>
           </div>
 
-          {/* Denom Units */}
-          {asset.metadata?.denom_units && asset.metadata.denom_units.length > 0 && (
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
-              <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-800">
-                <h2 className="text-lg md:text-xl font-bold text-white">{t('assetDetail.denomUnits')}</h2>
-              </div>
-              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
-                <table className="w-full">
-                  <thead className="bg-[#0f0f0f] border-b border-gray-800">
-                    <tr>
-                      <th className="px-3 md:px-6 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        {t('assetDetail.denom')}
-                      </th>
-                      <th className="px-3 md:px-6 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        {t('assetDetail.exponent')}
-                      </th>
-                      <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        {t('assetDetail.aliases')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-800">
-                    {asset.metadata.denom_units.map((unit, index) => (
-                      <tr key={index} className="hover:bg-[#0f0f0f] transition-colors">
-                        <td className="px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm text-white font-mono">
-                          {unit.denom}
-                        </td>
-                        <td className="px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm text-white">
-                          {unit.exponent}
-                        </td>
-                        <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-400">
-                          {unit.aliases && unit.aliases.length > 0 
-                            ? unit.aliases.join(', ') 
-                            : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+
 
           {/* Top Holders Section */}
           <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden mt-4 md:mt-6">

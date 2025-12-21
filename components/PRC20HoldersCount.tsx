@@ -9,6 +9,8 @@ interface PRC20HoldersCountProps {
   initialCount?: number;
 }
 
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
 export default function PRC20HoldersCount({ 
   contractAddress, 
   chainName,
@@ -25,34 +27,66 @@ export default function PRC20HoldersCount({
     setIsVisible(true); // Trigger fetch immediately
   }, [initialCount]);
   
-  // Fetch holders count
+  // Fetch holders count with localStorage cache
   useEffect(() => {
     if (!isVisible || initialCount !== undefined) return;
     
     let mounted = true;
+    const cacheKey = `prc20_holders_${contractAddress}`;
+    
     const fetchHoldersCount = async () => {
+      // Check localStorage cache first
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { count, timestamp } = JSON.parse(cached);
+            const age = Date.now() - timestamp;
+            if (age < CACHE_DURATION) {
+              // Use cached data
+              if (mounted) {
+                setHoldersCount(count);
+                setLoading(false);
+              }
+              return;
+            }
+          }
+        } catch (e) {
+          localStorage.removeItem(cacheKey);
+        }
+      }
+      
+      // Fetch from API if no valid cache
       try {
         const response = await fetch(
           `/api/prc20-holders?contract=${contractAddress}&limit=1`,
-          { signal: AbortSignal.timeout(5000) }
+          { signal: AbortSignal.timeout(8000) }
         );
         
         if (!response.ok) {
-          console.warn(`Holders API returned ${response.status} for ${contractAddress}`);
           throw new Error('Failed to fetch holders');
         }
         
         const data = await response.json();
-        console.log(`✅ Holders data for ${contractAddress}:`, data);
         
         if (mounted) {
-          // API returns { contract, count, hasMore }
           const count = data.count || 0;
           setHoldersCount(count);
           setLoading(false);
+          
+          // Cache the result
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify({
+                count,
+                timestamp: Date.now()
+              }));
+            } catch (e) {
+              console.warn('Failed to cache holders count:', e);
+            }
+          }
         }
       } catch (error) {
-        console.error(`Failed to load holders for ${contractAddress}:`, error);
         if (mounted) {
           setHoldersCount(null);
           setLoading(false);
