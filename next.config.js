@@ -77,6 +77,12 @@ const nextConfig = {
         tls: false,
       };
     }
+    
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: ['**/node_modules', '**/prc20-dapp/**', '**/autocompound-bot/**', '**/backend-api/**']
+    };
+    
     return config;
   },
 }

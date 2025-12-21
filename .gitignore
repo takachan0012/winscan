@@ -52,3 +52,4 @@ autocompound-bot/.env
 # Telegram monitor bot (not for public)
 telegram-monitor-bot/
 copilot-instructions.md
+prc20-dapp/

@@ -187,8 +187,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const chain = searchParams.get('chain') || 'paxi-mainnet';
-    const limit = parseInt(searchParams.get('limit') || '1000'); // Ambil semua token, max 1000
-    const pageKey = searchParams.get('key') || undefined;
+    const forceRefresh = searchParams.get('refresh') === 'true';
 
     // For now, only support Paxi chain
     if (chain !== 'paxi-mainnet') {
@@ -198,27 +197,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to get data from backend first (has real verified status and metadata)
+    // Prioritaskan backend dengan caching
     const backendUrls = [
       'https://ssl.winsnip.xyz',
       'https://ssl2.winsnip.xyz'
     ];
     
+    // Try backend API with caching first
     for (const backendUrl of backendUrls) {
       try {
-        const response = await fetch(`${backendUrl}/api/prc20-tokens?chain=${chain}`, {
-          signal: AbortSignal.timeout(10000),
-          headers: { 'Accept': 'application/json' }
-        });
+        const refreshParam = forceRefresh ? '&refresh=true' : '';
+        const response = await fetch(
+          `${backendUrl}/api/prc20-tokens?chain=${chain}${refreshParam}`,
+          {
+            signal: AbortSignal.timeout(15000), // Increased timeout for large responses
+            headers: { 'Accept': 'application/json' }
+          }
+        );
         
         if (response.ok) {
           const data = await response.json();
-          console.log(`✅ Fetched ${data.tokens?.length || 0} tokens from backend`);
+          console.log(`✅ [PRC20] Fetched ${data.tokens?.length || 0} tokens from backend (cached: ${data.fromCache})`);
           
           return NextResponse.json(data, {
             headers: {
-              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-              'X-Data-Source': 'backend'
+              'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800', // Cache 15 min
+              'X-Data-Source': 'backend-cached'
             }
           });
         }
@@ -228,7 +232,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log('⚠️ Backend unavailable, falling back to LCD');
+    console.log('⚠️ Backend unavailable, falling back to LCD (slower)');
+
+    // Fallback ke LCD jika backend tidak tersedia
+    const limit = parseInt(searchParams.get('limit') || '1000');
+    const pageKey = searchParams.get('key') || undefined;
 
     // Paxi LCD endpoints - try multiple
     const lcdUrls = [
@@ -238,26 +246,46 @@ export async function GET(request: NextRequest) {
       'https://ssl2.winsnip.xyz'
     ];
 
-    console.log(`📦 Fetching PRC20 tokens for ${chain} (limit: ${limit})`);
+    console.log(`📦 Fetching PRC20 tokens for ${chain} (fetching all)`);
 
-    // Step 1: Get contract addresses (will try all endpoints)
-    const contractsData = await fetchPRC20ContractAddresses(lcdUrls, limit, pageKey);
+    // Step 1: Get ALL contract addresses with pagination
+    let allContracts: string[] = [];
+    let nextKey: string | undefined = pageKey;
+    let pageCount = 0;
+    const maxPages = 50; // Safety limit to prevent infinite loop
     
-    if (!contractsData) {
-      return NextResponse.json(
-        { error: 'Failed to fetch contract addresses from all endpoints' },
-        { status: 500 }
-      );
+    while (pageCount < maxPages) {
+      const contractsData = await fetchPRC20ContractAddresses(lcdUrls, 1000, nextKey);
+      
+      if (!contractsData) {
+        if (pageCount === 0) {
+          return NextResponse.json(
+            { error: 'Failed to fetch contract addresses from all endpoints' },
+            { status: 500 }
+          );
+        }
+        break; // Stop if fetch fails but we already have some data
+      }
+
+      allContracts.push(...contractsData.contracts);
+      console.log(`📦 Page ${pageCount + 1}: Fetched ${contractsData.contracts.length} contracts (Total: ${allContracts.length})`);
+      
+      if (!contractsData.next_key) {
+        break; // No more pages
+      }
+      
+      nextKey = contractsData.next_key;
+      pageCount++;
     }
 
-    console.log(`✅ Found ${contractsData.contracts.length} contracts`);
+    console.log(`✅ Found ${allContracts.length} total contracts`);
 
     // Step 2: Fetch token info for each contract in parallel batches
     const tokens: PRC20Token[] = [];
     const BATCH_SIZE = 10; // Process 10 contracts at a time for faster loading
     
-    for (let i = 0; i < contractsData.contracts.length; i += BATCH_SIZE) {
-      const batch = contractsData.contracts.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < allContracts.length; i += BATCH_SIZE) {
+      const batch = allContracts.slice(i, i + BATCH_SIZE);
       
       const batchResults = await Promise.all(
         batch.map(async (contractAddress) => {
@@ -299,14 +327,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       chain,
       tokens,
-      pagination: {
-        next_key: contractsData.next_key,
-        has_more: !!contractsData.next_key
-      },
       total: tokens.length
     }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800', // Cache 15 min
       }
     });
 

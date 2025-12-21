@@ -20,9 +20,9 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch real PRC20 tokens from existing API
+    // Fetch real PRC20 tokens from existing API - no limit to get all tokens
     const baseUrl = request.nextUrl.origin;
-    const response = await fetch(`${baseUrl}/api/prc20-tokens?chain=${chainName}&limit=100`);
+    const response = await fetch(`${baseUrl}/api/prc20-tokens?chain=${chainName}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch PRC20 tokens');
