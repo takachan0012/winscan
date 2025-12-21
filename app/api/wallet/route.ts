@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     );
   }
   try {
-    const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
+    const API_URL = process.env.BACKEND_API_URL || process.env.API_URL || 'https://ssl.winsnip.xyz';
     const accountsRes = await fetch(`${API_URL}/api/accounts?chain=${chain}&address=${address}&limit=100`);
     
     if (!accountsRes.ok) {

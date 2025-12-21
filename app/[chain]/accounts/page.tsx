@@ -156,6 +156,8 @@ export default function AccountsPage() {
         const response = await fetch(`/api/wallet?chain=${chainParam}&address=${connectedAddress}`);
         const data = await response.json();
         console.log('Account data:', data);
+        console.log('Delegations count:', data.delegations?.length || 0);
+        console.log('Delegations:', data.delegations);
         
         const delegationsWithRewards = await Promise.all(
           (data.delegations || []).map(async (del: any) => {
