@@ -1,0 +1,56 @@
+{
+  "chain_name": "cysic-mainnet",
+  "chain_id": "cysicmint_4399-1",
+  "api": [
+    {
+      "address": "https://rest.cysic.xyz",
+      "provider": "Cysic Network"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc.cysic.xyz",
+      "provider": "Cysic Network"
+    }
+  ],
+  "sdk_version": "0.50.0",
+  "coin_type": "60",
+  "min_tx_fee": "25000000000",
+  "gas_price": "25000000000",
+  "assets": [
+    {
+      "base": "CGT",
+      "symbol": "CGT",
+      "exponent": "18",
+      "coingecko_id": "cysic",
+      "logo": "https://file.winsnip.xyz/file/uploads/cysic.jpg"
+    }
+  ],
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "CYS",
+        "fixed_min_gas_price": 25000000000,
+        "low_gas_price": 25000000000,
+        "average_gas_price": 25000000000,
+        "high_gas_price": 50000000000
+      }
+    ]
+  },
+  "addr_prefix": "cysic",
+  "bech32_prefix": "cysic",
+  "evm_rpc": [],
+  "evm_wss": [],
+  "theme_color": "#1e40af",
+  "logo": "https://file.winsnip.xyz/file/uploads/cysic.jpg",
+  "staking_currency": {
+    "coinDenom": "CGT",
+    "coinMinimalDenom": "CGT",
+    "coinDecimals": 18
+  },
+  "features": [
+    "eth-address-gen"
+  ],
+  "beta": true,
+  "updated": "2025-12-13"
+}

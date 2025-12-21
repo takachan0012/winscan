@@ -378,7 +378,13 @@ export default function AssetsPage() {
                   
                   if (data.history && data.history.length > 0 && isMounted) {
                     const latestPrice = data.history[data.history.length - 1];
-                    const priceChange = data.price_change?.change_percent || 0;
+                    let priceChange = data.price_change?.change_percent;
+                    
+                    // Validate price change - if null or unrealistic (< -90% or > 10000%), set to undefined
+                    if (priceChange === null || priceChange === undefined || 
+                        priceChange < -90 || priceChange > 10000) {
+                      priceChange = undefined;
+                    }
                     
                     updatedTokens[tokenIndex] = {
                       ...updatedTokens[tokenIndex],
@@ -445,7 +451,13 @@ export default function AssetsPage() {
                 
                 if (data.history && data.history.length > 0) {
                   const latestPrice = data.history[data.history.length - 1];
-                  const priceChange = data.price_change?.change_percent || 0;
+                  let priceChange = data.price_change?.change_percent;
+                  
+                  // Validate price change - if null or unrealistic (< -90% or > 10000%), set to undefined
+                  if (priceChange === null || priceChange === undefined || 
+                      priceChange < -90 || priceChange > 10000) {
+                    priceChange = undefined;
+                  }
                   
                   // No localStorage caching - return fresh data
                   return {
@@ -1254,7 +1266,7 @@ export default function AssetsPage() {
                           
                           {/* 24h Change */}
                           <td className="hidden xl:table-cell px-6 py-4 text-right">
-                            {token.price_change_24h !== undefined && Math.abs(token.price_change_24h) > 0 ? (
+                            {token.price_change_24h !== undefined && token.price_change_24h !== null && Math.abs(token.price_change_24h) > 0.01 ? (
                               <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg transition-all ${
                                 token.price_change_24h >= 0 
                                   ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-400 border border-green-500/30' 
@@ -1272,11 +1284,11 @@ export default function AssetsPage() {
                                 </span>
                               </div>
                             ) : (
-                              <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-gray-800/30 text-gray-500 border border-gray-700/30">
+                              <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs bg-gray-800/30 text-gray-500 border border-gray-700/30">
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                                 </svg>
-                                <span>0.00%</span>
+                                <span>New Token</span>
                               </div>
                             )}
                           </td>
