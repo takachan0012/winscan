@@ -339,10 +339,9 @@ export default function AssetsPage() {
     }
   }, [chainName]);
 
-  // Fetch price changes for PRC20 tokens from price history API with localStorage cache
+  // Fetch price changes for PRC20 tokens from backend API (no localStorage)
   useEffect(() => {
     let isMounted = true;
-    const PRICE_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache for prices
     
     async function fetchPriceChanges() {
       if (prc20Tokens.length === 0 || chainName !== 'paxi-mainnet' || priceUpdateInProgress.current) {
@@ -361,32 +360,8 @@ export default function AssetsPage() {
           await Promise.all(
             batch.map(async (token, batchIndex) => {
               const tokenIndex = i + batchIndex;
-              const cacheKey = `prc20_price_${token.contract_address}`;
               
-              // Check localStorage cache first
-              if (typeof window !== 'undefined') {
-                try {
-                  const cached = localStorage.getItem(cacheKey);
-                  if (cached) {
-                    const { price_usd, price_paxi, price_change_24h, timestamp } = JSON.parse(cached);
-                    const age = Date.now() - timestamp;
-                    if (age < PRICE_CACHE_DURATION) {
-                      // Use cached data
-                      updatedTokens[tokenIndex] = {
-                        ...updatedTokens[tokenIndex],
-                        price_usd,
-                        price_paxi,
-                        price_change_24h,
-                      };
-                      return; // Skip API call
-                    }
-                  }
-                } catch (e) {
-                  localStorage.removeItem(cacheKey);
-                }
-              }
-              
-              // Fetch from API if no valid cache
+              // Fetch directly from backend API - no cache
               try {
                 const response = await fetch(
                   `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
@@ -411,35 +386,7 @@ export default function AssetsPage() {
                       price_paxi: latestPrice.price_paxi,
                       price_change_24h: priceChange,
                     };
-                    
-                    // Cache the result
-                    if (typeof window !== 'undefined') {
-                      try {
-                        localStorage.setItem(cacheKey, JSON.stringify({
-                          price_usd: latestPrice.price_usd,
-                          price_paxi: latestPrice.price_paxi,
-                          price_change_24h: priceChange,
-                          timestamp: Date.now()
-                        }));
-                      } catch (e: any) {
-                        // If quota exceeded, cleanup old entries and retry
-                        if (e.name === 'QuotaExceededError') {
-                          cleanupOldPriceCache();
-                          try {
-                            localStorage.setItem(cacheKey, JSON.stringify({
-                              price_usd: latestPrice.price_usd,
-                              price_paxi: latestPrice.price_paxi,
-                              price_change_24h: priceChange,
-                              timestamp: Date.now()
-                            }));
-                          } catch (retryError) {
-                            console.warn('Failed to cache price after cleanup:', retryError);
-                          }
-                        } else {
-                          console.warn('Failed to cache price:', e);
-                        }
-                      }
-                    }
+                    // No caching - fetch fresh every time
                   }
                 }
               } catch (error) {
@@ -480,29 +427,11 @@ export default function AssetsPage() {
       if (prc20Tokens.length === 0 || priceUpdateInProgress.current) return;
       
       priceUpdateInProgress.current = true;
-      const PRICE_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
       
       try {
         const updatedTokens = await Promise.all(
           prc20Tokens.map(async (token) => {
-            const cacheKey = `prc20_price_${token.contract_address}`;
-            
-            // Check cache age - only update if cache is old
-            if (typeof window !== 'undefined') {
-              try {
-                const cached = localStorage.getItem(cacheKey);
-                if (cached) {
-                  const { timestamp } = JSON.parse(cached);
-                  const age = Date.now() - timestamp;
-                  if (age < PRICE_CACHE_DURATION) {
-                    return token; // Skip update if cache is fresh
-                  }
-                }
-              } catch (e) {
-                // Continue to fetch
-              }
-            }
-            
+            // Fetch fresh data every interval - no cache checking
             try {
               const response = await fetch(
                 `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
@@ -518,22 +447,7 @@ export default function AssetsPage() {
                   const latestPrice = data.history[data.history.length - 1];
                   const priceChange = data.price_change?.change_percent || 0;
                   
-                  // Cache the new price
-                  if (typeof window !== 'undefined') {
-                    try {
-                      localStorage.setItem(cacheKey, JSON.stringify({
-                        price_usd: latestPrice.price_usd,
-                        price_paxi: latestPrice.price_paxi,
-                        price_change_24h: priceChange,
-                        timestamp: Date.now()
-                      }));
-                    } catch (e: any) {
-                      if (e.name === 'QuotaExceededError') {
-                        cleanupOldPriceCache();
-                      }
-                    }
-                  }
-                  
+                  // No localStorage caching - return fresh data
                   return {
                     ...token,
                     price_usd: latestPrice.price_usd,
