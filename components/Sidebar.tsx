@@ -202,10 +202,10 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
     <>
       <button
         onClick={handleMobileToggle}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-gray-800 rounded-lg transition-all duration-200 active:scale-95 hover:bg-gray-700 shadow-lg min-h-[48px] min-w-[48px] flex items-center justify-center"
+        className="md:hidden fixed top-3 left-3 z-50 p-2.5 bg-gray-800 rounded-lg transition-all duration-200 active:scale-95 hover:bg-gray-700 shadow-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
         aria-label="Toggle menu"
       >
-        {mobileOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
+        {mobileOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
       </button>
       {mobileOpen && (
         <div 

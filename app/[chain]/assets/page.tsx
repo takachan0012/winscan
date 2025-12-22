@@ -1381,13 +1381,13 @@ export default function AssetsPage() {
                             <th className="hidden lg:table-cell px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.supply')}
                             </th>
-                            <th className="px-3 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.holders')}
                             </th>
                             <th className="hidden lg:table-cell px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               Contract
                             </th>
-                            <th className="px-3 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               Actions
                             </th>
                           </tr>
@@ -1420,34 +1420,34 @@ export default function AssetsPage() {
                                 </td>
                                 
                                 {/* Name Column with Logo */}
-                                <td className="px-3 md:px-6 py-3 md:py-4">
+                                <td className="px-2 md:px-6 py-3 md:py-4">
                                   <Link 
                                     href={`/${chainName}/assets/${encodeURIComponent(token.contract_address)}`}
                                     className="flex items-center gap-2 md:gap-3"
                                   >
                                     {/* Token Logo */}
-                                    <div className="relative w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-gray-700 flex-shrink-0 overflow-hidden">
+                                    <div className="relative w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-gray-700 flex-shrink-0 overflow-hidden">
                                       {logoUrl ? (
                                         <Image
                                           src={logoUrl}
                                           alt={tokenInfo?.symbol || 'token'}
                                           width={40}
                                           height={40}
-                                          className="object-cover"
+                                          className="object-cover w-full h-full"
                                           onError={(e) => {
                                             e.currentTarget.style.display = 'none';
                                           }}
                                         />
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center">
-                                          <Coins className="w-5 h-5 text-orange-500" />
+                                          <Coins className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
                                         </div>
                                       )}
                                     </div>
                                     
                                     {/* Token Name & Symbol */}
-                                    <div className="flex flex-col min-w-0">
-                                      <div className="flex items-center gap-1.5">
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                      <div className="flex items-center gap-1 md:gap-1.5 flex-wrap">
                                         <span className="text-xs md:text-sm font-semibold text-white group-hover:text-blue-400 transition-colors truncate">
                                           {tokenInfo?.symbol || 'Unknown'}
                                         </span>
@@ -1545,7 +1545,7 @@ export default function AssetsPage() {
                                 </td>
                                 
                                 {/* Holders Column - Lazy Loaded */}
-                                <td className="px-3 md:px-6 py-3 md:py-4 text-right">
+                                <td className="px-2 md:px-6 py-3 md:py-4 text-right">
                                   <PRC20HoldersCount
                                     contractAddress={token.contract_address}
                                     chainName={chainName || 'paxi-mainnet'}
@@ -1581,15 +1581,15 @@ export default function AssetsPage() {
                                 </td>
                                 
                                 {/* Actions Column */}
-                                <td className="px-3 md:px-6 py-3 md:py-4 text-right">
+                                <td className="px-2 md:px-6 py-3 md:py-4 text-right">
                                   <div className="flex items-center justify-end">
                                     {/* Swap Button */}
                                     <a
                                       href={`/${chainName}/prc20/swap?from=${token.contract_address}`}
-                                      className="inline-flex items-center gap-1.5 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-xs md:text-sm font-medium shadow-sm"
+                                      className="inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-4 py-1.5 md:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] md:text-sm font-medium shadow-sm whitespace-nowrap"
                                       title="Swap this token"
                                     >
-                                      <ArrowLeftRight className="w-4 h-4" />
+                                      <ArrowLeftRight className="w-3 h-3 md:w-4 md:h-4" />
                                       <span>Swap</span>
                                     </a>
                                   </div>

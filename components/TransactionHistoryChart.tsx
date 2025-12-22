@@ -187,20 +187,20 @@ export default function TransactionHistoryChart({ data }: TransactionHistoryChar
     });
   }, [data, timeRange]);
   return (
-    <div className="bg-card border border-theme rounded-lg p-6 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-theme flex items-center">
-          <TrendingUp className="w-5 h-5 mr-2 text-primary" />
-          Transaction History ({getLabel()})
+    <div className="bg-card border border-theme rounded-lg p-4 md:p-6 flex flex-col h-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <h3 className="text-base md:text-lg font-bold text-theme flex items-center">
+          <TrendingUp className="w-4 h-4 md:w-5 md:h-5 mr-2 text-primary" />
+          <span className="truncate">Transaction History ({getLabel()})</span>
         </h3>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-dim">
+        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+          <div className="text-xs md:text-sm text-dim whitespace-nowrap">
             Total: {(data || []).reduce((sum, d) => sum + d.count, 0).toLocaleString()}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 md:gap-2">
             <button
               onClick={() => setTimeRange('1d')}
-              className={`px-3 py-1 text-xs rounded transition-all ${
+              className={`px-2.5 md:px-3 py-1.5 md:py-1 text-[11px] md:text-xs rounded transition-all ${
                 timeRange === '1d'
                   ? 'bg-primary text-primary-text font-semibold'
                   : 'bg-surface border border-theme text-dim hover:border-primary'
@@ -210,7 +210,7 @@ export default function TransactionHistoryChart({ data }: TransactionHistoryChar
             </button>
             <button
               onClick={() => setTimeRange('7d')}
-              className={`px-3 py-1 text-xs rounded transition-all ${
+              className={`px-2.5 md:px-3 py-1.5 md:py-1 text-[11px] md:text-xs rounded transition-all ${
                 timeRange === '7d'
                   ? 'bg-primary text-primary-text font-semibold'
                   : 'bg-surface border border-theme text-dim hover:border-primary'
@@ -220,7 +220,7 @@ export default function TransactionHistoryChart({ data }: TransactionHistoryChar
             </button>
             <button
               onClick={() => setTimeRange('30d')}
-              className={`px-3 py-1 text-xs rounded transition-all ${
+              className={`px-2.5 md:px-3 py-1.5 md:py-1 text-[11px] md:text-xs rounded transition-all ${
                 timeRange === '30d'
                   ? 'bg-primary text-primary-text font-semibold'
                   : 'bg-surface border border-theme text-dim hover:border-primary'
@@ -230,7 +230,7 @@ export default function TransactionHistoryChart({ data }: TransactionHistoryChar
             </button>
             <button
               onClick={() => setTimeRange('1y')}
-              className={`px-3 py-1 text-xs rounded transition-all ${
+              className={`px-2.5 md:px-3 py-1.5 md:py-1 text-[11px] md:text-xs rounded transition-all ${
                 timeRange === '1y'
                   ? 'bg-primary text-primary-text font-semibold'
                   : 'bg-surface border border-theme text-dim hover:border-primary'
