@@ -45,6 +45,7 @@ interface AssetDetail {
     description?: string;
     marketing?: string;
   };
+  liquidity?: string | null;
 }
 
 export default function AssetDetailPage() {
@@ -111,17 +112,32 @@ export default function AssetDetailPage() {
           ];
           
           // Fetch PRC20 token info
-          const [tokenInfoRes, marketingInfoRes, holdersRes] = await Promise.all([
+          const [tokenInfoRes, marketingInfoRes, holdersRes, poolRes] = await Promise.all([
             fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`),
             fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=marketing_info`),
-            fetch(`/api/prc20-holders?contract=${encodeURIComponent(denom)}`)
+            fetch(`/api/prc20-holders?contract=${encodeURIComponent(denom)}`),
+            fetch('https://mainnet-lcd.paxinet.io/paxi/swap/all_pools').catch(() => null)
           ]);
           
           const tokenInfo = tokenInfoRes.ok ? await tokenInfoRes.json() : null;
           const marketingInfo = marketingInfoRes.ok ? await marketingInfoRes.json() : null;
           const holdersData = holdersRes.ok ? await holdersRes.json() : null;
+          const poolsData = poolRes?.ok ? await poolRes.json() : null;
           
           const numHolders = holdersData?.count || 0;
+          
+          // Find pool for this token and calculate liquidity
+          let liquidity = null;
+          if (poolsData?.pools) {
+            const pool = poolsData.pools.find((p: any) => 
+              p.prc20 === denom || p.prc20_address === denom || p.token === denom || p.contract_address === denom
+            );
+            
+            if (pool && pool.reserve_paxi) {
+              const paxiReserve = parseFloat(pool.reserve_paxi) / 1e6;
+              liquidity = (paxiReserve * 2).toFixed(2); // Total liquidity = 2 * PAXI reserve
+            }
+          }
           
           // Set logo URL
           let logoUrl = '';
@@ -163,7 +179,8 @@ export default function AssetDetailPage() {
                 project: marketingInfo?.project || '',
                 description: marketingInfo?.description || '',
                 marketing: marketingInfo?.marketing || ''
-              }
+              },
+              liquidity: liquidity
             });
             
             // Cache the result
@@ -519,12 +536,22 @@ export default function AssetDetailPage() {
               </div>
             </div>
 
-            {/* Exponent */}
+            {/* Liquidity (PRC20) or Exponent (others) */}
             <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-3 md:p-6">
-              <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.decimals')}</div>
-              <div className="text-lg md:text-2xl font-bold text-white">
-                {exponent}
+              <div className="text-xs md:text-sm text-gray-400 mb-1">
+                {isPRC20 ? 'Liquidity' : t('assetDetail.decimals')}
               </div>
+              <div className="text-lg md:text-2xl font-bold text-white">
+                {isPRC20 
+                  ? (asset.liquidity ? `${Number(asset.liquidity).toLocaleString()} PAXI` : '-')
+                  : exponent
+                }
+              </div>
+              {isPRC20 && asset.liquidity && (
+                <div className="text-[10px] md:text-xs text-gray-500 mt-1">
+                  Pool Reserve
+                </div>
+              )}
             </div>
           </div>
 
