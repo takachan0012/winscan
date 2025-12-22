@@ -46,6 +46,10 @@ interface AssetDetail {
     marketing?: string;
   };
   liquidity?: string | null;
+  volume_7d_paxi?: number;
+  volume_7d_usd?: number;
+  volume_24h_paxi?: number;
+  volume_24h_usd?: number;
 }
 
 export default function AssetDetailPage() {
@@ -113,19 +117,36 @@ export default function AssetDetailPage() {
           ];
           
           // Fetch PRC20 token info
-          const [tokenInfoRes, marketingInfoRes, holdersRes, poolRes] = await Promise.all([
+          const [tokenInfoRes, marketingInfoRes, holdersRes, poolRes, volumeRes] = await Promise.all([
             fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`),
             fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=marketing_info`),
             fetch(`/api/prc20-holders?contract=${encodeURIComponent(denom)}`),
-            fetch('https://mainnet-lcd.paxinet.io/paxi/swap/all_pools').catch(() => null)
+            fetch('https://mainnet-lcd.paxinet.io/paxi/swap/all_pools').catch(() => null),
+            fetch('https://ssl.winsnip.xyz/api/prc20-volume').catch(() => null)
           ]);
           
           const tokenInfo = tokenInfoRes.ok ? await tokenInfoRes.json() : null;
           const marketingInfo = marketingInfoRes.ok ? await marketingInfoRes.json() : null;
           const holdersData = holdersRes.ok ? await holdersRes.json() : null;
           const poolsData = poolRes?.ok ? await poolRes.json() : null;
+          const volumeData = volumeRes?.ok ? await volumeRes.json() : null;
           
           const numHolders = holdersData?.count || 0;
+          
+          // Find volume data for this token
+          let volume_7d_paxi = 0;
+          let volume_7d_usd = 0;
+          let volume_24h_paxi = 0;
+          let volume_24h_usd = 0;
+          if (volumeData?.volumes) {
+            const tokenVolume = volumeData.volumes.find((v: any) => v.contract === denom);
+            if (tokenVolume) {
+              volume_7d_paxi = tokenVolume.volume_7d_paxi || 0;
+              volume_7d_usd = tokenVolume.volume_7d_usd || 0;
+              volume_24h_paxi = tokenVolume.volume_24h_paxi || 0;
+              volume_24h_usd = tokenVolume.volume_24h_usd || 0;
+            }
+          }
           
           // Find pool for this token and calculate liquidity
           let liquidity = null;
@@ -181,7 +202,11 @@ export default function AssetDetailPage() {
                 description: marketingInfo?.description || '',
                 marketing: marketingInfo?.marketing || ''
               },
-              liquidity: liquidity
+              liquidity: liquidity,
+              volume_7d_paxi,
+              volume_7d_usd,
+              volume_24h_paxi,
+              volume_24h_usd
             });
             
             // Cache the result
@@ -216,7 +241,12 @@ export default function AssetDetailPage() {
                     project: marketingInfo?.project || '',
                     description: marketingInfo?.description || '',
                     marketing: marketingInfo?.marketing || ''
-                  }
+                  },
+                  liquidity,
+                  volume_7d_paxi,
+                  volume_7d_usd,
+                  volume_24h_paxi,
+                  volume_24h_usd
                 },
                 logo: logoUrl
               };
@@ -490,6 +520,65 @@ export default function AssetDetailPage() {
             </div>
           )}
 
+          {/* Trading Statistics (PRC20 only) */}
+          {isPRC20 && (asset.volume_24h_paxi || asset.volume_7d_paxi) && (
+            <div className="bg-gradient-to-br from-[#1a1a1a] via-[#1a1a1a] to-purple-950/20 border border-gray-800 rounded-xl p-5 md:p-6 mb-4 md:mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-2">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Trading Statistics</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Volume 24H */}
+                <div className="bg-[#0f0f0f]/50 border border-gray-800/50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-400 uppercase tracking-wider">Volume 24H</span>
+                    <div className="flex items-center gap-1 text-blue-400">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-white mb-1">
+                    {asset.volume_24h_paxi && asset.volume_24h_paxi > 0
+                      ? `${asset.volume_24h_paxi.toLocaleString('en-US', { maximumFractionDigits: 2 })} PAXI`
+                      : '-'
+                    }
+                  </div>
+                  {asset.volume_24h_usd && asset.volume_24h_usd > 0 && (
+                    <div className="text-sm text-gray-500">
+                      ≈ ${asset.volume_24h_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Volume 7D */}
+                <div className="bg-[#0f0f0f]/50 border border-purple-500/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-400 uppercase tracking-wider">Volume 7D</span>
+                    <div className="flex items-center gap-1 text-purple-400">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-1">
+                    {asset.volume_7d_paxi && asset.volume_7d_paxi > 0
+                      ? `${asset.volume_7d_paxi.toLocaleString('en-US', { maximumFractionDigits: 2 })} PAXI`
+                      : '-'
+                    }
+                  </div>
+                  {asset.volume_7d_usd && asset.volume_7d_usd > 0 && (
+                    <div className="text-sm text-gray-500">
+                      ≈ ${asset.volume_7d_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Price Chart for PRC20 */}
           {asset && asset.holders_type === 'prc20' && (
             <div className="mb-4 md:mb-6">
@@ -501,7 +590,7 @@ export default function AssetDetailPage() {
           )}
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4 mb-4 md:mb-6">
             {/* Total Supply */}
             <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-3 md:p-6">
               <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.totalSupply')}</div>
@@ -554,6 +643,29 @@ export default function AssetDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Volume 7D (PRC20 only) */}
+            {isPRC20 && (
+              <div className="bg-gradient-to-br from-[#1a1a1a] to-[#141414] border border-purple-500/20 rounded-lg p-3 md:p-6 hover:border-purple-500/40 transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs md:text-sm text-gray-400">Volume 7D</div>
+                  <div className="bg-purple-500/10 rounded-lg p-1.5">
+                    <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
+                  </div>
+                </div>
+                <div className="text-lg md:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  {asset.volume_7d_paxi && asset.volume_7d_paxi > 0
+                    ? `${asset.volume_7d_paxi.toLocaleString('en-US', { maximumFractionDigits: 2 })} PAXI`
+                    : '-'
+                  }
+                </div>
+                {asset.volume_7d_usd && asset.volume_7d_usd > 0 && (
+                  <div className="text-[10px] md:text-xs text-gray-500 mt-1">
+                    ≈ ${asset.volume_7d_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Asset Information */}

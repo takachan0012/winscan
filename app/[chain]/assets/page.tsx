@@ -57,6 +57,8 @@ interface PRC20Token {
   price_change_24h?: number;
   price_change_percent?: number;
   verified?: boolean;
+  liquidity_paxi?: number;
+  volume_7d_paxi?: number;
 }
 
 interface AssetsResponse {
@@ -541,6 +543,9 @@ export default function AssetsPage() {
 
       const data = await response.json();
       
+      console.log(`📊 PRC20 API Response: ${data.tokens?.length || 0} tokens received`);
+      console.log(`📊 Total field: ${data.total}`);
+      
       // Fetch all pools in one request - WITH CACHING
       let poolsMap = new Map();
       try {
@@ -593,19 +598,31 @@ export default function AssetsPage() {
         console.error('Failed to fetch all pools:', error);
       }
       
-      // Fetch holders count in BATCH for all tokens - MUCH FASTER!
+      // Fetch holders count and volume data in BATCH - PARALLEL OPTIMIZATION!
       let holdersMap = new Map<string, number>();
+      let volumeMap = new Map<string, number>();
+      
       try {
         const contracts = data.tokens.map((t: PRC20Token) => t.contract_address);
-        console.log(`📦 Batch fetching holders for ${contracts.length} PRC20 tokens...`);
+        console.log(`📦 Batch fetching holders & volume for ${contracts.length} PRC20 tokens...`);
         
-        const holdersResponse = await fetch('/api/prc20-holders-batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contracts }),
-          signal: AbortSignal.timeout(30000) // 30s timeout for batch
-        });
+        // Parallel fetch for holders and volume
+        const [holdersResponse, volumeResponse] = await Promise.all([
+          fetch('/api/prc20-holders-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contracts }),
+            signal: AbortSignal.timeout(30000)
+          }),
+          fetch('https://ssl.winsnip.xyz/api/prc20-volume', {
+            signal: AbortSignal.timeout(10000)
+          }).catch(err => {
+            console.warn('Volume fetch failed:', err);
+            return null;
+          })
+        ]);
         
+        // Process holders data
         if (holdersResponse.ok) {
           const holdersData = await holdersResponse.json();
           holdersData.results?.forEach((result: any) => {
@@ -615,8 +632,22 @@ export default function AssetsPage() {
           });
           console.log(`✅ Batch holders fetch complete: ${holdersMap.size} results`);
         }
+        
+        // Process volume data
+        if (volumeResponse && volumeResponse.ok) {
+          const volumeData = await volumeResponse.json();
+          const volumes = volumeData.volumes || volumeData;
+          if (Array.isArray(volumes)) {
+            volumes.forEach((item: any) => {
+              if (item.contract && item.volume_7d_paxi !== undefined) {
+                volumeMap.set(item.contract, item.volume_7d_paxi);
+              }
+            });
+            console.log(`✅ Batch volume fetch complete: ${volumeMap.size} results`);
+          }
+        }
       } catch (error) {
-        console.error('Failed to batch fetch holders:', error);
+        console.error('Failed to batch fetch data:', error);
       }
       
       // Process tokens with price calculation and holders from batch
@@ -626,6 +657,8 @@ export default function AssetsPage() {
         let priceInPaxi: number | undefined = undefined;
         
         // Calculate price from pool
+        let liquidityInPaxi: number | undefined = undefined;
+        
         if (pool) {
           try {
             const paxiReserveRaw = pool.reserve_paxi;
@@ -638,6 +671,7 @@ export default function AssetsPage() {
               
               if (tokenReserve > 0 && paxiReserve > 0) {
                 priceInPaxi = paxiReserve / tokenReserve;
+                liquidityInPaxi = paxiReserve; // Store PAXI reserve as liquidity metric
               }
             }
           } catch (error) {
@@ -648,30 +682,37 @@ export default function AssetsPage() {
         // Get holders count from batch result
         const holdersCount = holdersMap.get(token.contract_address) || 0;
         
+        // Get volume from batch result
+        const volume7d = volumeMap.get(token.contract_address);
+        
         return {
           ...token,
           price_usd: priceInPaxi,
-          price_change_24h: undefined, // No historical data available yet
-          num_holders: holdersCount
+          price_change_24h: undefined,
+          num_holders: holdersCount,
+          liquidity_paxi: liquidityInPaxi,
+          volume_7d_paxi: volume7d
         };
       });
       
-      const tokensWithPrices = tokensWithHolders;
-      
+      // Update state with all data combined
       if (pageKey) {
-        setPrc20Tokens(prev => [...prev, ...tokensWithPrices]);
+        setPrc20Tokens(prev => [...prev, ...tokensWithHolders]);
+        console.log(`📊 Added ${tokensWithHolders.length} more tokens. Total now: ${prc20Tokens.length + tokensWithHolders.length}`);
       } else {
-        setPrc20Tokens(tokensWithPrices);
+        setPrc20Tokens(tokensWithHolders);
+        console.log(`📊 Set ${tokensWithHolders.length} PRC20 tokens to state`);
         
-        // Cache the result
+        // Cache the result with volume data
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify({
             data: {
-              tokens: tokensWithPrices,
+              tokens: tokensWithHolders,
               next_key: data.pagination.next_key
             },
             timestamp: Date.now()
           }));
+          console.log(`✅ Cached ${tokensWithHolders.length} PRC20 tokens`);
         } catch (e) {
           console.warn('PRC20 cache write error:', e);
         }
@@ -789,6 +830,7 @@ export default function AssetsPage() {
   const tokensCount = assets.length - nativeCount;
 
   // Filter PRC20 tokens based on search query and sort by verified status
+  console.log(`🔍 Total PRC20 tokens in state: ${prc20Tokens.length}`);
   const filteredPRC20Tokens = prc20Tokens
     .filter(token => {
       if (!searchQuery.trim()) return true;
@@ -1380,9 +1422,18 @@ export default function AssetsPage() {
                   )}
                   
                   <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
+                    <div 
+                      className="overflow-x-auto scroll-smooth" 
+                      style={{ 
+                        maxHeight: 'calc(100vh - 400px)', 
+                        minHeight: '500px', 
+                        overflowY: 'auto',
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#374151 #1a1a1a'
+                      }}
+                    >
                       <table className="w-full">
-                        <thead className="bg-[#0f0f0f] border-b border-gray-800">
+                        <thead className="bg-[#0f0f0f] border-b border-gray-800 sticky top-0 z-10">
                           <tr>
                             <th className="px-2 md:px-4 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider w-10 md:w-16">
                               #
@@ -1390,22 +1441,25 @@ export default function AssetsPage() {
                             <th className="px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.name')}
                             </th>
-                            <th className="hidden xl:table-cell px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            <th className="hidden xl:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.tokenType')}
                             </th>
                             <th className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.price')}
                             </th>
-                            <th className="hidden xl:table-cell px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            <th className="hidden xl:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.change24h')}
                             </th>
-                            <th className="hidden lg:table-cell px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            <th className="hidden lg:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.supply')}
+                            </th>
+                            <th className="hidden xl:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              Volume 7D
                             </th>
                             <th className="px-2 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.holders')}
                             </th>
-                            <th className="hidden lg:table-cell px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            <th className="hidden lg:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               Contract
                             </th>
                             <th className="px-2 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -1478,6 +1532,14 @@ export default function AssetsPage() {
                                               <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                             </svg>
                                             Verified
+                                          </span>
+                                        )}
+                                        {token.liquidity_paxi !== undefined && token.liquidity_paxi < 100 && (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-red-500/10 to-orange-500/10 text-red-400 border border-red-500/30 flex-shrink-0" title={`Low Liquidity: ${token.liquidity_paxi.toFixed(2)} PAXI`}>
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            Low Liq
                                           </span>
                                         )}
                                       </div>
@@ -1562,6 +1624,27 @@ export default function AssetsPage() {
                                     <div className="text-xs text-gray-500 mt-0.5">
                                       {tokenInfo.symbol}
                                     </div>
+                                  )}
+                                </td>
+                                
+                                {/* Volume 7D Column */}
+                                <td className="hidden xl:table-cell px-6 py-4 text-right">
+                                  {token.volume_7d_paxi !== undefined && token.volume_7d_paxi > 0 ? (
+                                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                                      <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                                      </svg>
+                                      <div className="text-sm font-medium text-white">
+                                        {token.volume_7d_paxi < 0.01 
+                                          ? '<0.01'
+                                          : token.volume_7d_paxi < 1000
+                                          ? token.volume_7d_paxi.toFixed(2)
+                                          : token.volume_7d_paxi.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                      </div>
+                                      <span className="text-xs text-gray-400">PAXI</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-gray-500">-</span>
                                   )}
                                 </td>
                                 
