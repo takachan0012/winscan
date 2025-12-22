@@ -31,24 +31,15 @@
     "tendermint_version": "0.34.0"
   },
   "api": [
-
     {
-      "address": "https://api-t.safrochain.nodestake.org",
-      "provider": "NodeStake"
-    },
-    {
-      "address": "https://rest.testnet.safrochain.com",
-      "provider": "Safro Official"
+      "address": "https://api-safro.winnode.xyz",
+      "provider": "Winnode"
     }
   ],
   "rpc": [
     {
-      "address": "https://rpc-t.safrochain.nodestake.org",
-      "provider": "NodeStake"
-    },
-    {
-      "address": "https://rpc.testnet.safrochain.com",
-      "provider": "Safro Official"
+      "address": "https://rpc-safro.winnode.xyz",
+      "provider": "Winnode"
     }
   ],
   "assets": [

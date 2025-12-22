@@ -231,93 +231,96 @@ export default function AssetsPage() {
 
         const priorityAssets = [...nativeAssets, ...ibcAssets];
 
-        // Fetch details for priority assets
-        Promise.all(
-          priorityAssets.map(async (asset: any) => {
-            try {
-              const detailRes = await fetch(`/api/asset-detail?chain=${chainName}&denom=${asset.base}`, { 
-                signal: AbortSignal.timeout(5000) 
-              });
-              if (detailRes.ok) {
-                const detail = await detailRes.json();
-                
-                return {
-                  base: asset.base,
-                  supply: detail.supply || '0',
-                  holders: detail.holders || 0,
-                  price_usd: detail.price?.usd || 0,
-                  price_change_24h: detail.price?.usd_24h_change || 0
-                };
-              }
-            } catch (e) {
-              console.warn(`Failed to fetch detail for ${asset.base}`);
-            }
-            return null;
-          })
-        ).then(async details => {
-          const detailsMap = new Map();
-          details.filter(d => d !== null).forEach(d => {
-            if (d) detailsMap.set(d.base, d);
-          });
-          
-          // Fetch holders count for all assets (in background)
-          const allAssetsWithHolders = await Promise.all(
-            transformedAssets.slice(0, 20).map(async (asset: any) => {
-              try {
-                const holdersRes = await fetch(`/api/holders?chain=${chainName}&denom=${encodeURIComponent(asset.base)}&limit=1`, {
-                  signal: AbortSignal.timeout(3000)
-                });
-                if (holdersRes.ok) {
-                  const holdersData = await holdersRes.json();
-                  return {
-                    base: asset.base,
-                    holders: holdersData.count || 0
-                  };
-                }
-              } catch (e) {
-                // Ignore
-              }
-              return { base: asset.base, holders: 0 };
-            })
-          );
-          
-          const holdersMap = new Map();
-          allAssetsWithHolders.forEach(h => holdersMap.set(h.base, h.holders));
-          
-          setAssets(prev => prev.map(asset => {
-            const detail = detailsMap.get(asset.base);
-            const holdersCount = holdersMap.get(asset.base) || detail?.holders || 0;
+        // Batch fetch details for priority assets - OPTIMIZED!
+        (async () => {
+          try {
+            const priorityDenoms = priorityAssets.map(a => a.base);
             
-            if (detail || holdersCount > 0) {
-              return {
-                ...asset,
-                total_supply: detail?.supply || asset.total_supply,
-                holders_count: holdersCount,
-                price_usd: detail?.price_usd || asset.price_usd,
-                price_change_24h: detail?.price_change_24h || asset.price_change_24h
-              };
-            }
-            return asset;
-          }));          try {
-            const enrichedAssets = transformedAssets.map((asset: any) => {
-              const detail = detailsMap.get(asset.base);
-              return detail ? {
-                ...asset,
-                total_supply: detail.supply,
-                holders_count: detail.holders,
-                price_usd: detail.price_usd,
-                price_change_24h: detail.price_change_24h
-              } : asset;
+            // Batch fetch asset details
+            const detailsResponse = await fetch('/api/asset-detail-batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chain: chainName, denoms: priorityDenoms }),
+              signal: AbortSignal.timeout(10000)
             });
             
-            sessionStorage.setItem(cacheKey, JSON.stringify({ 
-              data: { metadatas: enrichedAssets, pagination: data.pagination }, 
-              timestamp: Date.now() 
+            const detailsMap = new Map();
+            if (detailsResponse.ok) {
+              const detailsData = await detailsResponse.json();
+              detailsData.results?.forEach((item: any) => {
+                if (item.data) {
+                  detailsMap.set(item.denom, {
+                    base: item.denom,
+                    supply: item.data.supply || '0',
+                    holders: item.data.holders || 0,
+                    price_usd: item.data.price?.usd || 0,
+                    price_change_24h: item.data.price?.usd_24h_change || 0
+                  });
+                }
+              });
+            }
+            
+            // Batch fetch holders for top 20 assets
+            const top20Denoms = transformedAssets.slice(0, 20).map((a: any) => a.base);
+            const holdersResponse = await fetch('/api/holders-batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chain: chainName, denoms: top20Denoms }),
+              signal: AbortSignal.timeout(10000)
+            });
+            
+            const holdersMap = new Map();
+            if (holdersResponse.ok) {
+              const holdersData = await holdersResponse.json();
+              holdersData.results?.forEach((item: any) => {
+                if (item.success) {
+                  holdersMap.set(item.denom, item.count);
+                }
+              });
+            }
+            
+            // Update assets with batch results
+            setAssets(prev => prev.map(asset => {
+              const detail = detailsMap.get(asset.base);
+              const holdersCount = holdersMap.get(asset.base) || detail?.holders || 0;
+              
+              if (detail || holdersCount > 0) {
+                return {
+                  ...asset,
+                  total_supply: detail?.supply || asset.total_supply,
+                  holders_count: holdersCount,
+                  price_usd: detail?.price_usd || asset.price_usd,
+                  price_change_24h: detail?.price_change_24h || asset.price_change_24h
+                };
+              }
+              return asset;
             }));
-          } catch (e) {
-            console.warn('Cache write error:', e);
+
+            // Cache enriched data
+            try {
+              const enrichedAssets = transformedAssets.map((asset: any) => {
+                const detail = detailsMap.get(asset.base);
+                const holdersCount = holdersMap.get(asset.base);
+                return (detail || holdersCount) ? {
+                  ...asset,
+                  total_supply: detail?.supply || asset.total_supply,
+                  holders_count: holdersCount || detail?.holders || 0,
+                  price_usd: detail?.price_usd || asset.price_usd,
+                  price_change_24h: detail?.price_change_24h || asset.price_change_24h
+                } : asset;
+              });
+              
+              sessionStorage.setItem(cacheKey, JSON.stringify({ 
+                data: { metadatas: enrichedAssets, pagination: data.pagination }, 
+                timestamp: Date.now() 
+              }));
+            } catch (e) {
+              console.warn('Cache write error:', e);
+            }
+          } catch (error) {
+            console.error('Error in batch fetch:', error);
           }
-        });
+        })();
         
       } catch (error) {
         console.error('Error fetching assets:', error);
@@ -339,7 +342,7 @@ export default function AssetsPage() {
     }
   }, [chainName]);
 
-  // Fetch price changes for PRC20 tokens from backend API (no localStorage)
+  // Fetch price changes for PRC20 tokens from price-history API
   useEffect(() => {
     let isMounted = true;
     
@@ -353,15 +356,14 @@ export default function AssetsPage() {
       try {
         const updatedTokens = [...prc20Tokens];
         
-        // Fetch prices in batches of 10 to avoid overwhelming the API
-        for (let i = 0; i < prc20Tokens.length; i += 10) {
-          const batch = prc20Tokens.slice(i, i + 10);
+        // Fetch prices in batches of 5 to balance speed and load
+        for (let i = 0; i < prc20Tokens.length; i += 5) {
+          const batch = prc20Tokens.slice(i, i + 5);
           
           await Promise.all(
             batch.map(async (token, batchIndex) => {
               const tokenIndex = i + batchIndex;
               
-              // Fetch directly from backend API - no cache
               try {
                 const response = await fetch(
                   `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
@@ -380,9 +382,15 @@ export default function AssetsPage() {
                     const latestPrice = data.history[data.history.length - 1];
                     let priceChange = data.price_change?.change_percent;
                     
-                    // Validate price change - if null or unrealistic (< -90% or > 10000%), set to undefined
-                    if (priceChange === null || priceChange === undefined || 
-                        priceChange < -90 || priceChange > 10000) {
+                    // Debug log for tracking
+                    console.log(`💹 ${token.token_info?.symbol}: Price Change = ${priceChange}%, Data Points = ${data.history.length}`);
+                    
+                    // Validate price change - allow more reasonable ranges
+                    if (priceChange !== null && priceChange !== undefined && 
+                        priceChange >= -99 && priceChange <= 10000 && 
+                        !isNaN(priceChange) && isFinite(priceChange)) {
+                      // Valid price change
+                    } else {
                       priceChange = undefined;
                     }
                     
@@ -392,7 +400,6 @@ export default function AssetsPage() {
                       price_paxi: latestPrice.price_paxi,
                       price_change_24h: priceChange,
                     };
-                    // No caching - fetch fresh every time
                   }
                 }
               } catch (error) {
@@ -401,7 +408,7 @@ export default function AssetsPage() {
             })
           );
           
-          // Update UI after each batch if still mounted
+          // Update UI after each batch
           if (isMounted) {
             setPrc20Tokens([...updatedTokens]);
           }
@@ -425,7 +432,7 @@ export default function AssetsPage() {
     };
   }, [prc20Tokens.length > 0 && !initialPriceLoadDone.current, chainName]);
   
-  // Separate effect for periodic updates (every 3 minutes instead of constant updates)
+  // Separate effect for periodic updates (every 5 minutes)
   useEffect(() => {
     if (chainName !== 'paxi-mainnet' || !initialPriceLoadDone.current) return;
     
@@ -437,13 +444,10 @@ export default function AssetsPage() {
       try {
         const updatedTokens = await Promise.all(
           prc20Tokens.map(async (token) => {
-            // Fetch fresh data every interval - no cache checking
             try {
               const response = await fetch(
                 `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
-                { 
-                  signal: AbortSignal.timeout(8000)
-                }
+                { signal: AbortSignal.timeout(8000) }
               );
               
               if (response.ok) {
@@ -453,13 +457,15 @@ export default function AssetsPage() {
                   const latestPrice = data.history[data.history.length - 1];
                   let priceChange = data.price_change?.change_percent;
                   
-                  // Validate price change - if null or unrealistic (< -90% or > 10000%), set to undefined
-                  if (priceChange === null || priceChange === undefined || 
-                      priceChange < -90 || priceChange > 10000) {
+                  // Validate price change - allow more reasonable ranges
+                  if (priceChange !== null && priceChange !== undefined && 
+                      priceChange >= -99 && priceChange <= 10000 && 
+                      !isNaN(priceChange) && isFinite(priceChange)) {
+                    // Valid price change
+                  } else {
                     priceChange = undefined;
                   }
                   
-                  // No localStorage caching - return fresh data
                   return {
                     ...token,
                     price_usd: latestPrice.price_usd,
@@ -481,7 +487,7 @@ export default function AssetsPage() {
       } finally {
         priceUpdateInProgress.current = false;
       }
-    }, 180000); // Update every 3 minutes (reduced frequency)
+    }, 300000); // Update every 5 minutes
     
     return () => clearInterval(interval);
   }, [chainName, initialPriceLoadDone.current]);
@@ -587,53 +593,68 @@ export default function AssetsPage() {
         console.error('Failed to fetch all pools:', error);
       }
       
-      // Fetch holders count for all tokens (same as detail page)
-      const tokensWithHolders = await Promise.all(
-        data.tokens.map(async (token: PRC20Token) => {
-          const pool = poolsMap.get(token.contract_address);
-          
-          let priceInPaxi: number | undefined = undefined;
-          let holdersCount: number | undefined = undefined;
-          
-          // Calculate price from pool
-          if (pool) {
-            try {
-              const paxiReserveRaw = pool.reserve_paxi;
-              const tokenReserveRaw = pool.reserve_prc20;
-              
-              if (paxiReserveRaw && tokenReserveRaw) {
-                const paxiReserve = parseFloat(paxiReserveRaw) / 1e6;
-                const tokenDecimals = token.token_info?.decimals || 6;
-                const tokenReserve = parseFloat(tokenReserveRaw) / Math.pow(10, tokenDecimals);
-                
-                if (tokenReserve > 0 && paxiReserve > 0) {
-                  priceInPaxi = paxiReserve / tokenReserve;
-                }
-              }
-            } catch (error) {
-              console.error(`Failed to calculate price for ${token.token_info?.symbol}:`, error);
+      // Fetch holders count in BATCH for all tokens - MUCH FASTER!
+      let holdersMap = new Map<string, number>();
+      try {
+        const contracts = data.tokens.map((t: PRC20Token) => t.contract_address);
+        console.log(`📦 Batch fetching holders for ${contracts.length} PRC20 tokens...`);
+        
+        const holdersResponse = await fetch('/api/prc20-holders-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contracts }),
+          signal: AbortSignal.timeout(30000) // 30s timeout for batch
+        });
+        
+        if (holdersResponse.ok) {
+          const holdersData = await holdersResponse.json();
+          holdersData.results?.forEach((result: any) => {
+            if (result.success) {
+              holdersMap.set(result.contract, result.count);
             }
-          }
-          
-          // Fetch holders count from API (same as detail page)
+          });
+          console.log(`✅ Batch holders fetch complete: ${holdersMap.size} results`);
+        }
+      } catch (error) {
+        console.error('Failed to batch fetch holders:', error);
+      }
+      
+      // Process tokens with price calculation and holders from batch
+      const tokensWithHolders = data.tokens.map((token: PRC20Token) => {
+        const pool = poolsMap.get(token.contract_address);
+        
+        let priceInPaxi: number | undefined = undefined;
+        
+        // Calculate price from pool
+        if (pool) {
           try {
-            const holdersRes = await fetch(`/api/prc20-holders?contract=${encodeURIComponent(token.contract_address)}`);
-            if (holdersRes.ok) {
-              const holdersData = await holdersRes.json();
-              holdersCount = holdersData?.count || 0;
+            const paxiReserveRaw = pool.reserve_paxi;
+            const tokenReserveRaw = pool.reserve_prc20;
+            
+            if (paxiReserveRaw && tokenReserveRaw) {
+              const paxiReserve = parseFloat(paxiReserveRaw) / 1e6;
+              const tokenDecimals = token.token_info?.decimals || 6;
+              const tokenReserve = parseFloat(tokenReserveRaw) / Math.pow(10, tokenDecimals);
+              
+              if (tokenReserve > 0 && paxiReserve > 0) {
+                priceInPaxi = paxiReserve / tokenReserve;
+              }
             }
           } catch (error) {
-            console.error(`Failed to fetch holders for ${token.token_info?.symbol}:`, error);
+            console.error(`Failed to calculate price for ${token.token_info?.symbol}:`, error);
           }
-          
-          return {
-            ...token,
-            price_usd: priceInPaxi,
-            price_change_24h: undefined, // No historical data available yet
-            num_holders: holdersCount
-          };
-        })
-      );
+        }
+        
+        // Get holders count from batch result
+        const holdersCount = holdersMap.get(token.contract_address) || 0;
+        
+        return {
+          ...token,
+          price_usd: priceInPaxi,
+          price_change_24h: undefined, // No historical data available yet
+          num_holders: holdersCount
+        };
+      });
       
       const tokensWithPrices = tokensWithHolders;
       
@@ -1283,7 +1304,7 @@ export default function AssetsPage() {
                           
                           {/* 24h Change */}
                           <td className="hidden xl:table-cell px-6 py-4 text-right">
-                            {token.price_change_24h !== undefined && token.price_change_24h !== null && Math.abs(token.price_change_24h) > 0.01 ? (
+                            {token.price_change_24h !== undefined && token.price_change_24h !== null ? (
                               <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg transition-all ${
                                 token.price_change_24h >= 0 
                                   ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-400 border border-green-500/30' 
@@ -1505,7 +1526,7 @@ export default function AssetsPage() {
                                 
                                 {/* 24h Change Column */}
                                 <td className="hidden xl:table-cell px-6 py-4 text-right">
-                                  {token.price_change_24h !== undefined && Math.abs(token.price_change_24h) > 0 ? (
+                                  {token.price_change_24h !== undefined && token.price_change_24h !== null ? (
                                     <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg transition-all ${
                                       token.price_change_24h >= 0 
                                         ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-400 border border-green-500/30' 
