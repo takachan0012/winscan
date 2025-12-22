@@ -9,7 +9,7 @@ interface PRC20HoldersCountProps {
   initialCount?: number;
 }
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+const CACHE_DURATION = 30 * 1000; // 30 seconds cache (faster updates)
 
 export default function PRC20HoldersCount({ 
   contractAddress, 
