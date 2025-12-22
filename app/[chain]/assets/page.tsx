@@ -587,38 +587,55 @@ export default function AssetsPage() {
         console.error('Failed to fetch all pools:', error);
       }
       
-      // Calculate prices from pool data
-      const tokensWithPrices = data.tokens.map((token: PRC20Token) => {
-        const pool = poolsMap.get(token.contract_address);
-        
-        let priceInPaxi: number | undefined = undefined;
-        
-        // Calculate price from pool
-        if (pool) {
-          try {
-            const paxiReserveRaw = pool.reserve_paxi;
-            const tokenReserveRaw = pool.reserve_prc20;
-            
-            if (paxiReserveRaw && tokenReserveRaw) {
-              const paxiReserve = parseFloat(paxiReserveRaw) / 1e6;
-              const tokenDecimals = token.token_info?.decimals || 6;
-              const tokenReserve = parseFloat(tokenReserveRaw) / Math.pow(10, tokenDecimals);
+      // Fetch holders count for all tokens (same as detail page)
+      const tokensWithHolders = await Promise.all(
+        data.tokens.map(async (token: PRC20Token) => {
+          const pool = poolsMap.get(token.contract_address);
+          
+          let priceInPaxi: number | undefined = undefined;
+          let holdersCount: number | undefined = undefined;
+          
+          // Calculate price from pool
+          if (pool) {
+            try {
+              const paxiReserveRaw = pool.reserve_paxi;
+              const tokenReserveRaw = pool.reserve_prc20;
               
-              if (tokenReserve > 0 && paxiReserve > 0) {
-                priceInPaxi = paxiReserve / tokenReserve;
+              if (paxiReserveRaw && tokenReserveRaw) {
+                const paxiReserve = parseFloat(paxiReserveRaw) / 1e6;
+                const tokenDecimals = token.token_info?.decimals || 6;
+                const tokenReserve = parseFloat(tokenReserveRaw) / Math.pow(10, tokenDecimals);
+                
+                if (tokenReserve > 0 && paxiReserve > 0) {
+                  priceInPaxi = paxiReserve / tokenReserve;
+                }
               }
+            } catch (error) {
+              console.error(`Failed to calculate price for ${token.token_info?.symbol}:`, error);
+            }
+          }
+          
+          // Fetch holders count from API (same as detail page)
+          try {
+            const holdersRes = await fetch(`/api/prc20-holders?contract=${encodeURIComponent(token.contract_address)}`);
+            if (holdersRes.ok) {
+              const holdersData = await holdersRes.json();
+              holdersCount = holdersData?.count || 0;
             }
           } catch (error) {
-            console.error(`Failed to calculate price for ${token.token_info?.symbol}:`, error);
+            console.error(`Failed to fetch holders for ${token.token_info?.symbol}:`, error);
           }
-        }
-        
-        return {
-          ...token,
-          price_usd: priceInPaxi,
-          price_change_24h: undefined // No historical data available yet
-        };
-      });
+          
+          return {
+            ...token,
+            price_usd: priceInPaxi,
+            price_change_24h: undefined, // No historical data available yet
+            num_holders: holdersCount
+          };
+        })
+      );
+      
+      const tokensWithPrices = tokensWithHolders;
       
       if (pageKey) {
         setPrc20Tokens(prev => [...prev, ...tokensWithPrices]);
