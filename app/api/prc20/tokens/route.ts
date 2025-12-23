@@ -73,6 +73,8 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    console.log(`✅ Transformed ${tokens.length} tokens for swap page`);
+
     return NextResponse.json({
       success: true,
       tokens,

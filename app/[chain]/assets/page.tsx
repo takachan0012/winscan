@@ -132,46 +132,7 @@ export default function AssetsPage() {
   // Cleanup old cache on mount
   useEffect(() => {
     cleanupOldPriceCache();
-    
-    // Prefetch volume data in background
-    const prefetchVolume = async () => {
-      const volumeCacheKey = `prc20-volume-${chainName}`;
-      const volumeCacheTimeout = 2 * 60 * 1000; // 2 minutes
-      
-      const cachedVolume = sessionStorage.getItem(volumeCacheKey);
-      if (cachedVolume) {
-        const { timestamp } = JSON.parse(cachedVolume);
-        if (Date.now() - timestamp < volumeCacheTimeout) {
-          console.log('✅ Volume data already cached');
-          return;
-        }
-      }
-      
-      // Prefetch in background
-      try {
-        console.log('🚀 Prefetching volume data...');
-        const response = await fetch('https://ssl.winsnip.xyz/api/prc20-volume', {
-          headers: { 'Cache-Control': 'max-age=60' },
-          signal: AbortSignal.timeout(5000)
-        });
-        
-        if (response.ok) {
-          const volumeData = await response.json();
-          sessionStorage.setItem(volumeCacheKey, JSON.stringify({
-            data: volumeData,
-            timestamp: Date.now()
-          }));
-          console.log('✅ Volume data prefetched and cached');
-        }
-      } catch (error) {
-        console.warn('Volume prefetch failed (non-blocking):', error);
-      }
-    };
-    
-    if (chainName) {
-      prefetchVolume();
-    }
-  }, [chainName]);
+  }, []);
 
   useEffect(() => {
     async function loadChainData() {
@@ -408,15 +369,18 @@ export default function AssetsPage() {
               const tokenIndex = i + batchIndex;
               
               try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s
+                
                 const response = await fetch(
                   `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
                   { 
-                    signal: AbortSignal.timeout(8000),
+                    signal: controller.signal,
                     headers: {
                       'Accept': 'application/json'
                     }
                   }
-                );
+                ).finally(() => clearTimeout(timeoutId));
                 
                 if (response.ok) {
                   const data = await response.json();
@@ -501,10 +465,13 @@ export default function AssetsPage() {
         const updatedTokens = await Promise.all(
           prc20Tokens.map(async (token) => {
             try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s
+              
               const response = await fetch(
                 `/api/prc20-price-history/${token.contract_address}?timeframe=24h`,
-                { signal: AbortSignal.timeout(8000) }
-              );
+                { signal: controller.signal }
+              ).finally(() => clearTimeout(timeoutId));
               
               if (response.ok) {
                 const data = await response.json();
@@ -667,56 +634,25 @@ export default function AssetsPage() {
       let holdersMap = new Map<string, number>();
       let volumeMap = new Map<string, number>();
       
-      // Volume cache - aggressive 2 minute cache
-      const volumeCacheKey = `prc20-volume-${chainName}`;
-      const volumeCacheTimeout = 2 * 60 * 1000; // 2 minutes
-      
       try {
         const contracts = data.tokens.map((t: PRC20Token) => t.contract_address);
         console.log(`📦 Batch fetching holders & volume for ${contracts.length} PRC20 tokens...`);
         
-        // Check volume cache first
-        let volumeResponse: Response | null = null;
-        const cachedVolume = sessionStorage.getItem(volumeCacheKey);
-        if (cachedVolume) {
-          const { data: cachedData, timestamp } = JSON.parse(cachedVolume);
-          if (Date.now() - timestamp < volumeCacheTimeout) {
-            console.log('✅ Using cached volume data');
-            // Create mock response from cache
-            volumeResponse = {
-              ok: true,
-              json: async () => cachedData
-            } as Response;
-          }
-        }
-        
-        // Parallel fetch for holders and volume (only if not cached)
-        const fetchPromises: Promise<Response>[] = [
+        // Parallel fetch for holders and volume
+        const [holdersResponse, volumeResponse] = await Promise.all([
           fetch('/api/prc20-holders-batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contracts }),
             signal: AbortSignal.timeout(30000)
+          }),
+          fetch('https://ssl.winsnip.xyz/api/prc20-volume', {
+            signal: AbortSignal.timeout(10000)
+          }).catch(err => {
+            console.warn('Volume fetch failed:', err);
+            return null;
           })
-        ];
-        
-        if (!volumeResponse) {
-          fetchPromises.push(
-            fetch('https://ssl.winsnip.xyz/api/prc20-volume', {
-              headers: { 'Cache-Control': 'max-age=60' },
-              signal: AbortSignal.timeout(10000)
-            }).catch(err => {
-              console.warn('Volume fetch failed:', err);
-              return null as any;
-            })
-          );
-        }
-        
-        const responses = await Promise.all(fetchPromises);
-        const holdersResponse = responses[0];
-        if (!volumeResponse && responses[1]) {
-          volumeResponse = responses[1];
-        }
+        ]);
         
         // Process holders data
         if (holdersResponse.ok) {
@@ -739,13 +675,7 @@ export default function AssetsPage() {
                 volumeMap.set(item.contract, item.volume_7d_paxi);
               }
             });
-            console.log(`✅ Volume data loaded: ${volumeMap.size} tokens with volume data`);
-            
-            // Cache the volume data
-            sessionStorage.setItem(volumeCacheKey, JSON.stringify({
-              data: volumeData,
-              timestamp: Date.now()
-            }));
+            console.log(`✅ Batch volume fetch complete: ${volumeMap.size} results`);
           }
         }
       } catch (error) {
@@ -1502,15 +1432,21 @@ export default function AssetsPage() {
                                 {token.price_paxi && (
                                   <div className="text-xs md:text-sm font-bold text-white">
                                     {token.price_paxi < 0.000001 
-                                      ? token.price_paxi.toExponential(4)
-                                      : token.price_paxi.toFixed(8)} PAXI
+                                      ? token.price_paxi.toExponential(2)
+                                      : token.price_paxi.toLocaleString('en-US', { 
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 8 
+                                        })} PAXI
                                   </div>
                                 )}
                                 {token.price_usd && token.price_usd > 0 && (
                                   <div className="text-[10px] text-gray-500 mt-0.5">
                                     ${token.price_usd < 0.000001 
-                                      ? token.price_usd.toExponential(4)
-                                      : token.price_usd.toFixed(8)}
+                                      ? token.price_usd.toExponential(2)
+                                      : token.price_usd.toLocaleString('en-US', { 
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 8 
+                                        })}
                                   </div>
                                 )}
                               </div>

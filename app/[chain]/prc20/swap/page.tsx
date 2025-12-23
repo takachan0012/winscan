@@ -172,11 +172,13 @@ export default function PRC20SwapPage() {
 
   const loadTokens = async () => {
     try {
-      // Load PRC20 tokens
-      const response = await fetch(`/api/prc20/tokens?chain=${selectedChain?.chain_name}`);
+      // Load PRC20 tokens - add cache buster to get fresh data
+      const cacheBuster = Date.now();
+      const response = await fetch(`/api/prc20/tokens?chain=${selectedChain?.chain_name}&t=${cacheBuster}`);
       const data = await response.json();
       
       console.log('📦 Loaded tokens from API:', data.tokens?.length);
+      console.log('📋 Token contracts:', data.tokens?.map((t: any) => t.address).join(', '));
       
       // Add native PAXI token
       const nativeToken: Token = {
@@ -201,6 +203,17 @@ export default function PRC20SwapPage() {
       
       const allTokens = [nativeToken, ...prc20Tokens];
       console.log('🪙 All tokens:', allTokens.map(t => `${t.symbol} (${t.decimals} decimals)`));
+      console.log('🔍 Total tokens loaded:', allTokens.length);
+      
+      // Check if specific token exists
+      const targetToken = allTokens.find(t => t.address === 'paxi1063t95vs3zhxgpw7gmzsepde2p85rm973ezury84scajahfsz22sja0j4x');
+      if (targetToken) {
+        console.log('✅ Target token FOUND:', targetToken);
+      } else {
+        console.warn('❌ Target token NOT FOUND in list!');
+        console.log('📋 Available addresses:', allTokens.map(t => t.address).slice(0, 10));
+      }
+      
       setTokens(allTokens);
       
       // Load market prices (no cache)
