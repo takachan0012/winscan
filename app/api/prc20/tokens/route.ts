@@ -20,12 +20,20 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check if refresh is requested (force cache bypass)
+    const refresh = searchParams.get('refresh') === 'true' || searchParams.get('t'); // t param for cache bust
+
     // Fetch real PRC20 tokens from backend SSL API directly
     const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
-    const response = await fetch(`${backendUrl}/api/prc20-tokens?chain=${chainName}`, {
+    const backendApiUrl = refresh 
+      ? `${backendUrl}/api/prc20-tokens?chain=${chainName}&refresh=true`
+      : `${backendUrl}/api/prc20-tokens?chain=${chainName}`;
+      
+    const response = await fetch(backendApiUrl, {
       headers: {
         'Accept': 'application/json',
       },
+      cache: 'no-store', // Always fetch fresh from backend
     });
     
     if (!response.ok) {

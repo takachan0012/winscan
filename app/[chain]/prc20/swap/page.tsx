@@ -76,6 +76,14 @@ export default function PRC20SwapPage() {
     if (selectedChain) {
       loadTokens();
       checkWalletConnection();
+      
+      // Auto-refresh tokens every 2 minutes to catch new tokens
+      const refreshInterval = setInterval(() => {
+        console.log('🔄 Auto-refreshing token list...');
+        loadTokens();
+      }, 2 * 60 * 1000); // 2 minutes
+      
+      return () => clearInterval(refreshInterval);
     }
   }, [selectedChain]);
 
