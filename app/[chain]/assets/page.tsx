@@ -1077,18 +1077,7 @@ export default function AssetsPage() {
                         : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
                     }`}
                   >
-                    Default
-                  </button>
-                  <button
-                    onClick={() => setSortType('gainers')}
-                    className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
-                      sortType === 'gainers'
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                        : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
-                    }`}
-                  >
-                    <Flame className="w-3 h-3" />
-                    <span>Top Gainers</span>
+                    All
                   </button>
                   <button
                     onClick={() => setSortType('new')}
@@ -1111,6 +1100,17 @@ export default function AssetsPage() {
                   >
                     <DollarSign className="w-3 h-3" />
                     <span>Market Cap</span>
+                  </button>
+                  <button
+                    onClick={() => setSortType('gainers')}
+                    className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                      sortType === 'gainers'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                        : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                    }`}
+                  >
+                    <Flame className="w-3 h-3" />
+                    <span>Top Gainers</span>
                   </button>
                 </div>
               )}
