@@ -110,114 +110,180 @@ export default function NetworkPage() {
     if (!selectedChain) return;
     
     const chainIdentifier = (selectedChain.chain_id || selectedChain.chain_name).trim();
-    const cacheKey = `network_${selectedChain.chain_name}`;
-    const cacheTimeout = 30000; // 30 seconds
+    const networkCacheKey = `network_v2_${selectedChain.chain_name}`;
+    const locationsCacheKey = `network_locations_v2_${selectedChain.chain_name}`;
+    const validatorCacheKey = `validators_${chainIdentifier}`;
+    const cacheTimeout = 5 * 60 * 1000; // 5 minutes
 
+    // 🚀 OPTIMISTIC UI: Load all cache immediately
+    let hasCache = false;
+    
     try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        setNetworkInfo(data);
-        setLoading(false);
-
-        if (Date.now() - timestamp < cacheTimeout) {
-          return;
+      // Network info cache
+      const cachedNetwork = sessionStorage.getItem(networkCacheKey);
+      if (cachedNetwork) {
+        const { data, timestamp } = JSON.parse(cachedNetwork);
+        const age = Date.now() - timestamp;
+        
+        if (age < cacheTimeout) {
+          setNetworkInfo(data);
+          setLoading(false);
+          hasCache = true;
+          
+          // Calculate avg block time from cache
+          if (data?.latestBlockTime && data?.earliestBlockTime) {
+            const latest = new Date(data.latestBlockTime).getTime();
+            const earliest = new Date(data.earliestBlockTime).getTime();
+            const blocks = parseInt(data.latestBlockHeight) - parseInt(data.earliestBlockHeight);
+            if (blocks > 0) {
+              const avgTime = (latest - earliest) / blocks / 1000;
+              setAvgBlockTime(avgTime);
+            }
+          }
         }
       }
-    } catch (e) {}
+      
+      // Validator locations cache
+      const cachedLocations = sessionStorage.getItem(locationsCacheKey);
+      if (cachedLocations) {
+        const { data, timestamp } = JSON.parse(cachedLocations);
+        const age = Date.now() - timestamp;
+        
+        if (age < cacheTimeout) {
+          setValidatorLocations(data);
+          setLoadingLocations(false);
+          hasCache = true;
+        }
+      }
+      
+      // Validators cache (localStorage, 10 minutes)
+      const cachedValidators = localStorage.getItem(validatorCacheKey);
+      if (cachedValidators) {
+        const { data: validatorData, timestamp } = JSON.parse(cachedValidators);
+        const age = Date.now() - timestamp;
+        
+        if (age < 10 * 60 * 1000) {
+          setValidators(validatorData);
+          setLoadingValidators(false);
+          hasCache = true;
+          console.log('[Network] Using cached validators:', validatorData.length);
+        }
+      }
+      
+      // If all cache is fresh, skip fetch
+      if (hasCache && networkInfo && validatorLocations.length > 0 && validators.length > 0) {
+        console.log('[Network] All data cached, skipping fetch');
+        return;
+      }
+    } catch (e) {
+      console.warn('[Network] Cache read error:', e);
+    }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    
+    // 🚀 PARALLEL FETCH: Fetch all 3 APIs simultaneously
     setLoadingLocations(true);
     setLoadingValidators(true);
     
-    fetch(`/api/network?chain=${chainIdentifier}`, { signal: controller.signal })
-      .then(res => res.json())
-      .then(data => {
-        setNetworkInfo(data);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    Promise.all([
+      // 1. Network info
+      fetch(`/api/network?chain=${chainIdentifier}`, { signal: controller.signal })
+        .then(res => res.json())
+        .catch(err => {
+          console.error('[Network] Network API error:', err);
+          return null;
+        }),
+      
+      // 2. Validator locations
+      fetch(`/api/network/validators?chain=${chainIdentifier}`, { signal: controller.signal })
+        .then(res => res.json())
+        .catch(err => {
+          console.error('[Network] Locations API error:', err);
+          return null;
+        }),
+      
+      // 3. Validators list (only if not cached)
+      validators.length === 0
+        ? fetch(`/api/validators?chain=${chainIdentifier}`, { signal: controller.signal })
+            .then(res => res.json())
+            .catch(err => {
+              console.error('[Network] Validators API error:', err);
+              return null;
+            })
+        : Promise.resolve(null)
+    ])
+    .then(([networkData, locationsData, validatorsData]) => {
+      // Process network info
+      if (networkData) {
+        setNetworkInfo(networkData);
         setLoading(false);
         
-        if (data?.latestBlockTime && data?.earliestBlockTime) {
-          const latest = new Date(data.latestBlockTime).getTime();
-          const earliest = new Date(data.earliestBlockTime).getTime();
-          const blocks = parseInt(data.latestBlockHeight) - parseInt(data.earliestBlockHeight);
+        // Calculate avg block time
+        if (networkData?.latestBlockTime && networkData?.earliestBlockTime) {
+          const latest = new Date(networkData.latestBlockTime).getTime();
+          const earliest = new Date(networkData.earliestBlockTime).getTime();
+          const blocks = parseInt(networkData.latestBlockHeight) - parseInt(networkData.earliestBlockHeight);
           if (blocks > 0) {
             const avgTime = (latest - earliest) / blocks / 1000;
             setAvgBlockTime(avgTime);
           }
         }
         
+        // Cache network info (5 minutes)
         try {
-          sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+          sessionStorage.setItem(networkCacheKey, JSON.stringify({ 
+            data: networkData, 
+            timestamp: Date.now() 
+          }));
         } catch (e) {}
-
-        // Load validator locations (network/validators API)
-        setLoadingLocations(true);
-        fetch(`/api/network/validators?chain=${chainIdentifier}`)
-          .then(res => res.json())
-          .then(validatorData => {
-            if (validatorData?.locations && validatorData.locations.length > 0) {
-              setValidatorLocations(validatorData.locations);
-            }
-            setLoadingLocations(false);
-          })
-          .catch(() => {
-            setLoadingLocations(false);
-          });
+      }
+      
+      // Process validator locations
+      if (locationsData?.locations && locationsData.locations.length > 0) {
+        setValidatorLocations(locationsData.locations);
+        setLoadingLocations(false);
         
-        // Load validators with localStorage cache (10 minutes) - matching main page
-        const validatorCacheKey = `validators_${chainIdentifier}`;
-        const cachedValidators = localStorage.getItem(validatorCacheKey);
+        // Cache locations (5 minutes)
+        try {
+          sessionStorage.setItem(locationsCacheKey, JSON.stringify({ 
+            data: locationsData.locations, 
+            timestamp: Date.now() 
+          }));
+        } catch (e) {}
+      } else {
+        setLoadingLocations(false);
+      }
+      
+      // Process validators
+      if (validatorsData) {
+        const validatorsArray = validatorsData.validators || validatorsData;
         
-        if (cachedValidators) {
+        if (Array.isArray(validatorsArray) && validatorsArray.length > 0) {
+          setValidators(validatorsArray);
+          setLoadingValidators(false);
+          
+          // Cache validators (10 minutes)
           try {
-            const { data: validatorData, timestamp } = JSON.parse(cachedValidators);
-            const age = Date.now() - timestamp;
-            
-            // Use cache if less than 10 minutes old
-            if (age < 10 * 60 * 1000) {
-              console.log('Using cached validators:', validatorData.length);
-              setValidators(validatorData);
-              setLoadingValidators(false);
-              return;
-            }
-          } catch (e) {}
-        }
-        
-        // Fetch fresh validator data
-        setLoadingValidators(true);
-        fetch(`/api/validators?chain=${chainIdentifier}`)
-          .then(res => res.json())
-          .then(response => {
-            // API returns { validators: [...], total: number }
-            const validatorsData = response.validators || response;
-            
-            console.log('Validators loaded:', validatorsData.length, 'validators');
-            if (validatorsData.length > 0) {
-              console.log('First validator sample:', validatorsData[0]);
-            }
-            
-            setValidators(validatorsData);
-            setLoadingValidators(false);
-            
-            // Save to localStorage cache
             localStorage.setItem(validatorCacheKey, JSON.stringify({
-              data: validatorsData,
+              data: validatorsArray,
               timestamp: Date.now()
             }));
-          })
-          .catch((err) => {
-            console.error('Error loading validators:', err);
-            setLoadingValidators(false);
-          });
-      })
-      .catch(err => {
-        setLoading(false);
-        setLoadingLocations(false);
+          } catch (e) {}
+          
+          console.log('[Network] Validators loaded:', validatorsArray.length);
+        }
+      } else {
         setLoadingValidators(false);
-      })
-      .finally(() => clearTimeout(timeoutId));
+      }
+    })
+    .catch(err => {
+      console.error('[Network] Parallel fetch error:', err);
+      setLoading(false);
+      setLoadingLocations(false);
+      setLoadingValidators(false);
+    })
+    .finally(() => clearTimeout(timeoutId));
   }, [selectedChain]);
 
   // Calculate statistics
