@@ -72,6 +72,28 @@ interface AssetsResponse {
 type FilterType = 'all' | 'native' | 'tokens' | 'prc20';
 type SortType = 'default' | 'gainers' | 'new' | 'marketcap';
 
+// Format price dengan decimal penuh untuk angka sangat kecil
+function formatPrice(price: number): string {
+  if (price === 0) return '0';
+  
+  // Untuk angka sangat kecil, tampilkan dengan leading zeros
+  if (price < 0.00000001) {
+    const str = price.toFixed(20); // Get enough decimals
+    const match = str.match(/^0\.(0*)([1-9]\d{0,3})/); // Capture leading zeros and first significant digits
+    if (match) {
+      return `0.${match[1]}${match[2]}`;
+    }
+  }
+  
+  // Untuk angka kecil tapi tidak terlalu kecil
+  if (price < 1) {
+    return price.toFixed(10).replace(/\.?0+$/, ''); // Remove trailing zeros
+  }
+  
+  // Untuk angka normal
+  return price.toFixed(6).replace(/\.?0+$/, '');
+}
+
 // Cleanup old localStorage entries to prevent quota exceeded
 function cleanupOldPriceCache() {
   if (typeof window === 'undefined') return;
@@ -129,6 +151,7 @@ export default function AssetsPage() {
   const initialPriceLoadDone = useRef(false);
   const [priceChangesLoading, setPriceChangesLoading] = useState(false);
   const [displayedTokensCount, setDisplayedTokensCount] = useState(20); // Progressive rendering
+  const [isFromCache, setIsFromCache] = useState(false); // Track if data is from cache
 
   // Cleanup old cache on mount
   useEffect(() => {
@@ -169,8 +192,11 @@ export default function AssetsPage() {
       if (!chainName) return;
       
       const cacheKey = `assets_${chainName}`;
-      const cacheTimeout = 60000;
+      const cacheTimeout = 600000; // 10 minutes cache
       
+      // Stale-while-revalidate: Show cached data immediately
+      let shouldRefresh = true;
+      let hasCache = false;
       try {
         const cached = sessionStorage.getItem(cacheKey);
         if (cached) {
@@ -179,13 +205,26 @@ export default function AssetsPage() {
           const cachedAssets = data.metadatas || [];
           setAssets(cachedAssets);
           setLoading(false);
+          hasCache = true;
+          setIsFromCache(true);
           
+          // If cache is fresh, don't refresh
           if (Date.now() - timestamp < cacheTimeout) {
+            console.log('✅ Using fresh cache, skip refresh');
             return;
           }
+          
+          // Cache is stale but still usable, refresh in background
+          console.log('📡 Using stale cache, refreshing in background...');
+          shouldRefresh = true;
         }
       } catch (e) {
         console.warn('Cache read error:', e);
+      }
+      
+      // Only show loading if no cache
+      if (!hasCache) {
+        setLoading(true);
       }
       
       try {
@@ -224,6 +263,7 @@ export default function AssetsPage() {
         
         setAssets(transformedAssets);
         setLoading(false);
+        setIsFromCache(false); // Mark as fresh data
 
         const nativeAssets = transformedAssets.filter((a: any) =>
           !a.base.startsWith('ibc/') &&
@@ -545,23 +585,28 @@ export default function AssetsPage() {
   const fetchPRC20Tokens = async (pageKey?: string) => {
     const cacheKey = `prc20_tokens_${chainName}`;
     const poolsCacheKey = `prc20_pools_${chainName}`;
-    const cacheTimeout = 300000; // 5 minutes (increased from 1 minute)
+    const cacheTimeout = 900000; // 15 minutes cache for better navigation
     
-    // Check cache first
+    // Stale-while-revalidate for PRC20 tokens
     if (!pageKey) {
       try {
         const cached = sessionStorage.getItem(cacheKey);
         if (cached) {
           const { data, timestamp } = JSON.parse(cached);
           
-          // Still fresh, use cache and return immediately
+          // Always show cached data immediately
+          setPrc20Tokens(data.tokens || []);
+          setPrc20NextKey(data.next_key || null);
+          setPrc20Loading(false);
+          
+          // If fresh, don't refresh
           if (Date.now() - timestamp < cacheTimeout) {
-            console.log('✅ Using cached PRC20 data');
-            setPrc20Tokens(data.tokens || []);
-            setPrc20NextKey(data.next_key || null);
-            setPrc20Loading(false);
+            console.log('✅ Using fresh PRC20 cache, skip refresh');
             return;
           }
+          
+          // Stale but usable, continue to refresh in background
+          console.log('📡 Using stale PRC20 cache, refreshing in background...');
         }
       } catch (e) {
         console.warn('PRC20 cache read error:', e);
@@ -950,7 +995,17 @@ export default function AssetsPage() {
                 <Coins className="w-8 h-8 md:w-10 md:h-10 text-blue-400" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-4xl font-bold text-white mb-1">{t('assets.title')}</h1>
+                <h1 className="text-2xl md:text-4xl font-bold text-white mb-1 flex items-center gap-2">
+                  {t('assets.title')}
+                  {isFromCache && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/30 rounded-lg text-xs text-green-400 font-normal">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Cached
+                    </span>
+                  )}
+                </h1>
                 <p className="text-sm md:text-base text-gray-400">
                   {t('assets.subtitle')} {selectedChain?.chain_name}
                 </p>
@@ -1726,15 +1781,12 @@ export default function AssetsPage() {
                                     <div>
                                       {token.price_paxi && (
                                         <div className="text-xs md:text-sm font-bold text-white">
-                                          {token.price_paxi < 0.000001 
-                                            ? token.price_paxi.toExponential(4)
-                                            : token.price_paxi.toFixed(8)} PAXI
+                                          {formatPrice(token.price_paxi)} PAXI
                                         </div>
                                       )}
                                       {token.price_usd && token.price_usd > 0 && (
                                         <div className="text-[10px] text-gray-500 mt-0.5">
-                                          ${token.price_usd < 0.000001 
-                                            ? token.price_usd.toExponential(4)
+                                          ${formatPrice(token.price_usd)}
                                             : token.price_usd.toFixed(8)}
                                         </div>
                                       )}

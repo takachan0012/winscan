@@ -50,12 +50,12 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
 
   const loadAssetMetadata = async () => {
     try {
-      // Check cache first
+      // Check cache first with longer TTL
       const cacheKey = `asset_meta_${denom}`;
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 300000) { // 5 min cache
+        if (Date.now() - timestamp < 1800000) { // 30 min cache
           setAssetMetadata(data);
           return;
         }
@@ -141,20 +141,38 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
 
   const loadHolders = async () => {
     try {
-      setLoading(true);
+      // Stale-while-revalidate pattern
+      let shouldRefresh = true;
+      const cacheTimeout = 300000; // 5 min cache
       
-      // Check cache first (only if not searching)
       if (!searchAddress) {
         const cacheKey = `holders_${chainName}_${denom}`;
         const cached = sessionStorage.getItem(cacheKey);
         if (cached) {
-          const { data: cachedData, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < 60000) { // 1 min cache
+          try {
+            const { data: cachedData, timestamp } = JSON.parse(cached);
+            
+            // Always show cached data immediately
             setData(cachedData);
             setLoading(false);
-            return;
+            setCurrentPage(1);
+            
+            // If fresh, don't refresh
+            if (Date.now() - timestamp < cacheTimeout) {
+              console.log('✅ Using fresh holders cache');
+              return;
+            }
+            
+            // Stale but usable, continue refresh in background
+            console.log('📡 Using stale holders cache, refreshing...');
+          } catch (e) {
+            console.warn('Holders cache parse error:', e);
           }
+        } else {
+          setLoading(true);
         }
+      } else {
+        setLoading(true);
       }
       
       // Check if it's a PRC20 contract
