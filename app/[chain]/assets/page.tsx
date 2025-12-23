@@ -128,6 +128,7 @@ export default function AssetsPage() {
   const priceUpdateInProgress = useRef(false);
   const initialPriceLoadDone = useRef(false);
   const [priceChangesLoading, setPriceChangesLoading] = useState(false);
+  const [displayedTokensCount, setDisplayedTokensCount] = useState(20); // Progressive rendering
 
   // Cleanup old cache on mount
   useEffect(() => {
@@ -334,6 +335,21 @@ export default function AssetsPage() {
 
     fetchAssets();
   }, [chainName]);
+
+  // Progressive rendering untuk PRC20 tokens
+  useEffect(() => {
+    if (prc20Tokens.length > 0 && displayedTokensCount < prc20Tokens.length) {
+      const timer = setTimeout(() => {
+        setDisplayedTokensCount(prev => Math.min(prev + 20, prc20Tokens.length));
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [prc20Tokens.length, displayedTokensCount]);
+
+  // Reset displayed count when tokens change
+  useEffect(() => {
+    setDisplayedTokensCount(20);
+  }, [prc20Tokens.length]);
 
   // Fetch PRC20 tokens for Paxi chain - LOAD IN BACKGROUND IMMEDIATELY
   useEffect(() => {
@@ -563,7 +579,9 @@ export default function AssetsPage() {
         setPrc20Loading(true);
       }
       
-      let url = `/api/prc20-tokens?chain=${chainName}&limit=1000`;
+      // Use smaller initial limit for faster first load
+      const limit = pageKey ? 100 : 50;
+      let url = `/api/prc20-tokens?chain=${chainName}&limit=${limit}`;
       if (pageKey) {
         url += `&key=${encodeURIComponent(pageKey)}`;
       }
@@ -1520,8 +1538,36 @@ export default function AssetsPage() {
           {filterType === 'prc20' && (
             <>
               {prc20Loading && prc20Tokens.length === 0 ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
+                  <div className="p-6 space-y-4">
+                    {/* Skeleton Header */}
+                    <div className="flex items-center gap-4 animate-pulse">
+                      <div className="w-12 h-12 bg-gray-800 rounded-lg" />
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-800 rounded w-1/3 mb-2" />
+                        <div className="h-3 bg-gray-800 rounded w-1/4" />
+                      </div>
+                    </div>
+                    
+                    {/* Skeleton Table */}
+                    <div className="space-y-3 mt-6">
+                      {[...Array(8)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-4 p-4 bg-[#0f0f0f] rounded-lg animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
+                          <div className="w-10 h-10 bg-gray-800 rounded-full" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-gray-800 rounded w-1/4" />
+                            <div className="h-3 bg-gray-800 rounded w-1/3" />
+                          </div>
+                          <div className="w-20 h-4 bg-gray-800 rounded" />
+                          <div className="w-16 h-4 bg-gray-800 rounded" />
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="text-center pt-4">
+                      <p className="text-gray-400 text-sm">Loading PRC20 tokens...</p>
+                    </div>
+                  </div>
                 </div>
               ) : filteredPRC20Tokens.length > 0 ? (
                 <div className="space-y-6">
@@ -1579,7 +1625,7 @@ export default function AssetsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
-                          {filteredPRC20Tokens.map((token, index) => {
+                          {filteredPRC20Tokens.slice(0, displayedTokensCount).map((token, index) => {
                             const tokenInfo = token.token_info;
                             const marketingInfo = token.marketing_info;
                             
@@ -1619,6 +1665,7 @@ export default function AssetsPage() {
                                           alt={tokenInfo?.symbol || 'token'}
                                           width={40}
                                           height={40}
+                                          loading="lazy"
                                           className="object-cover w-full h-full"
                                           onError={(e) => {
                                             e.currentTarget.style.display = 'none';
@@ -1815,6 +1862,16 @@ export default function AssetsPage() {
                         </tbody>
                       </table>
                     </div>
+                    
+                    {/* Progressive Loading Indicator */}
+                    {displayedTokensCount < filteredPRC20Tokens.length && (
+                      <div className="flex justify-center py-4 bg-[#0f0f0f] border-t border-gray-800">
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                          <span>Loading more tokens... ({displayedTokensCount} / {filteredPRC20Tokens.length})</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Load More Button */}

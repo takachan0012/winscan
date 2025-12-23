@@ -40,6 +40,8 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
   const [searching, setSearching] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [assetMetadata, setAssetMetadata] = useState<{ logo?: string; symbol?: string; name?: string } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50);
 
   useEffect(() => {
     loadAssetMetadata();
@@ -48,15 +50,31 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
 
   const loadAssetMetadata = async () => {
     try {
+      // Check cache first
+      const cacheKey = `asset_meta_${denom}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 300000) { // 5 min cache
+          setAssetMetadata(data);
+          return;
+        }
+      }
+      
       // Check if PRC20 token
       const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
       
       if (isPRC20) {
-        // Fetch PRC20 token info and marketing info
+        // Fetch PRC20 token info and marketing info with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
         const [tokenInfoRes, marketingInfoRes] = await Promise.all([
-          fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`),
-          fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=marketing_info`)
+          fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`, { signal: controller.signal }),
+          fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=marketing_info`, { signal: controller.signal })
         ]);
+        
+        clearTimeout(timeoutId);
         
         if (tokenInfoRes.ok && marketingInfoRes.ok) {
           const tokenInfo = await tokenInfoRes.json();
@@ -67,15 +85,28 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
             logo = `https://ipfs.io/ipfs/${logo.replace('ipfs://', '')}`;
           }
           
-          setAssetMetadata({
+          const metadata = {
             logo,
             symbol: tokenInfo.symbol || 'PRC20',
             name: tokenInfo.name || marketingInfo.project || 'PRC20 Token'
-          });
+          };
+          
+          setAssetMetadata(metadata);
+          
+          // Cache the result
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            data: metadata,
+            timestamp: Date.now()
+          }));
         }
       } else {
-        // Regular asset metadata
-        const res = await fetch(`/api/assets?chain=${chainName}`);
+        // Regular asset metadata with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const res = await fetch(`/api/assets?chain=${chainName}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         if (res.ok) {
           const assetsData = await res.json();
           const asset = assetsData.metadatas?.find((a: any) => a.base === denom);
@@ -87,11 +118,19 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
               logo = getChainRegistryLogoUrl(chainName, asset.symbol);
             }
             
-            setAssetMetadata({
+            const metadata = {
               logo,
               symbol: asset.symbol || asset.name,
               name: asset.name
-            });
+            };
+            
+            setAssetMetadata(metadata);
+            
+            // Cache the result
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              data: metadata,
+              timestamp: Date.now()
+            }));
           }
         }
       }
@@ -104,21 +143,50 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
     try {
       setLoading(true);
       
+      // Check cache first (only if not searching)
+      if (!searchAddress) {
+        const cacheKey = `holders_${chainName}_${denom}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data: cachedData, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < 60000) { // 1 min cache
+            setData(cachedData);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+      
       // Check if it's a PRC20 contract
       const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
       
       if (isPRC20) {
-        // For PRC20, use backend SSL API for holders list with search support
+        // For PRC20, use backend SSL API for holders list with search support and timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
         const res = await fetch(
           searchAddress 
             ? `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&search=${encodeURIComponent(searchAddress)}`
             : `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&limit=200&_t=${Date.now()}`,
-          { cache: 'no-store' }
+          { cache: 'no-store', signal: controller.signal }
         );
+        
+        clearTimeout(timeoutId);
         
         if (res.ok) {
           const holdersData = await res.json();
           setData(holdersData);
+          setCurrentPage(1); // Reset to first page
+          
+          // Cache only if not searching
+          if (!searchAddress) {
+            const cacheKey = `holders_${chainName}_${denom}`;
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              data: holdersData,
+              timestamp: Date.now()
+            }));
+          }
         } else {
           setData({
             denom: denom,
@@ -129,19 +197,30 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
           });
         }
       } else {
-        // Regular chain holders
+        // Regular chain holders with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
         const res = await fetch(
           `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&limit=200&_t=${Date.now()}`,
-          { cache: 'no-store' }
+          { cache: 'no-store', signal: controller.signal }
         );
+        
+        clearTimeout(timeoutId);
         
         if (res.ok) {
           const holdersData = await res.json();
-          console.log('=== FULL RESPONSE ===', JSON.stringify(holdersData, null, 2));
-          console.log('Holders array:', holdersData.holders);
-          console.log('Holders length:', holdersData.holders?.length);
-          console.log('First holder:', holdersData.holders?.[0]);
           setData(holdersData);
+          setCurrentPage(1); // Reset to first page
+          
+          // Cache the result
+          if (!searchAddress) {
+            const cacheKey = `holders_${chainName}_${denom}`;
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              data: holdersData,
+              timestamp: Date.now()
+            }));
+          }
         } else {
           console.error('Failed to fetch holders:', res.status);
         }
@@ -193,8 +272,34 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+      <div className="space-y-4 md:space-y-6">
+        <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 md:p-6 animate-pulse">
+          {/* Header Skeleton */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-gray-800" />
+            <div className="flex-1">
+              <div className="h-5 bg-gray-800 rounded w-48 mb-2" />
+              <div className="h-4 bg-gray-800 rounded w-64" />
+            </div>
+          </div>
+          
+          {/* Search Skeleton */}
+          <div className="h-10 bg-gray-800 rounded-lg mb-6" />
+          
+          {/* Table Skeleton */}
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="w-8 h-8 bg-gray-800 rounded-full" />
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-800 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-gray-800 rounded w-1/2" />
+                </div>
+                <div className="h-4 bg-gray-800 rounded w-24" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -218,6 +323,7 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
                 alt={assetMetadata.symbol || 'token'}
                 width={40}
                 height={40}
+                loading="lazy"
                 className="object-cover"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
@@ -328,14 +434,16 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
-                {data.holders.map((holder, idx) => {
-                  console.log(`Rendering holder ${idx}:`, holder);
-                  return (
-                    <tr
-                      key={holder.address}
-                      className="hover:bg-[#0f0f0f] transition-colors"
-                    >
-                      <td className="py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm text-gray-400">{idx + 1}</td>
+                {data.holders
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((holder, idx) => {
+                    const actualIdx = (currentPage - 1) * itemsPerPage + idx;
+                    return (
+                      <tr
+                        key={holder.address}
+                        className="hover:bg-[#0f0f0f] transition-colors"
+                      >
+                      <td className="py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm text-gray-400">{actualIdx + 1}</td>
                       
                       {/* Token Name with Logo */}
                       <td className="py-2 md:py-3 px-2 md:px-4">
@@ -347,6 +455,7 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
                                 alt={assetMetadata.symbol || 'token'}
                                 width={32}
                                 height={32}
+                                loading="lazy"
                                 className="object-cover"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
@@ -410,8 +519,63 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
                 })}
               </tbody>
             </table>
-          )}
+)}
         </div>
+        
+        {/* Pagination Controls */}
+        {data.holders.length > itemsPerPage && (
+          <div className="flex items-center justify-between mt-4 px-4">
+            <div className="text-sm text-gray-400">
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, data.holders.length)} of {data.holders.length} holders
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-[#1a1a1a] border border-gray-800 rounded-lg text-sm text-gray-400 hover:text-white hover:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-2">
+                {Array.from({ length: Math.min(5, Math.ceil(data.holders.length / itemsPerPage)) }, (_, i) => {
+                  const totalPages = Math.ceil(data.holders.length / itemsPerPage);
+                  let pageNum;
+                  
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-[#1a1a1a] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(Math.ceil(data.holders.length / itemsPerPage), p + 1))}
+                disabled={currentPage >= Math.ceil(data.holders.length / itemsPerPage)}
+                className="px-4 py-2 bg-[#1a1a1a] border border-gray-800 rounded-lg text-sm text-gray-400 hover:text-white hover:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
