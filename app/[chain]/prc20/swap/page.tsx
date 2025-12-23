@@ -12,6 +12,10 @@ import { ArrowDownUp, Settings, Info, Zap, AlertCircle, RefreshCw } from 'lucide
 import { calculateFee } from '@/lib/keplr';
 import { getPoolPrice, calculateSwapOutput } from '@/lib/poolPriceCalculator';
 
+// Force dynamic rendering - no cache
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface Token {
   address: string;
   name: string;
