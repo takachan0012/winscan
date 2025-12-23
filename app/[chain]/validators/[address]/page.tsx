@@ -571,32 +571,71 @@ export default function ValidatorDetailPage() {
     }
 
     const asset = selectedChain.assets?.[0];
+    const denom = asset?.base || 'ulume';
+    const exponent = Number(asset?.exponent || 6);
     
     try {
-      const { StargateClient } = await import('@cosmjs/stargate');
+      // 🚀 OPTIMIZED: Single bundled API call instead of 4+ sequential requests
+      const bundleRes = await fetch('/api/user-delegation-bundle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chain: selectedChain.chain_id || selectedChain.chain_name,
+          validatorAddress,
+          delegatorAddress,
+          denom
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
       
-      let client: any = null;
-      if (selectedChain.rpc && selectedChain.rpc.length > 0) {
-        for (const rpcEndpoint of selectedChain.rpc) {
-          try {
-            client = await StargateClient.connect(rpcEndpoint.address);
-            break;
-          } catch (error) {
-            continue;
+      if (!bundleRes.ok) {
+        throw new Error('Failed to fetch delegation data');
+      }
+      
+      const bundle = await bundleRes.json();
+      
+      // Format and set all data
+      const formattedBalance = (parseFloat(bundle.balance) / Math.pow(10, exponent)).toFixed(3);
+      const formattedStaked = (parseFloat(bundle.stakedAmount) / Math.pow(10, exponent)).toFixed(3);
+      const formattedRewards = (parseFloat(bundle.rewards) / Math.pow(10, exponent)).toFixed(6);
+      const formattedCommission = (parseFloat(bundle.commission) / Math.pow(10, exponent)).toFixed(2);
+      
+      setBalance(formattedBalance);
+      setStakedAmount(formattedStaked);
+      setRewards(formattedRewards);
+      setCommission(formattedCommission);
+      
+      console.log('[Delegation Bundle] ✅ Loaded user data');
+      
+    } catch (error) {
+      console.error('[Delegation Bundle] Error:', error);
+      
+      // Fallback to old sequential method if bundle fails
+      try {
+        const { StargateClient } = await import('@cosmjs/stargate');
+        
+        let client: any = null;
+        if (selectedChain.rpc && selectedChain.rpc.length > 0) {
+          for (const rpcEndpoint of selectedChain.rpc) {
+            try {
+              client = await StargateClient.connect(rpcEndpoint.address);
+              break;
+            } catch (error) {
+              continue;
+            }
           }
         }
-      }
-      
-      if (!client) {
-        setStakedAmount('0.000');
-        setBalance('0.000');
-        setRewards('0.000');
-        setCommission('0.000');
-        return;
-      }
-      
-      // Fetch balance
-      try {
+        
+        if (!client) {
+          setStakedAmount('0.000');
+          setBalance('0.000');
+          setRewards('0.000');
+          setCommission('0.000');
+          return;
+        }
+        
+        // Fetch balance
+        try {
         const denom = asset?.base || 'ulume';
         const balance = await client.getBalance(delegatorAddress, denom);
         const formattedBalance = asset
