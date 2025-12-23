@@ -70,6 +70,7 @@ interface AssetsResponse {
 }
 
 type FilterType = 'all' | 'native' | 'tokens' | 'prc20';
+type SortType = 'default' | 'gainers' | 'new' | 'marketcap';
 
 // Cleanup old localStorage entries to prevent quota exceeded
 function cleanupOldPriceCache() {
@@ -120,6 +121,7 @@ export default function AssetsPage() {
   const [prc20Loading, setPrc20Loading] = useState(false);
   const [totalAssets, setTotalAssets] = useState(0);
   const [filterType, setFilterType] = useState<FilterType>('native');
+  const [sortType, setSortType] = useState<SortType>('default');
   const [searchQuery, setSearchQuery] = useState('');
   const [prc20NextKey, setPrc20NextKey] = useState<string | null>(null);
   const [showPRC20Support, setShowPRC20Support] = useState(false);
@@ -384,6 +386,16 @@ export default function AssetsPage() {
                     const latestPrice = data.history[data.history.length - 1];
                     let priceChange = data.price_change?.change_percent;
                     
+                    // 🔥 IMPROVED: Calculate price change even for new tokens (< 24h data)
+                    if ((priceChange === null || priceChange === undefined) && data.history.length >= 2) {
+                      // Calculate manually from available data
+                      const oldestPrice = data.history[0];
+                      if (oldestPrice.price_paxi > 0 && latestPrice.price_paxi > 0) {
+                        priceChange = ((latestPrice.price_paxi - oldestPrice.price_paxi) / oldestPrice.price_paxi) * 100;
+                        console.log(`📊 ${token.token_info?.symbol}: Calculated change from ${data.history.length} data points = ${priceChange.toFixed(2)}%`);
+                      }
+                    }
+                    
                     // Debug log for tracking
                     console.log(`💹 ${token.token_info?.symbol}: Price Change = ${priceChange}%, Data Points = ${data.history.length}`);
                     
@@ -392,6 +404,9 @@ export default function AssetsPage() {
                         priceChange >= -99 && priceChange <= 10000 && 
                         !isNaN(priceChange) && isFinite(priceChange)) {
                       // Valid price change
+                    } else if (latestPrice.price_paxi > 0) {
+                      // Has price but no change data = assume 0% change (stable or just launched)
+                      priceChange = 0;
                     } else {
                       priceChange = undefined;
                     }
@@ -459,11 +474,22 @@ export default function AssetsPage() {
                   const latestPrice = data.history[data.history.length - 1];
                   let priceChange = data.price_change?.change_percent;
                   
+                  // 🔥 Calculate price change even for new tokens
+                  if ((priceChange === null || priceChange === undefined) && data.history.length >= 2) {
+                    const oldestPrice = data.history[0];
+                    if (oldestPrice.price_paxi > 0 && latestPrice.price_paxi > 0) {
+                      priceChange = ((latestPrice.price_paxi - oldestPrice.price_paxi) / oldestPrice.price_paxi) * 100;
+                    }
+                  }
+                  
                   // Validate price change - allow more reasonable ranges
                   if (priceChange !== null && priceChange !== undefined && 
                       priceChange >= -99 && priceChange <= 10000 && 
                       !isNaN(priceChange) && isFinite(priceChange)) {
                     // Valid price change
+                  } else if (latestPrice.price_paxi > 0) {
+                    // Has price but no change = assume 0%
+                    priceChange = 0;
                   } else {
                     priceChange = undefined;
                   }
@@ -845,7 +871,27 @@ export default function AssetsPage() {
       );
     })
     .sort((a, b) => {
-      // Verified tokens first
+      // 🔥 Apply sorting based on sortType
+      if (sortType === 'gainers') {
+        // Sort by 24h price change (highest first)
+        const aChange = a.price_change_24h ?? -Infinity;
+        const bChange = b.price_change_24h ?? -Infinity;
+        if (aChange !== bChange) return bChange - aChange;
+      } else if (sortType === 'new') {
+        // Sort by holder count (lowest = newer tokens)
+        const aHolders = a.num_holders ?? 0;
+        const bHolders = b.num_holders ?? 0;
+        if (aHolders !== bHolders) return aHolders - bHolders;
+      } else if (sortType === 'marketcap') {
+        // Calculate market cap = price * supply
+        const aSupply = parseFloat(a.token_info?.total_supply || '0') / Math.pow(10, a.token_info?.decimals || 6);
+        const bSupply = parseFloat(b.token_info?.total_supply || '0') / Math.pow(10, b.token_info?.decimals || 6);
+        const aMarketCap = (a.price_paxi || 0) * aSupply;
+        const bMarketCap = (b.price_paxi || 0) * bSupply;
+        if (aMarketCap !== bMarketCap) return bMarketCap - aMarketCap;
+      }
+      
+      // Default sorting: Verified tokens first
       if (a.verified && !b.verified) return -1;
       if (!a.verified && b.verified) return 1;
       
@@ -955,65 +1001,118 @@ export default function AssetsPage() {
 
           {/* Filter Tabs */}
           {assets.length > 0 && (
-            <div className="mb-4 md:mb-6 flex flex-wrap gap-2 md:gap-3">
-              <button
-                onClick={() => setFilterType('native')}
-                className={`flex items-center justify-between min-w-[105px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
-                  filterType === 'native'
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/30'
-                    : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
-                }`}
-              >
-                <div className="flex items-center">
-                  <TrendingUp className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
-                  <span className="hidden sm:inline">{t('assets.native')}</span>
-                  <span className="sm:hidden">Native</span>
-                </div>
-                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium flex-shrink-0 ${
-                  filterType === 'native' ? 'bg-white/20' : 'bg-gray-700'
-                }`}>
-                  {nativeCount}
-                </span>
-              </button>
-              <button
-                onClick={() => setFilterType('tokens')}
-                className={`flex items-center justify-between min-w-[100px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
-                  filterType === 'tokens'
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30'
-                    : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Coins className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
-                  <span className="hidden sm:inline">{t('assets.tokens')}</span>
-                  <span className="sm:hidden">Tokens</span>
-                </div>
-                <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium flex-shrink-0 ${
-                  filterType === 'tokens' ? 'bg-white/20' : 'bg-gray-700'
-                }`}>
-                  {tokensCount}
-                </span>
-              </button>
-              {showPRC20Support && (
+            <div className="mb-4 md:mb-6 space-y-3">
+              {/* Asset Type Filters */}
+              <div className="flex flex-wrap gap-2 md:gap-3">
                 <button
-                  onClick={() => setFilterType('prc20')}
-                  className={`flex items-center justify-between min-w-[100px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
-                    filterType === 'prc20'
-                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
+                  onClick={() => setFilterType('native')}
+                  className={`flex items-center justify-between min-w-[105px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
+                    filterType === 'native'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/30'
                       : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
                   }`}
                 >
                   <div className="flex items-center">
-                    <Layers className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
-                    <span className="hidden sm:inline">PRC20 Tokens</span>
-                    <span className="sm:hidden">PRC20</span>
+                    <TrendingUp className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
+                    <span className="hidden sm:inline">{t('assets.native')}</span>
+                    <span className="sm:hidden">Native</span>
                   </div>
                   <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium flex-shrink-0 ${
-                    filterType === 'prc20' ? 'bg-white/20' : 'bg-gray-700'
+                    filterType === 'native' ? 'bg-white/20' : 'bg-gray-700'
                   }`}>
-                    {filteredPRC20Tokens.length}
+                    {nativeCount}
                   </span>
                 </button>
+                <button
+                  onClick={() => setFilterType('tokens')}
+                  className={`flex items-center justify-between min-w-[100px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
+                    filterType === 'tokens'
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <Coins className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
+                    <span className="hidden sm:inline">{t('assets.tokens')}</span>
+                    <span className="sm:hidden">Tokens</span>
+                  </div>
+                  <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium flex-shrink-0 ${
+                    filterType === 'tokens' ? 'bg-white/20' : 'bg-gray-700'
+                  }`}>
+                    {tokensCount}
+                  </span>
+                </button>
+                {showPRC20Support && (
+                  <button
+                    onClick={() => setFilterType('prc20')}
+                    className={`flex items-center justify-between min-w-[100px] md:min-w-0 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-base font-semibold transition-all ${
+                      filterType === 'prc20'
+                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
+                        : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <Layers className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
+                      <span className="hidden sm:inline">PRC20 Tokens</span>
+                      <span className="sm:hidden">PRC20</span>
+                    </div>
+                    <span className={`ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium flex-shrink-0 ${
+                      filterType === 'prc20' ? 'bg-white/20' : 'bg-gray-700'
+                    }`}>
+                      {filteredPRC20Tokens.length}
+                    </span>
+                  </button>
+                )}
+              </div>
+              
+              {/* Sort Filters - Only show for PRC20 */}
+              {showPRC20Support && filterType === 'prc20' && (
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs text-gray-500 flex items-center px-2">Sort by:</span>
+                  <button
+                    onClick={() => setSortType('default')}
+                    className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                      sortType === 'default'
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                        : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                    }`}
+                  >
+                    Default
+                  </button>
+                  <button
+                    onClick={() => setSortType('gainers')}
+                    className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                      sortType === 'gainers'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                        : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                    }`}
+                  >
+                    <Flame className="w-3 h-3" />
+                    <span>Top Gainers</span>
+                  </button>
+                  <button
+                    onClick={() => setSortType('new')}
+                    className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                      sortType === 'new'
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
+                        : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>New Tokens</span>
+                  </button>
+                  <button
+                    onClick={() => setSortType('marketcap')}
+                    className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                      sortType === 'marketcap'
+                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                        : 'bg-[#1a1a1a] text-gray-400 hover:bg-gray-800 border border-gray-800'
+                    }`}
+                  >
+                    <DollarSign className="w-3 h-3" />
+                    <span>Market Cap</span>
+                  </button>
+                </div>
               )}
             </div>
           )}
