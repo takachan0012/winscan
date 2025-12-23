@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchJSONFromSSLBackend } from '@/lib/sslLoadBalancer';
 
-const BACKEND_URL = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
-
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -22,18 +20,22 @@ export async function GET(request: NextRequest) {
     const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
     
     if (isPRC20) {
-      // For PRC20 tokens, we need to query CosmWasm contract for holders
-      // This is a placeholder - actual implementation would query the contract
-      return NextResponse.json({
-        denom: denom,
-        totalSupply: '0',
-        holders: [],
-        count: 0,
-        message: 'PRC20 token holders',
-        note: 'Holder data for PRC20 tokens is coming soon. This requires querying the smart contract storage.'
-      });
+      // For PRC20 tokens, use dedicated prc20-holders endpoint
+      let path = `/api/prc20-holders?contract=${encodeURIComponent(denom)}&limit=${limit}`;
+      
+      if (search) {
+        path += `&search=${encodeURIComponent(search)}`;
+      }
+
+      console.log('[Holders API] Fetching PRC20 from backend SSL:', path);
+
+      // Use SSL load balancer for automatic failover
+      const data = await fetchJSONFromSSLBackend(path);
+      
+      return NextResponse.json(data);
     }
 
+    // For native/IBC tokens, use regular holders endpoint
     let path = `/api/holders?chain=${chain}&denom=${encodeURIComponent(denom)}&limit=${limit}`;
     
     if (search) {

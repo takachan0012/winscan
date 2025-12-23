@@ -108,83 +108,24 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
       const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
       
       if (isPRC20) {
-        // For PRC20, query all_accounts and then get balances
-        const accountsRes = await fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=all_accounts`);
+        // For PRC20, use backend SSL API for holders list with search support
+        const res = await fetch(
+          searchAddress 
+            ? `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&search=${encodeURIComponent(searchAddress)}`
+            : `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&limit=200&_t=${Date.now()}`,
+          { cache: 'no-store' }
+        );
         
-        if (accountsRes.ok) {
-          const accountsData = await accountsRes.json();
-          const accounts = accountsData.accounts || [];
-          
-          // Fetch balances for each account (limit to first 50 for performance)
-          const accountsToFetch = accounts.slice(0, 50);
-          const holdersWithBalance = await Promise.all(
-            accountsToFetch.map(async (address: string) => {
-              try {
-                const balanceRes = await fetch(
-                  `/api/prc20-balance?contract=${encodeURIComponent(denom)}&address=${encodeURIComponent(address)}`
-                );
-                
-                if (balanceRes.ok) {
-                  const balanceData = await balanceRes.json();
-                  return {
-                    address: address,
-                    balance: balanceData.balance || '0',
-                    percentage: 0
-                  };
-                }
-              } catch (err) {
-                console.error(`Error fetching balance for ${address}:`, err);
-              }
-              
-              return {
-                address: address,
-                balance: '0',
-                percentage: 0
-              };
-            })
-          );
-          
-          // Get token info for total supply to calculate percentages
-          const tokenInfoRes = await fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`);
-          let totalSupply = '0';
-          
-          if (tokenInfoRes.ok) {
-            const tokenInfo = await tokenInfoRes.json();
-            totalSupply = tokenInfo.total_supply || '0';
-          }
-          
-          // Calculate percentages
-          const totalSupplyNum = BigInt(totalSupply);
-          const holdersWithPercentage = holdersWithBalance.map(holder => ({
-            ...holder,
-            percentage: totalSupplyNum > 0 
-              ? (Number(BigInt(holder.balance) * BigInt(10000) / totalSupplyNum) / 100)
-              : 0
-          }));
-          
-          // Sort by balance descending
-          holdersWithPercentage.sort((a, b) => {
-            const balA = BigInt(a.balance);
-            const balB = BigInt(b.balance);
-            return balA > balB ? -1 : balA < balB ? 1 : 0;
-          });
-          
-          setData({
-            denom: denom,
-            totalSupply: totalSupply,
-            holders: holdersWithPercentage,
-            count: accounts.length,
-            message: 'PRC20 token holders',
-            note: `Showing top ${holdersWithPercentage.length} of ${accounts.length} holder${accounts.length !== 1 ? 's' : ''}`
-          });
+        if (res.ok) {
+          const holdersData = await res.json();
+          setData(holdersData);
         } else {
           setData({
             denom: denom,
             totalSupply: '0',
             holders: [],
             count: 0,
-            message: 'PRC20 token holders',
-            note: 'Unable to fetch holder data'
+            message: 'Failed to fetch holders'
           });
         }
       } else {
@@ -318,9 +259,27 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
             </button>
             {searchAddress && (
               <button
-                onClick={() => {
+                onClick={async () => {
                   setSearchAddress('');
-                  loadHolders();
+                  // Reload holders list after clearing search
+                  try {
+                    setLoading(true);
+                    const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
+                    
+                    const res = await fetch(
+                      `/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&limit=200&_t=${Date.now()}`,
+                      { cache: 'no-store' }
+                    );
+                    
+                    if (res.ok) {
+                      const holdersData = await res.json();
+                      setData(holdersData);
+                    }
+                  } catch (error) {
+                    console.error('Error reloading holders:', error);
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
                 className="flex-1 sm:flex-none px-4 py-2 md:py-2.5 bg-[#0f0f0f] border border-gray-800 text-gray-400 hover:text-white text-xs md:text-sm rounded-lg transition-colors"
               >
@@ -435,15 +394,15 @@ export default function TopHolders({ chainName, denom }: TopHoldersProps) {
                       </td>
                       <td className="py-2 md:py-3 px-2 md:px-4 text-right hidden lg:table-cell">
                         <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-wider border ${
-                          data.denom.startsWith('paxi1') && data.denom.length > 40
+                          denom.startsWith('paxi1') && denom.length > 40
                             ? 'bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-400 border-orange-500/20'
-                            : data.denom.startsWith('ibc/') 
+                            : denom.startsWith('ibc/') 
                             ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' 
-                            : data.denom.startsWith('gamm/') 
+                            : denom.startsWith('gamm/') 
                             ? 'bg-pink-500/10 text-pink-400 border-pink-500/20'
                             : 'bg-green-500/10 text-green-400 border-green-500/20'
                         }`}>
-                          {data.denom.startsWith('paxi1') && data.denom.length > 40 ? 'PRC20' : data.denom.startsWith('ibc/') ? 'IBC Token' : data.denom.startsWith('gamm/') ? 'LP Token' : 'Native'}
+                          {denom.startsWith('paxi1') && denom.length > 40 ? 'PRC20' : denom.startsWith('ibc/') ? 'IBC Token' : denom.startsWith('gamm/') ? 'LP Token' : 'Native'}
                         </span>
                       </td>
                     </tr>
