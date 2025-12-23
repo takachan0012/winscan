@@ -249,7 +249,7 @@ export default function AccountsPage() {
     setPrc20Loading(true);
     
     try {
-      // Get all PRC20 tokens - no limit to get all tokens
+      // Get all PRC20 tokens
       const tokensRes = await fetch('/api/prc20-tokens?chain=paxi-mainnet');
       if (!tokensRes.ok) {
         console.error('[PRC20] Failed to fetch tokens list');
@@ -258,7 +258,7 @@ export default function AccountsPage() {
       }
       
       const { tokens } = await tokensRes.json();
-      console.log(`[PRC20] Loading balances for ${tokens.length} tokens...`);
+      console.log(`[PRC20] Checking balances for ${tokens.length} tokens...`);
       
       if (tokens.length === 0) {
         console.log('[PRC20] No tokens found');
@@ -266,58 +266,39 @@ export default function AccountsPage() {
         return;
       }
       
-      // Optimized: process in larger batches with parallel requests
-      const batchSize = 10; // Increased from 3 to 10
-      const allBalances: any[] = [];
-      let successCount = 0;
-      let failCount = 0;
+      // 🚀 OPTIMIZED: Single batch API call instead of 200+ individual requests
+      const contracts = tokens.map((t: any) => t.contract_address);
       
-      for (let i = 0; i < tokens.length; i += batchSize) {
-        const batch = tokens.slice(i, i + batchSize);
-        console.log(`[PRC20] Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(tokens.length/batchSize)}...`);
-        
-        const batchResults = await Promise.all(
-          batch.map(async (token: any) => {
-            const balance = await fetchBalanceWithRetry(
-              token.contract_address,
-              address
-            );
-            
-            const hasBalance = balance && balance !== '0';
-            
-            if (hasBalance) {
-              successCount++;
-              const decimals = parseInt(token.token_info?.decimals || '6');
-              const formatted = (parseFloat(balance) / Math.pow(10, decimals)).toFixed(4);
-              console.log(`[PRC20] ✅ ${token.token_info?.symbol}: ${formatted}`);
-            } else {
-              failCount++;
-            }
-            
-            return {
-              ...token,
-              balance: balance || '0'
-            };
-          })
-        );
-        
-        allBalances.push(...batchResults);
-        
-        // Update display progressively
-        const nonZeroSoFar = allBalances.filter(t => t.balance !== '0');
-        if (nonZeroSoFar.length > 0) {
-          setPrc20Tokens(nonZeroSoFar);
-        }
-        
-        // Reduced delay between batches
-        if (i + batchSize < tokens.length) {
-          await new Promise(resolve => setTimeout(resolve, 100)); // Reduced from 500ms to 100ms
-        }
+      const batchRes = await fetch('/api/prc20-balances-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contracts, address }),
+        signal: AbortSignal.timeout(60000) // 60s timeout for large batch
+      });
+      
+      if (!batchRes.ok) {
+        console.error('[PRC20] Batch balance fetch failed');
+        setPrc20Loading(false);
+        return;
       }
       
-      // Final update
-      const nonZeroBalances = allBalances.filter(t => t.balance !== '0');
-      console.log(`[PRC20] ✅ Complete! Found ${nonZeroBalances.length} tokens with balance (${successCount} success, ${failCount} zero/failed)`);
+      const batchData = await batchRes.json();
+      console.log(`[PRC20] ✅ Batch complete: ${batchData.with_balance}/${batchData.total} tokens with balance`);
+      
+      // Map balances to tokens
+      const balanceMap = new Map(
+        batchData.balances.map((b: any) => [b.contract, b.balance])
+      );
+      
+      const tokensWithBalances = tokens.map((token: any) => ({
+        ...token,
+        balance: balanceMap.get(token.contract_address) || '0'
+      }));
+      
+      // Show only non-zero balances
+      const nonZeroBalances = tokensWithBalances.filter((t: any) => t.balance !== '0');
+      
+      console.log(`[PRC20] Displaying ${nonZeroBalances.length} tokens with balance`);
       setPrc20Tokens(nonZeroBalances);
       
       if (nonZeroBalances.length === 0) {

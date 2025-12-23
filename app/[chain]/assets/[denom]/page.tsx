@@ -116,49 +116,31 @@ export default function AssetDetailPage() {
             'paxi1ltd0maxmte3xf4zshta9j5djrq9cl692ctsp9u5q0p9wss0f5lmsu3zxf3'
           ];
           
-          // Fetch PRC20 token info
-          const [tokenInfoRes, marketingInfoRes, holdersRes, poolRes, volumeRes] = await Promise.all([
-            fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=token_info`),
-            fetch(`/api/prc20-token-detail?contract=${encodeURIComponent(denom)}&query=marketing_info`),
-            fetch(`/api/prc20-holders?contract=${encodeURIComponent(denom)}`),
-            fetch('https://mainnet-lcd.paxinet.io/paxi/swap/all_pools').catch(() => null),
-            fetch('https://ssl.winsnip.xyz/api/prc20-volume').catch(() => null)
-          ]);
+          // 🚀 OPTIMIZED: Single bundled API call instead of 5 separate requests
+          const bundleRes = await fetch(`/api/prc20-detail-bundle?contract=${encodeURIComponent(denom)}`);
           
-          const tokenInfo = tokenInfoRes.ok ? await tokenInfoRes.json() : null;
-          const marketingInfo = marketingInfoRes.ok ? await marketingInfoRes.json() : null;
-          const holdersData = holdersRes.ok ? await holdersRes.json() : null;
-          const poolsData = poolRes?.ok ? await poolRes.json() : null;
-          const volumeData = volumeRes?.ok ? await volumeRes.json() : null;
+          if (!bundleRes.ok) {
+            throw new Error('Failed to fetch PRC20 details');
+          }
           
-          const numHolders = holdersData?.count || 0;
+          const bundle = await bundleRes.json();
           
-          // Find volume data for this token
+          // Extract data from bundle
+          const tokenInfo = bundle.token_info;
+          const marketingInfo = bundle.marketing_info;
+          const numHolders = bundle.holders || 0;
+          const liquidity = bundle.liquidity;
+          
+          // Volume data
           let volume_7d_paxi = 0;
           let volume_7d_usd = 0;
           let volume_24h_paxi = 0;
           let volume_24h_usd = 0;
-          if (volumeData?.volumes) {
-            const tokenVolume = volumeData.volumes.find((v: any) => v.contract === denom);
-            if (tokenVolume) {
-              volume_7d_paxi = tokenVolume.volume_7d_paxi || 0;
-              volume_7d_usd = tokenVolume.volume_7d_usd || 0;
-              volume_24h_paxi = tokenVolume.volume_24h_paxi || 0;
-              volume_24h_usd = tokenVolume.volume_24h_usd || 0;
-            }
-          }
-          
-          // Find pool for this token and calculate liquidity
-          let liquidity = null;
-          if (poolsData?.pools) {
-            const pool = poolsData.pools.find((p: any) => 
-              p.prc20 === denom || p.prc20_address === denom || p.token === denom || p.contract_address === denom
-            );
-            
-            if (pool && pool.reserve_paxi) {
-              const paxiReserve = parseFloat(pool.reserve_paxi) / 1e6;
-              liquidity = (paxiReserve * 2).toFixed(2); // Total liquidity = 2 * PAXI reserve
-            }
+          if (bundle.volume) {
+            volume_7d_paxi = bundle.volume.volume_7d_paxi || 0;
+            volume_7d_usd = bundle.volume.volume_7d_usd || 0;
+            volume_24h_paxi = bundle.volume.volume_24h_paxi || 0;
+            volume_24h_usd = bundle.volume.volume_24h_usd || 0;
           }
           
           // Set logo URL

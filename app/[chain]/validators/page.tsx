@@ -191,22 +191,33 @@ export default function ValidatorsPage() {
             setCache(cacheKey, validatorsWithChanges);
           });
           
-          // Fetch delegators count for ALL validators in background
+          // 🚀 OPTIMIZED: Batch fetch delegators count for ALL validators
           const chainPath = params?.chain as string;
+          const validatorAddresses = formattedValidators.map((v: any) => v.address);
           
-          Promise.all(
-            formattedValidators.map(async (v: any) => {
-              const count = await fetchValidatorDelegatorsCount(lcdEndpoints, v.address, chainPath);
-              return { address: v.address, count };
-            })
-          ).then((results) => {
-            const delegatorsMap = new Map(results.map(r => [r.address, r.count]));
+          fetch('/api/validators-delegators-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              validators: validatorAddresses, 
+              chain: chainId 
+            }),
+            signal: AbortSignal.timeout(60000)
+          })
+          .then(res => res.json())
+          .then((data) => {
+            const delegatorsMap = new Map(
+              data.results.map((r: any) => [r.validator, r.count])
+            );
             
             setValidators(prev => prev.map(v => ({
               ...v,
               delegatorsCount: delegatorsMap.get(v.address) || v.delegatorsCount || 0
             })));
-          }).catch(err => {
+            
+            console.log(`[Validators] ✅ Loaded delegators for ${data.results.length} validators`);
+          })
+          .catch(err => {
             console.warn('[Validators] Failed to fetch delegators:', err);
           });
 
