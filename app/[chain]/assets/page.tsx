@@ -1787,7 +1787,6 @@ export default function AssetsPage() {
                                       {token.price_usd && token.price_usd > 0 && (
                                         <div className="text-[10px] text-gray-500 mt-0.5">
                                           ${formatPrice(token.price_usd)}
-                                            : token.price_usd.toFixed(8)}
                                         </div>
                                       )}
                                     </div>
