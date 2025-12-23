@@ -212,7 +212,7 @@ export default function ValidatorsPage() {
             
             setValidators(prev => prev.map(v => ({
               ...v,
-              delegatorsCount: delegatorsMap.get(v.address) || v.delegatorsCount || 0
+              delegatorsCount: (delegatorsMap.get(v.address) || v.delegatorsCount || 0) as number
             })));
             
             console.log(`[Validators] ✅ Loaded delegators for ${data.results.length} validators`);

@@ -777,12 +777,13 @@ export default function ValidatorDetailPage() {
         }
       } catch (e) {
       }
-      
-    } catch (error) {
-      setStakedAmount('0.000');
-      setBalance('0.000');
-      setRewards('0.000');
-      setCommission('0.000');
+        
+      } catch (error) {
+        setStakedAmount('0.000');
+        setBalance('0.000');
+        setRewards('0.000');
+        setCommission('0.000');
+      }
     }
   };
 
