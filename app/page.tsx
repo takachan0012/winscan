@@ -26,8 +26,21 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [contributors, setContributors] = useState<GitHubContributor[]>([]);
+  const [currentScreenshot, setCurrentScreenshot] = useState(0);
   const { language } = useLanguage();
   const t = (key: string) => getTranslation(language, key);
+
+  const screenshots = [
+    { src: '/dasbord.PNG', alt: 'WinScan Dashboard' },
+    { src: '/Global Node Distribution Network.PNG', alt: 'Global Node Distribution Network' },
+    { src: '/BC Relayers.PNG', alt: 'Blockchain Relayers' },
+    { src: '/war-del.PNG', alt: 'Validators Dashboard' },
+    { src: '/Consensus.PNG', alt: 'Consensus Information' },
+    { src: '/Proposal.PNG', alt: 'Governance Proposals' },
+    { src: '/State Sync Configuration.PNG', alt: 'State Sync Configuration' },
+    { src: '/Asset.PNG', alt: 'Asset Management' },
+    { src: '/Uptime.PNG', alt: 'Validator Uptime' }
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -62,6 +75,15 @@ export default function Home() {
         }
       })
       .catch(err => console.error('Error fetching contributors:', err));
+  }, []);
+
+  // Auto-rotate screenshots
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentScreenshot((prev) => (prev + 1) % screenshots.length);
+    }, 4000); // Change every 4 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const getPrettyName = (chainName: string) => {
@@ -260,6 +282,213 @@ export default function Home() {
                   >
                     @winnodexx
                   </a>
+                </div>
+              </div>
+            </section>
+
+            {/* Platform Screenshots Section */}
+            <section className="container mx-auto px-4 sm:px-6 py-16 sm:py-24 lg:py-32 relative">
+              <div className="max-w-[2400px] mx-auto px-8">
+                {/* Header */}
+                <div className="mb-12 max-w-4xl mx-auto text-center">
+                  <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
+                    Explore our powerful blockchain explorer interface
+                  </h2>
+                  <p className="text-gray-400 text-lg leading-relaxed mb-8">
+                    Real-time network statistics and comprehensive metrics across all supported Cosmos chains. Monitor transactions, validators, and blockchain activities.
+                  </p>
+                  <Link 
+                    href="/paxi-mainnet"
+                    className="inline-block px-8 py-4 bg-white hover:bg-gray-100 text-black font-semibold rounded-full transition-all transform hover:scale-105 shadow-lg"
+                  >
+                    Launch dApp
+                  </Link>
+                </div>
+
+                {/* Screenshot Container */}
+                <div className="relative mb-12">
+                  {/* Glow effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-3xl blur-3xl opacity-50"></div>
+                  
+                  {/* Screenshot container */}
+                  <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-1 shadow-2xl border border-gray-700">
+                    <div className="bg-gray-950 rounded-xl overflow-hidden">
+                      {/* Browser mockup */}
+                      <div className="bg-gray-900 px-4 py-3 flex items-center gap-2 border-b border-gray-800">
+                        <div className="flex gap-2">
+                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        </div>
+                        <div className="flex-1 mx-4 bg-gray-800 rounded px-3 py-1 text-xs text-gray-500">
+                          winscan.io
+                        </div>
+                      </div>
+                      
+                      {/* Platform screenshots carousel */}
+                      <div className="relative bg-black overflow-hidden" style={{ height: '800px' }}>
+                        {screenshots.map((screenshot, index) => (
+                          <div
+                            key={index}
+                            className={`absolute inset-0 transition-opacity duration-1000 ${
+                              index === currentScreenshot ? 'opacity-100' : 'opacity-0'
+                            }`}
+                          >
+                            <img 
+                              src={screenshot.src} 
+                              alt={screenshot.alt} 
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Indicator dots */}
+                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                        {screenshots.map((_, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setCurrentScreenshot(index)}
+                            className={`w-2 h-2 rounded-full transition-all ${
+                              index === currentScreenshot 
+                                ? 'bg-blue-500 w-6' 
+                                : 'bg-gray-600 hover:bg-gray-500'
+                            }`}
+                            aria-label={`Go to screenshot ${index + 1}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Features List */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <button 
+                    onClick={() => setCurrentScreenshot(0)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 0 
+                        ? 'bg-blue-500/10 border-l-4 border-blue-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">Network Statistics Dashboard</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Real-time network statistics and comprehensive metrics across all supported chains.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(1)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 1 
+                        ? 'bg-purple-500/10 border-l-4 border-purple-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">Global Node Distribution</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Visualize validator distribution across the globe with interactive network maps.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(2)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 2 
+                        ? 'bg-green-500/10 border-l-4 border-green-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">BC Relayers Monitoring</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Track cross-chain relay activities and IBC packet transfers in real-time.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(3)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 3 
+                        ? 'bg-yellow-500/10 border-l-4 border-yellow-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">Validator Insights</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Comprehensive staking and delegation analytics for informed decision making.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(4)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 4 
+                        ? 'bg-cyan-500/10 border-l-4 border-cyan-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">Consensus Information</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Monitor consensus parameters, block time, and network performance metrics.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(5)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 5 
+                        ? 'bg-pink-500/10 border-l-4 border-pink-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">Governance Proposals</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Track active proposals, voting progress, and governance participation.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(6)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 6 
+                        ? 'bg-orange-500/10 border-l-4 border-orange-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">State Sync Configuration</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Quick node setup with state sync snapshots and configuration details.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(7)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 7 
+                        ? 'bg-emerald-500/10 border-l-4 border-emerald-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">Asset Management</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Manage and track your token balances, transfers, and asset portfolio.
+                    </p>
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentScreenshot(8)}
+                    className={`text-left p-4 rounded-lg transition-all ${
+                      currentScreenshot === 8 
+                        ? 'bg-red-500/10 border-l-4 border-red-500' 
+                        : 'bg-gray-900/50 hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <h3 className="text-lg font-bold text-white mb-2">Validator Uptime</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                      Monitor validator uptime, missed blocks, and performance history.
+                    </p>
+                  </button>
                 </div>
               </div>
             </section>
@@ -489,97 +718,6 @@ export default function Home() {
                           </svg>
                           <span>View Issues</span>
                         </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Screenshot Showcase */}
-            <section className="container mx-auto px-6 py-20">
-              <div className="max-w-7xl mx-auto">
-                <div className="text-center mb-16">
-                  <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4">
-                    Platform Screenshots
-                  </h2>
-                  <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                    Explore our powerful blockchain explorer interface
-                  </p>
-                </div>
-
-                <div className="space-y-8">
-                  {/* Large Featured Screenshot - Stats Section */}
-                  <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 blur-2xl transition-all duration-500"></div>
-                    <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-gray-800 rounded-2xl p-6 hover:border-gray-700 transition-all duration-300 shadow-2xl">
-                      <div className="mb-4">
-                        <h3 className="text-2xl font-bold text-white mb-2">Network Statistics Dashboard</h3>
-                        <p className="text-gray-400">Real-time network statistics and comprehensive metrics across all supported chains</p>
-                      </div>
-                      <div className="relative overflow-hidden rounded-xl border border-gray-700 shadow-xl">
-                        <img 
-                          src="/dasbord.PNG" 
-                          alt="Stats Section"
-                          className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Grid of 3 Screenshots */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Features Section */}
-                    <div className="relative group">
-                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl opacity-0 group-hover:opacity-100 blur-2xl transition-all duration-500"></div>
-                      <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all duration-300 shadow-xl h-full">
-                        <div className="mb-3">
-                          <h4 className="text-lg font-bold text-white mb-1">Features Overview</h4>
-                          <p className="text-gray-400 text-sm">Comprehensive feature showcase</p>
-                        </div>
-                        <div className="relative overflow-hidden rounded-lg border border-gray-700">
-                          <img 
-                            src="/Global Node Distribution Network.PNG" 
-                            alt="Features Section"
-                            className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* BC Relayers */}
-                    <div className="relative group">
-                      <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl opacity-0 group-hover:opacity-100 blur-2xl transition-all duration-500"></div>
-                      <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all duration-300 shadow-xl h-full">
-                        <div className="mb-3">
-                          <h4 className="text-lg font-bold text-white mb-1">BC Relayers</h4>
-                          <p className="text-gray-400 text-sm">Cross-chain relay monitoring</p>
-                        </div>
-                        <div className="relative overflow-hidden rounded-lg border border-gray-700">
-                          <img 
-                            src="/BC Relayers.PNG" 
-                            alt="BC Relayers"
-                            className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Validator Delegation */}
-                    <div className="relative group">
-                      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 blur-2xl transition-all duration-500"></div>
-                      <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all duration-300 shadow-xl h-full">
-                        <div className="mb-3">
-                          <h4 className="text-lg font-bold text-white mb-1">Validator Delegation</h4>
-                          <p className="text-gray-400 text-sm">Staking and delegation insights</p>
-                        </div>
-                        <div className="relative overflow-hidden rounded-lg border border-gray-700">
-                          <img 
-                            src="/war-del.PNG" 
-                            alt="Validator Delegation"
-                            className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500"
-                          />
-                        </div>
                       </div>
                     </div>
                   </div>
