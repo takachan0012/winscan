@@ -101,7 +101,7 @@
   ],
   "theme_color": "#23292F",
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/xrplevm/images/xrplevm.png",
-  "website": "https://xrplevm.org",
+  "website": "https://explorer.xrplevm.org/apps/winsnip",
   "github": "https://github.com/xrplevm/node",
   "description": "The XRPL Ethereum Virtual Machine (EVM) is an innovative extension of the XRP Ledger developed by Peersyst in collaboration with Ripple that integrates Ethereum's smart contract capabilities via a dedicated sidechain.",
   "twitter": "https://twitter.com/XRPLF",
