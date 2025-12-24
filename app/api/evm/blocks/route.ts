@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     
     const response = await fetch(backendUrl, {
       headers: { 'Accept': 'application/json' },
-      next: { revalidate: 10 } // Cache for 10 seconds
+      next: { revalidate: 15 } // Cache for 15 seconds
     });
 
     if (!response.ok) {
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(data, {
       headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
       },
     });
   } catch (error) {

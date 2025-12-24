@@ -86,17 +86,22 @@ export default function EVMTransactionsPage() {
         return txsData;
       }
       
-      // Check for new transactions
+      // Quick check: if same length and first tx is same, likely no change
+      if (prev.length === txsData.length && prev[0]?.hash === txsData[0]?.hash) {
+        return prev;
+      }
+      
+      // Check for new transactions (txs with hashes we haven't seen)
       const newTxs = txsData.filter(
         (newTx: EVMTransaction) => !prev.some(tx => tx.hash === newTx.hash)
       );
       
       if (newTxs.length > 0) {
-        // Add new transactions at the beginning, keep max 50
-        return [...newTxs, ...prev].slice(0, 50);
+        // Add new transactions at the beginning, keep max 100
+        return [...newTxs, ...prev].slice(0, 100);
       }
       
-      // No changes, return previous state
+      // No new transactions, return previous state to prevent flicker
       return prev;
     });
     
@@ -118,70 +123,45 @@ export default function EVMTransactionsPage() {
       const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
       const cacheKey = `evm_txs_${chainName}`;
       
-      // Always show cached data immediately (optimistic UI)
-      if (!showLoading) {
-        try {
-          const cached = sessionStorage.getItem(cacheKey);
-          if (cached) {
-            const { data, timestamp } = JSON.parse(cached);
-            if (Array.isArray(data) && data.length > 0) {
-              setTransactions(data);
-              // Skip fetch if cache is very fresh (< 5 seconds)
-              if (Date.now() - timestamp < 5000) {
-                return;
-              }
+      // ALWAYS show cached data immediately for instant UX
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Array.isArray(data) && data.length > 0) {
+            setTransactions(data);
+            setLoading(false); // Instantly remove loading state
+            
+            // Skip fetch if cache is fresh (< 8 seconds)
+            if (!showLoading && Date.now() - timestamp < 8000) {
+              return;
             }
           }
-        } catch (e) {
-          console.warn('Cache read error:', e);
         }
+      } catch (e) {
+        console.warn('Cache read error:', e);
       }
       
-      // Show loading only on initial load
+      // Only show loading on very first load with no cache
       if (showLoading && transactions.length === 0) {
         setLoading(true);
-      } else if (!showLoading) {
-        // Silent background refresh
+      } else {
+        // Silent background refresh - no loading indicator
         setIsRefreshing(true);
       }
       
       try {
-        setError(null);
         
-        // Parallel fetch: Race between backend and local API
-        const fetchPromises = [
-          // Backend API with 4s timeout
-          fetch(`https://ssl.winsnip.xyz/api/evm/transactions?chain=${chainName}`, {
-            signal: AbortSignal.timeout(4000)
-          }).then(r => r.json()).catch(() => ({ transactions: [], error: 'backend_timeout' })),
-          
-          // Local API with 5s timeout
-          fetch(`/api/evm/transactions?chain=${chainName}`, {
-            signal: AbortSignal.timeout(5000)
-          }).then(r => r.json()).catch(() => ({ transactions: [], error: 'local_timeout' }))
-        ];
+        // Try local API first (faster and has caching)
+        const response = await fetch(`/api/evm/transactions?chain=${chainName}`, {
+          signal: AbortSignal.timeout(8000)
+        });
         
-        // Use Promise.race to get the fastest response
-        const data = await Promise.race(fetchPromises);
-        
-        // If first response is empty/error, wait for second one
-        if (!data.transactions || data.transactions.length === 0 || data.error) {
-          const allResults = await Promise.allSettled(fetchPromises);
-          const validResult = allResults.find(
-            r => r.status === 'fulfilled' && 
-            r.value.transactions && 
-            r.value.transactions.length > 0
-          );
-          
-          if (validResult && validResult.status === 'fulfilled') {
-            const validData = validResult.value;
-            if (Array.isArray(validData.transactions) && validData.transactions.length > 0) {
-              processTransactionsData(validData.transactions, cacheKey);
-              return;
-            }
-          }
-          throw new Error('No valid data from any source');
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
         }
+        
+        const data = await response.json();
         
         // Process valid data
         if (Array.isArray(data.transactions) && data.transactions.length > 0) {
@@ -198,8 +178,8 @@ export default function EVMTransactionsPage() {
     // Initial load
     fetchTransactions(true);
     
-    // Auto-refresh every 4 seconds (silent background refresh)
-    const interval = setInterval(() => fetchTransactions(false), 4000);
+    // Auto-refresh every 10 seconds (real-time updates)
+    const interval = setInterval(() => fetchTransactions(false), 10000);
     
     return () => clearInterval(interval);
   }, [selectedChain]);
