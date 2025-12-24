@@ -221,27 +221,33 @@ export default function ValidatorsPage() {
             console.warn('[Validators] Failed to fetch delegators:', err);
           });
 
-          // Fetch uptime for top 20 validators only (optimization)
+          // Batch fetch uptime for top 20 validators
           const top20 = formattedValidators.slice(0, 20);
-          Promise.all(
-            top20.map(async (v: any) => {
-              if (!v.consensus_pubkey) return { address: v.address, uptime: 100 };
-              
-              // Convert consensus pubkey to address (simplified - use key directly)
-              const consensusAddress = v.consensus_pubkey?.key || '';
-              const uptime = await fetchValidatorUptime(lcdEndpoints, consensusAddress, chainPath);
-              return { address: v.address, uptime };
+          const consensusAddresses = top20
+            .map(v => v.consensus_pubkey?.key)
+            .filter(Boolean) as string[];
+          
+          if (consensusAddresses.length > 0) {
+            fetch('/api/validators/uptime/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chain: chainPath,
+                validators: consensusAddresses
+              })
             })
-          ).then((results) => {
-            const uptimeMap = new Map(results.map(r => [r.address, r.uptime]));
-            
-            setValidators(prev => prev.map(v => ({
-              ...v,
-              uptime: uptimeMap.get(v.address) || v.uptime || 100
-            })));
-          }).catch(err => {
-            console.warn('[Validators] Failed to fetch uptime:', err);
-          });
+            .then(res => res.json())
+            .then((uptimeMap: { [key: string]: number }) => {
+              setValidators(prev => prev.map(v => {
+                const consensusKey = v.consensus_pubkey?.key;
+                const uptime = consensusKey ? (uptimeMap[consensusKey] || 100) : 100;
+                return { ...v, uptime };
+              }));
+            })
+            .catch(err => {
+              console.warn('[Validators] Batch uptime fetch failed:', err);
+            });
+          }
           
           return;
         } catch (directError) {

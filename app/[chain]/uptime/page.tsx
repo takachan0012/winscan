@@ -42,7 +42,8 @@ export default function UptimePage() {
   const [uptimeData, setUptimeData] = useState<ValidatorUptime[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [blocksToCheck, setBlocksToCheck] = useState(100);
+  const [blocksToCheck, setBlocksToCheck] = useState(100); // Start with 100 blocks
+  const [signingWindow, setSigningWindow] = useState<number>(100);
   const [isLive, setIsLive] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [currentBlock, setCurrentBlock] = useState<number>(0);
@@ -75,11 +76,54 @@ export default function UptimePage() {
     }
   }, [params]);
 
+  // Fetch signing window parameters
+  useEffect(() => {
+    if (!selectedChain) return;
+    
+    const fetchSigningWindow = async () => {
+      try {
+        // Try to get slashing params from API
+        const apis = selectedChain.api || [];
+        if (apis.length === 0) {
+          console.log('[Uptime] No API available, using default: 100');
+          setSigningWindow(100);
+          setBlocksToCheck(100);
+          return;
+        }
+        
+        const api = apis[0].address;
+        const res = await fetch(`${api}/cosmos/slashing/v1beta1/params`, {
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          const window = parseInt(data.params?.signed_blocks_window || '100');
+          // Limit to max 1000 blocks for performance
+          const limitedWindow = Math.min(window, 1000);
+          console.log(`[Uptime] Signing window for ${selectedChain.chain_name}: ${window}, using: ${limitedWindow}`);
+          setSigningWindow(limitedWindow);
+          setBlocksToCheck(limitedWindow);
+        } else {
+          console.log('[Uptime] API error, using default: 100');
+          setSigningWindow(100);
+          setBlocksToCheck(100);
+        }
+      } catch (error) {
+        console.error('[Uptime] Error fetching signing window:', error);
+        setSigningWindow(100);
+        setBlocksToCheck(100);
+      }
+    };
+    
+    fetchSigningWindow();
+  }, [selectedChain?.chain_name]);
+
   // Memoized fetch function dengan debounce
   const fetchUptime = useCallback(async (force = false) => {
     if (!selectedChain || !isLive) return;
     
-    const cacheKey = `uptime_v3_${selectedChain.chain_name}_${blocksToCheck}`;
+    const cacheKey = `uptime_v4_${selectedChain.chain_name}_${blocksToCheck}`;
     
     try {
       const cached = sessionStorage.getItem(cacheKey);
@@ -90,9 +134,9 @@ export default function UptimePage() {
           setUptimeData(data);
         }
         
-        // Keep cache for 2 minutes to reduce unnecessary fetches
-        if (Date.now() - timestamp < 2 * 60 * 1000) {
-          console.log('[Uptime Page] Using cached data (< 2 min old)');
+        // Keep cache for 60 seconds untuk reduce API calls
+        if (Date.now() - timestamp < 60 * 1000) {
+          console.log('[Uptime Page] Using cached data (< 60 sec old)');
           return;
         }
       }
@@ -110,12 +154,20 @@ export default function UptimePage() {
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // Increase timeout
       
+      // Single batch request untuk semua validator uptime
       const apiUrl = `/api/uptime?chain=${selectedChain.chain_id || selectedChain.chain_name}&blocks=${blocksToCheck}`;
-      console.log('[Uptime Page] Fetching:', apiUrl);
+      console.log('[Uptime Page] Batch fetching uptime data:', apiUrl);
       
-      const res = await fetch(apiUrl, { signal: controller.signal });
+      const res = await fetch(apiUrl, { 
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       
       clearTimeout(timeoutId);
       
@@ -173,9 +225,9 @@ export default function UptimePage() {
             timestamp: Date.now() 
           }));
           
-          // Cleanup old cache
+          // Cleanup old cache versions
           Object.keys(sessionStorage).forEach(key => {
-            if (key.startsWith('uptime_') && !key.startsWith('uptime_v3_')) {
+            if (key.startsWith('uptime_') && !key.startsWith('uptime_v4_')) {
               sessionStorage.removeItem(key);
             }
           });
@@ -213,12 +265,14 @@ export default function UptimePage() {
     if (!selectedChain || !isLive) return;
     
     let blockCount = 0;
-    const BLOCKS_THRESHOLD = 10; // Update setiap 10 blocks baru (~1 menit)
+    const BLOCKS_THRESHOLD = 10; // Update setiap 10 blocks (~1 menit) untuk reduce API calls
     
     const checkNewBlock = async () => {
       try {
         // Get latest block height
-        const res = await fetch(`/api/network?chain=${selectedChain.chain_id || selectedChain.chain_name}`);
+        const res = await fetch(`/api/network?chain=${selectedChain.chain_id || selectedChain.chain_name}`, {
+          cache: 'no-store'
+        });
         if (res.ok) {
           const data = await res.json();
           const latestHeight = parseInt(data.block_height || '0');
@@ -227,10 +281,10 @@ export default function UptimePage() {
             if (currentBlock > 0 && latestHeight > currentBlock) {
               blockCount++;
               
-              // Update uptime hanya setiap 10 blocks baru untuk stabilitas
+              // Update uptime setiap 10 blocks untuk reduce API load
               if (blockCount >= BLOCKS_THRESHOLD) {
-                console.log(`[Uptime Page] ${BLOCKS_THRESHOLD} blocks passed, updating uptime...`);
-                fetchUptime(true);
+                console.log(`[Uptime Page] ${BLOCKS_THRESHOLD} blocks passed, batch fetching uptime...`);
+                fetchUptime(true); // Force fresh data
                 blockCount = 0; // Reset counter
               } else {
                 console.log(`[Uptime Page] New block: ${latestHeight} (${blockCount}/${BLOCKS_THRESHOLD})`);
@@ -247,15 +301,15 @@ export default function UptimePage() {
     // Initial block check
     checkNewBlock();
     
-    // Check for new blocks every 6 seconds
+    // Check for new blocks setiap 6 detik
     blockCheckRef.current = setInterval(checkNewBlock, 6000);
     
-    // Fallback: Full refresh setiap 5 menit (bukan 1 menit)
+    // Fallback: Full refresh setiap 3 menit untuk memastikan data fresh tanpa terlalu banyak request
     intervalRef.current = setInterval(() => {
-      console.log('[Uptime Page] Fallback refresh (5 min)');
-      fetchUptime(true);
+      console.log('[Uptime Page] Fallback refresh (3 min) - batch fetch');
+      fetchUptime(true); // Force fresh data
       blockCount = 0; // Reset counter
-    }, 5 * 60 * 1000); // 5 menit
+    }, 3 * 60 * 1000); // 3 menit
     
     return () => {
       if (intervalRef.current) {
@@ -487,8 +541,8 @@ export default function UptimePage() {
                 <span className="text-white font-bold">{validUptimeData.length}</span>
               </div>
               <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20">
-                <span className="text-xs text-gray-400">Monitoring:</span>
-                <span className="text-xs text-purple-400 font-mono font-bold">Last {blocksToCheck} blocks</span>
+                <span className="text-xs text-gray-400">Signing Window:</span>
+                <span className="text-xs text-purple-400 font-mono font-bold">{signingWindow.toLocaleString()} blocks</span>
               </div>
               <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20">
                 <span className="text-xs text-gray-400">Updates:</span>

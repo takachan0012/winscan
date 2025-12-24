@@ -95,9 +95,19 @@ export default function TransactionsPage() {
         signal: AbortSignal.timeout(8000), // 8 second timeout
       });
       
+      console.log('[Transactions Debug] Response status:', res.status, res.ok);
+      
       if (res.ok) {
         const data = await res.json();
+        console.log('[Transactions Debug] Raw data:', data);
         const txData = Array.isArray(data) ? data : [];
+        
+        console.log('[Transactions Debug] Backend response:', { 
+          chain: selectedChain?.chain_id || selectedChain?.chain_name,
+          txCount: txData.length,
+          firstTx: txData[0],
+          url: `${API_URL}/api/transactions?chain=${selectedChain?.chain_id || selectedChain?.chain_name}&limit=200&page=${currentPage}`
+        });
         
         if (txData.length > 0) {
           // Smooth update: only update if data actually changed
@@ -153,7 +163,11 @@ export default function TransactionsPage() {
       throw new Error('No LCD endpoints available');
       
     } catch (err) {
-      console.error('Error fetching transactions:', err);
+      console.error('[Transactions Debug] Error fetching transactions:', err);
+      console.error('[Transactions Debug] Error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        chain: selectedChain?.chain_id || selectedChain?.chain_name
+      });
       setTransactions([]);
       setLoading(false);
       setIsRefreshing(false);
