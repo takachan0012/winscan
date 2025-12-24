@@ -385,46 +385,46 @@ export default function Home() {
             <PartnersSection />
 
             {/* Platform Screenshots Section */}
-            <section className="container mx-auto px-4 sm:px-6 py-16 sm:py-24 lg:py-32 relative">
-              <div className="max-w-[2400px] mx-auto px-8">
+            <section className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-24 relative">
+              <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-12 max-w-4xl mx-auto text-center">
-                  <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
+                <div className="mb-8 sm:mb-12 text-center">
+                  <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-white leading-tight mb-4 sm:mb-6 px-2">
                     Explore our powerful blockchain explorer interface
                   </h2>
-                  <p className="text-gray-400 text-lg leading-relaxed mb-8">
+                  <p className="text-gray-400 text-sm sm:text-base lg:text-lg leading-relaxed mb-6 sm:mb-8 px-4 max-w-3xl mx-auto">
                     Real-time network statistics and comprehensive metrics across all supported Cosmos chains. Monitor transactions, validators, and blockchain activities.
                   </p>
                   <Link 
                     href="/paxi-mainnet"
-                    className="inline-block px-8 py-4 bg-white hover:bg-gray-100 text-black font-semibold rounded-full transition-all transform hover:scale-105 shadow-lg"
+                    className="inline-block px-6 sm:px-8 py-3 sm:py-4 bg-white hover:bg-gray-100 text-black text-sm sm:text-base font-semibold rounded-full transition-all transform hover:scale-105 shadow-lg"
                   >
                     Launch dApp
                   </Link>
                 </div>
 
                 {/* Screenshot Container */}
-                <div className="relative mb-12">
+                <div className="relative mb-8 sm:mb-12">
                   {/* Glow effect */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-3xl blur-3xl opacity-50"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-2xl sm:rounded-3xl blur-2xl sm:blur-3xl opacity-50"></div>
                   
                   {/* Screenshot container */}
-                  <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-1 shadow-2xl border border-gray-700">
-                    <div className="bg-gray-950 rounded-xl overflow-hidden">
+                  <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl sm:rounded-2xl p-0.5 sm:p-1 shadow-2xl border border-gray-700">
+                    <div className="bg-gray-950 rounded-lg sm:rounded-xl overflow-hidden">
                       {/* Browser mockup */}
-                      <div className="bg-gray-900 px-4 py-3 flex items-center gap-2 border-b border-gray-800">
-                        <div className="flex gap-2">
-                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      <div className="bg-gray-900 px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-1 sm:gap-2 border-b border-gray-800">
+                        <div className="flex gap-1 sm:gap-2">
+                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500"></div>
+                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-yellow-500"></div>
+                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500"></div>
                         </div>
-                        <div className="flex-1 mx-4 bg-gray-800 rounded px-3 py-1 text-xs text-gray-500">
+                        <div className="flex-1 mx-2 sm:mx-4 bg-gray-800 rounded px-2 sm:px-3 py-0.5 sm:py-1 text-xs text-gray-500">
                           winscan.io
                         </div>
                       </div>
                       
                       {/* Platform screenshots carousel */}
-                      <div className="relative bg-black overflow-hidden" style={{ height: '800px' }}>
+                      <div className="relative bg-black overflow-hidden h-32 sm:h-56 md:h-72 lg:h-[450px] xl:h-[550px]">
                         {screenshots.map((screenshot, index) => (
                           <div
                             key={index}
@@ -442,15 +442,15 @@ export default function Home() {
                       </div>
 
                       {/* Indicator dots */}
-                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                      <div className="absolute bottom-1 sm:bottom-3 left-1/2 transform -translate-x-1/2 hidden sm:flex gap-1.5 z-10">
                         {screenshots.map((_, index) => (
                           <button
                             key={index}
                             onClick={() => setCurrentScreenshot(index)}
-                            className={`w-2 h-2 rounded-full transition-all ${
+                            className={`h-1.5 rounded-full transition-all ${
                               index === currentScreenshot 
-                                ? 'bg-blue-500 w-6' 
-                                : 'bg-gray-600 hover:bg-gray-500'
+                                ? 'bg-blue-500 w-4' 
+                                : 'w-1.5 bg-gray-600 hover:bg-gray-500'
                             }`}
                             aria-label={`Go to screenshot ${index + 1}`}
                           />
@@ -461,129 +461,129 @@ export default function Home() {
                 </div>
 
                 {/* Features List */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   <button 
                     onClick={() => setCurrentScreenshot(0)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 0 
                         ? 'bg-blue-500/10 border-l-4 border-blue-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">Network Statistics Dashboard</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">Network Statistics Dashboard</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Real-time network statistics and comprehensive metrics across all supported chains.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(1)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 1 
                         ? 'bg-purple-500/10 border-l-4 border-purple-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">Global Node Distribution</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">Global Node Distribution</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Visualize validator distribution across the globe with interactive network maps.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(2)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 2 
                         ? 'bg-green-500/10 border-l-4 border-green-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">BC Relayers Monitoring</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">BC Relayers Monitoring</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Track cross-chain relay activities and IBC packet transfers in real-time.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(3)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 3 
                         ? 'bg-yellow-500/10 border-l-4 border-yellow-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">Validator Insights</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">Validator Insights</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Comprehensive staking and delegation analytics for informed decision making.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(4)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 4 
                         ? 'bg-cyan-500/10 border-l-4 border-cyan-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">Consensus Information</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">Consensus Information</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Monitor consensus parameters, block time, and network performance metrics.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(5)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 5 
                         ? 'bg-pink-500/10 border-l-4 border-pink-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">Governance Proposals</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">Governance Proposals</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Track active proposals, voting progress, and governance participation.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(6)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 6 
                         ? 'bg-orange-500/10 border-l-4 border-orange-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">State Sync Configuration</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">State Sync Configuration</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Quick node setup with state sync snapshots and configuration details.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(7)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 7 
                         ? 'bg-emerald-500/10 border-l-4 border-emerald-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">Asset Management</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">Asset Management</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Manage and track your token balances, transfers, and asset portfolio.
                     </p>
                   </button>
 
                   <button 
                     onClick={() => setCurrentScreenshot(8)}
-                    className={`text-left p-4 rounded-lg transition-all ${
+                    className={`text-left p-3 sm:p-4 rounded-lg transition-all ${
                       currentScreenshot === 8 
                         ? 'bg-red-500/10 border-l-4 border-red-500' 
                         : 'bg-gray-900/50 hover:bg-gray-800/50'
                     }`}
                   >
-                    <h3 className="text-lg font-bold text-white mb-2">Validator Uptime</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white mb-1 sm:mb-2">Validator Uptime</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                       Monitor validator uptime, missed blocks, and performance history.
                     </p>
                   </button>
