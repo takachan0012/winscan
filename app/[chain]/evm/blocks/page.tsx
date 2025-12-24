@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -30,6 +30,7 @@ export default function EVMBlocksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const fetchingRef = useRef(false); // Prevent duplicate requests
 
   useEffect(() => {
     const cachedChains = sessionStorage.getItem('chains');
@@ -100,6 +101,12 @@ export default function EVMBlocksPage() {
     if (!selectedChain) return;
 
     const fetchBlocks = async (showLoading = true) => {
+      // Prevent duplicate concurrent requests
+      if (fetchingRef.current) {
+        console.log('[EVM Blocks] Request already in progress, skipping...');
+        return;
+      }
+      
       const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
       const cacheKey = `evm_blocks_${chainName}`;
       
@@ -130,11 +137,13 @@ export default function EVMBlocksPage() {
         setIsRefreshing(true);
       }
       
+      fetchingRef.current = true; // Mark as fetching
+      
       try {
         
         // Try local API first (faster and has caching)
         const response = await fetch(`/api/evm/blocks?chain=${chainName}`, {
-          signal: AbortSignal.timeout(8000)
+          signal: AbortSignal.timeout(15000)
         });
         
         if (!response.ok) {
@@ -156,6 +165,7 @@ export default function EVMBlocksPage() {
       } finally {
         setLoading(false);
         setIsRefreshing(false);
+        fetchingRef.current = false; // Release lock
       }
     };
 

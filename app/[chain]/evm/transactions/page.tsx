@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -35,6 +35,7 @@ export default function EVMTransactionsPage() {
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const fetchingRef = useRef(false); // Prevent duplicate requests
 
   // Get query from URL
   const urlQuery = searchParams.get('q') || '';
@@ -120,6 +121,12 @@ export default function EVMTransactionsPage() {
     if (!selectedChain) return;
 
     const fetchTransactions = async (showLoading = true) => {
+      // Prevent duplicate concurrent requests
+      if (fetchingRef.current) {
+        console.log('[EVM Transactions] Request already in progress, skipping...');
+        return;
+      }
+      
       const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
       const cacheKey = `evm_txs_${chainName}`;
       
@@ -150,11 +157,13 @@ export default function EVMTransactionsPage() {
         setIsRefreshing(true);
       }
       
+      fetchingRef.current = true; // Mark as fetching
+      
       try {
         
         // Try local API first (faster and has caching)
         const response = await fetch(`/api/evm/transactions?chain=${chainName}`, {
-          signal: AbortSignal.timeout(8000)
+          signal: AbortSignal.timeout(15000)
         });
         
         if (!response.ok) {
@@ -172,6 +181,7 @@ export default function EVMTransactionsPage() {
       } finally {
         setLoading(false);
         setIsRefreshing(false);
+        fetchingRef.current = false; // Release lock
       }
     };
 
