@@ -108,13 +108,17 @@ export default function AssetDetailPage() {
       setLoading(true);
       try {
         if (isPRC20) {
-          // Verified tokens list
-          const verifiedTokens = [
-            'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u', // COBRA
-            'paxi1fka7t9avjmx7yphqxn3lzy3880tgcc0wu23xwfwxe5e5y3lkmzfqp07whx',
-            'paxi1l2fvuecjpakxxh6k0mhpxzeln2veqpjs7znm8mfavuwx506v0qnsmpnt55',
-            'paxi1ltd0maxmte3xf4zshta9j5djrq9cl692ctsp9u5q0p9wss0f5lmsu3zxf3'
-          ];
+          // Fetch verified status from backend
+          let isVerified = false;
+          try {
+            const verifyRes = await fetch(`https://ssl.winsnip.xyz/api/prc20/verify?address=${encodeURIComponent(denom)}`);
+            if (verifyRes.ok) {
+              const verifyData = await verifyRes.json();
+              isVerified = verifyData.verified || false;
+            }
+          } catch (e) {
+            console.error('Failed to check verification status:', e);
+          }
           
           // 🚀 OPTIMIZED: Single bundled API call instead of 5 separate requests
           const bundleRes = await fetch(`/api/prc20-detail-bundle?contract=${encodeURIComponent(denom)}`);
@@ -153,8 +157,6 @@ export default function AssetDetailPage() {
           }
           
           if (tokenInfo) {
-            const isVerified = verifiedTokens.includes(denom);
-            
             // Transform PRC20 data to AssetDetail format
             setAsset({
               denom: denom,

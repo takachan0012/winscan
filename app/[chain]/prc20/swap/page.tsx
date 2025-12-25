@@ -8,7 +8,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PRC20PriceChart from '@/components/PRC20PriceChart';
 import { ChainData } from '@/types/chain';
-import { ArrowDownUp, Settings, Info, Zap, AlertCircle, RefreshCw } from 'lucide-react';
+import { ArrowDownUp, Settings, Info, Zap, AlertCircle, RefreshCw, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { calculateFee } from '@/lib/keplr';
 import { getPoolPrice, calculateSwapOutput } from '@/lib/poolPriceCalculator';
 
@@ -43,6 +43,11 @@ export default function PRC20SwapPage() {
   const [memo, setMemo] = useState('WinScan Swap');
   const [activeTab, setActiveTab] = useState<'swap' | 'burn' | 'transfer' | 'info'>('swap');
   const [refreshing, setRefreshing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [verifyContractAddress, setVerifyContractAddress] = useState('');
+  const [verifyAction, setVerifyAction] = useState<'add' | 'remove'>('add');
+  const [verifying, setVerifying] = useState(false);
 
   // Handle tab from URL query params
   useEffect(() => {
@@ -166,6 +171,28 @@ export default function PRC20SwapPage() {
         const key = await (window as any).keplr.getKey(selectedChain.chain_id);
         setWalletAddress(key.bech32Address);
         console.log('✅ Connected wallet:', key.bech32Address);
+        
+        // Check if wallet is admin (only on Paxi chain) - fetch from backend
+        if (selectedChain.chain_id === 'paxi-mainnet') {
+          try {
+            const verifyRes = await fetch(`https://ssl.winsnip.xyz/api/prc20/verify/list`);
+            if (verifyRes.ok) {
+              const data = await verifyRes.json();
+              const admins = data.admins || [];
+              if (admins.includes(key.bech32Address)) {
+                setIsAdmin(true);
+                console.log('👑 Admin wallet detected!');
+              } else {
+                setIsAdmin(false);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to check admin status');
+            setIsAdmin(false);
+          }
+        } else {
+          setIsAdmin(false);
+        }
         
         // Immediately load balances after connection
         if (tokens.length > 0) {
@@ -520,6 +547,81 @@ export default function PRC20SwapPage() {
     calculateAmount();
     
   }, [fromAmount, fromToken, toToken, marketPrices]);
+
+  const handleVerifyContract = async () => {
+    if (!verifyContractAddress.trim()) {
+      setTxResult({
+        success: false,
+        error: 'Please enter a contract address'
+      });
+      return;
+    }
+
+    if (!selectedChain) {
+      setTxResult({
+        success: false,
+        error: 'Chain not selected'
+      });
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      const endpoint = verifyAction === 'add' 
+        ? '/api/prc20/verify'
+        : '/api/prc20/unverify';
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chain: selectedChain.chain_name,
+          contractAddress: verifyContractAddress.trim(),
+          adminAddress: walletAddress
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTxResult({
+          success: true,
+          txHash: `Contract ${verifyAction === 'add' ? 'added to' : 'removed from'} verified list: ${verifyContractAddress.trim()}`
+        });
+        setVerifyContractAddress('');
+        
+        // Force reload tokens with cache bypass
+        setTimeout(async () => {
+          // Clear any existing token cache
+          const cacheBuster = Date.now();
+          
+          console.log('🔄 Refreshing tokens after verification change...');
+          
+          // Reload tokens with fresh data
+          await loadTokens();
+          
+          // Force reload market prices
+          if (tokens.length > 0) {
+            await loadMarketPrices(tokens);
+          }
+          
+          console.log('✅ Token list refreshed with new verification status');
+        }, 1500);
+      } else {
+        throw new Error(data.error || 'Verification failed');
+      }
+    } catch (error: any) {
+      console.error('❌ Verification error:', error);
+      setTxResult({
+        success: false,
+        error: error.message || 'Verification failed'
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleSwap = async () => {
     if (!fromToken || !toToken || !fromAmount) {
@@ -1067,6 +1169,98 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                 Info
               </button>
             </div>
+
+            {/* Admin Panel - Only show for admin on Paxi chain */}
+            {isAdmin && selectedChain?.chain_id === 'paxi-mainnet' && (
+              <div className="mb-4 bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 border border-yellow-500/30 rounded-lg p-4">
+                <button
+                  onClick={() => setShowAdminPanel(!showAdminPanel)}
+                  className="w-full flex items-center justify-between text-yellow-400 hover:text-yellow-300 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    <span className="font-semibold">Admin Panel - Token Verification</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 transition-transform ${showAdminPanel ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showAdminPanel && (
+                  <div className="mt-4 space-y-4">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setVerifyAction('add')}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          verifyAction === 'add'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                        }`}
+                      >
+                        <CheckCircle className="w-4 h-4 inline mr-2" />
+                        Add Verified
+                      </button>
+                      <button
+                        onClick={() => setVerifyAction('remove')}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          verifyAction === 'remove'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                        }`}
+                      >
+                        <XCircle className="w-4 h-4 inline mr-2" />
+                        Remove Verified
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">
+                        Contract Address
+                      </label>
+                      <input
+                        type="text"
+                        value={verifyContractAddress}
+                        onChange={(e) => setVerifyContractAddress(e.target.value)}
+                        placeholder="paxi1..."
+                        className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleVerifyContract}
+                      disabled={verifying || !verifyContractAddress.trim()}
+                      className="w-full px-4 py-3 bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all"
+                    >
+                      {verifying ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Processing...
+                        </span>
+                      ) : (
+                        <span>
+                          {verifyAction === 'add' ? '✓ Add to Verified List' : '✗ Remove from Verified List'}
+                        </span>
+                      )}
+                    </button>
+
+                    <div className="text-xs text-gray-400 bg-gray-900/50 rounded p-3 border border-gray-800">
+                      <p className="font-semibold text-yellow-400 mb-1">💡 Admin Instructions:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Enter PRC-20 contract address</li>
+                        <li>Click "Add" to add to verified list in backend</li>
+                        <li>Click "Remove" to remove from verified list</li>
+                        <li>Token list will auto-refresh after action</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Price Chart - Show after tabs, before swap content */}
             {activeTab === 'swap' && (

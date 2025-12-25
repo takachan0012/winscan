@@ -42,13 +42,24 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
     
-    // Verified tokens list (manually curated)
-    const verifiedTokens = [
-      'paxi14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snvcq0u', // COBRA - First Token on Paxi
-      'paxi1fka7t9avjmx7yphqxn3lzy3880tgcc0wu23xwfwxe5e5y3lkmzfqp07whx',
-      'paxi1l2fvuecjpakxxh6k0mhpxzeln2veqpjs7znm8mfavuwx506v0qnsmpnt55',
-      'paxi1ltd0maxmte3xf4zshta9j5djrq9cl692ctsp9u5q0p9wss0f5lmsu3zxf3'
-    ];
+    // Fetch verified tokens from backend (dynamic, no cache)
+    let verifiedTokens: string[] = [];
+    try {
+      const verifyBackendUrl = `${backendUrl}/api/prc20/verify/list`;
+      const verifyResponse = await fetch(verifyBackendUrl, {
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+      
+      if (verifyResponse.ok) {
+        const verifyData = await verifyResponse.json();
+        verifiedTokens = verifyData.verified || [];
+        console.log('✅ Loaded verified tokens:', verifiedTokens.length);
+      }
+    } catch (error) {
+      console.error('⚠️ Failed to fetch verified tokens from backend');
+      // No fallback - must use backend data only
+    }
     
     // Transform to expected format
     const tokens = (data.tokens || []).map((token: any) => {

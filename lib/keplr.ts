@@ -3370,3 +3370,420 @@ export async function disableAutoCompound(
     return { success: false, error: error.message || 'Failed to disable auto-compound' };
   }
 }
+
+// ============ LIQUIDITY FUNCTIONS ============
+
+export async function executeProvideLiquidity(
+  chain: ChainData,
+  params: {
+    prc20Address: string;
+    paxiAmount: string;
+    prc20Amount: string;
+  },
+  gasLimit: string = '600000',
+  memo: string = ''
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    if (!isKeplrInstalled()) {
+      throw new Error('Keplr extension is not installed');
+    }
+
+    const keplr = window.keplr!;
+    let chainId = (chain.chain_id || chain.chain_name).trim();
+    
+    console.log('💧 executeProvideLiquidity:', {
+      prc20: params.prc20Address,
+      paxiAmount: params.paxiAmount,
+      prc20Amount: params.prc20Amount,
+      chainId: chainId
+    });
+    
+    await keplr.enable(chainId);
+    
+    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    
+    // @ts-ignore - Import required modules
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate');
+    // @ts-ignore
+    const { Registry } = await import('@cosmjs/proto-signing');
+    // @ts-ignore
+    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { GasPrice } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const protobuf = await import('protobufjs/minimal');
+    
+    // Create MsgProvideLiquidity interface
+    const MsgProvideLiquidity = {
+      encode(message: any, writer: any = protobuf.Writer.create()) {
+        if (message.creator !== '') {
+          writer.uint32(10).string(message.creator);
+        }
+        if (message.prc20 !== '') {
+          writer.uint32(18).string(message.prc20);
+        }
+        if (message.paxiAmount !== '') {
+          writer.uint32(26).string(message.paxiAmount);
+        }
+        if (message.prc20Amount !== '') {
+          writer.uint32(34).string(message.prc20Amount);
+        }
+        return writer;
+      },
+      decode(input: any, length?: number) {
+        const reader = input instanceof protobuf.Reader ? input : new protobuf.Reader(input);
+        let end = length === undefined ? reader.len : reader.pos + length;
+        const message: any = {
+          creator: '',
+          prc20: '',
+          paxiAmount: '',
+          prc20Amount: ''
+        };
+        while (reader.pos < end) {
+          const tag = reader.uint32();
+          switch (tag >>> 3) {
+            case 1:
+              message.creator = reader.string();
+              break;
+            case 2:
+              message.prc20 = reader.string();
+              break;
+            case 3:
+              message.paxiAmount = reader.string();
+              break;
+            case 4:
+              message.prc20Amount = reader.string();
+              break;
+            default:
+              reader.skipType(tag & 7);
+              break;
+          }
+        }
+        return message;
+      },
+      fromJSON(object: any) {
+        return {
+          creator: object.creator ?? '',
+          prc20: object.prc20 ?? '',
+          paxiAmount: object.paxiAmount ?? '',
+          prc20Amount: object.prc20Amount ?? ''
+        };
+      },
+      toJSON(message: any) {
+        return {
+          creator: message.creator,
+          prc20: message.prc20,
+          paxiAmount: message.paxiAmount,
+          prc20Amount: message.prc20Amount
+        };
+      },
+      fromPartial(object: any) {
+        return {
+          creator: object.creator ?? '',
+          prc20: object.prc20 ?? '',
+          paxiAmount: object.paxiAmount ?? '',
+          prc20Amount: object.prc20Amount ?? ''
+        };
+      }
+    };
+    
+    // @ts-ignore - Registry types are complex
+    const registry = new Registry([
+      ...defaultRegistryTypes,
+      ['/x.swap.types.MsgProvideLiquidity', MsgProvideLiquidity],
+    ]);
+    
+    console.log('✅ Custom registry created with MsgProvideLiquidity');
+    
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        break;
+      }
+    }
+    
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+    }
+    
+    if (!rpcEndpoint) {
+      throw new Error('No RPC endpoint available for this chain');
+    }
+
+    const clientOptions: any = {
+      registry,
+      broadcastTimeoutMs: 30000,
+      broadcastPollIntervalMs: 3000,
+    };
+
+    const client = await SigningStargateClient.connectWithSigner(
+      rpcEndpoint, 
+      offlineSigner,
+      clientOptions
+    );
+    
+    console.log('✅ SigningStargateClient connected with custom registry');
+    
+    const accounts = await offlineSigner.getAccounts();
+    const signerAddress = accounts[0].address;
+    
+    console.log('👤 Signer address:', signerAddress);
+
+    // Step 1: Increase allowance for swap module
+    const SWAP_MODULE_ACCOUNT = 'paxi1mfru9azs5nua2wxcd4sq64g5nt7nn4n80r745t';
+    
+    console.log('🔐 Increasing allowance for swap module...');
+    
+    try {
+      const wasmClient = await SigningCosmWasmClient.connectWithSigner(
+        rpcEndpoint,
+        offlineSigner,
+        { gasPrice: GasPrice.fromString('0.025upaxi') }
+      );
+      
+      await ensurePRC20Allowance(
+        wasmClient,
+        signerAddress,
+        params.prc20Address,
+        SWAP_MODULE_ACCOUNT,
+        params.prc20Amount,
+        chain
+      );
+      
+      console.log('✅ Allowance increased');
+      
+    } catch (error: any) {
+      console.error('❌ Allowance increase failed:', error);
+      throw new Error(`Failed to increase allowance: ${error.message}`);
+    }
+
+    // Step 2: Provide liquidity
+    // Note: paxiAmount needs to include denom suffix
+    const provideLiquidityMsg = {
+      typeUrl: '/x.swap.types.MsgProvideLiquidity',
+      value: {
+        creator: signerAddress,
+        prc20: params.prc20Address,
+        paxiAmount: `${params.paxiAmount}upaxi`,
+        prc20Amount: params.prc20Amount,
+      },
+    };
+
+    const fee = calculateFee(chain, gasLimit);
+
+    console.log('📡 Sending provide liquidity transaction...');
+
+    const result = await client.signAndBroadcast(
+      signerAddress,
+      [provideLiquidityMsg],
+      fee,
+      memo
+    );
+
+    if (result.code === 0) {
+      console.log('✅ Liquidity provided successfully! TxHash:', result.transactionHash);
+      return {
+        success: true,
+        txHash: result.transactionHash,
+      };
+    } else {
+      console.error('❌ Provide liquidity failed:', result.rawLog);
+      return {
+        success: false,
+        error: result.rawLog || 'Failed to provide liquidity',
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Provide liquidity error:', error);
+    return { success: false, error: error.message || 'Failed to provide liquidity' };
+  }
+}
+
+export async function executeWithdrawLiquidity(
+  chain: ChainData,
+  params: {
+    prc20Address: string;
+    lpAmount: string;
+  },
+  gasLimit: string = '300000',
+  memo: string = ''
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    if (!isKeplrInstalled()) {
+      throw new Error('Keplr extension is not installed');
+    }
+
+    const keplr = window.keplr!;
+    let chainId = (chain.chain_id || chain.chain_name).trim();
+    
+    console.log('💸 executeWithdrawLiquidity:', {
+      prc20: params.prc20Address,
+      lpAmount: params.lpAmount,
+      chainId: chainId
+    });
+    
+    await keplr.enable(chainId);
+    
+    const offlineSigner = await keplr.getOfflineSignerAuto(chainId);
+    
+    // @ts-ignore - Import required modules
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const { Registry } = await import('@cosmjs/proto-signing');
+    // @ts-ignore
+    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    // @ts-ignore
+    const protobuf = await import('protobufjs/minimal');
+    
+    // Create MsgWithdrawLiquidity interface
+    const MsgWithdrawLiquidity = {
+      encode(message: any, writer: any = protobuf.Writer.create()) {
+        if (message.creator !== '') {
+          writer.uint32(10).string(message.creator);
+        }
+        if (message.prc20 !== '') {
+          writer.uint32(18).string(message.prc20);
+        }
+        if (message.lpAmount !== '') {
+          writer.uint32(26).string(message.lpAmount);
+        }
+        return writer;
+      },
+      decode(input: any, length?: number) {
+        const reader = input instanceof protobuf.Reader ? input : new protobuf.Reader(input);
+        let end = length === undefined ? reader.len : reader.pos + length;
+        const message: any = {
+          creator: '',
+          prc20: '',
+          lpAmount: ''
+        };
+        while (reader.pos < end) {
+          const tag = reader.uint32();
+          switch (tag >>> 3) {
+            case 1:
+              message.creator = reader.string();
+              break;
+            case 2:
+              message.prc20 = reader.string();
+              break;
+            case 3:
+              message.lpAmount = reader.string();
+              break;
+            default:
+              reader.skipType(tag & 7);
+              break;
+          }
+        }
+        return message;
+      },
+      fromJSON(object: any) {
+        return {
+          creator: object.creator ?? '',
+          prc20: object.prc20 ?? '',
+          lpAmount: object.lpAmount ?? ''
+        };
+      },
+      toJSON(message: any) {
+        return {
+          creator: message.creator,
+          prc20: message.prc20,
+          lpAmount: message.lpAmount
+        };
+      },
+      fromPartial(object: any) {
+        return {
+          creator: object.creator ?? '',
+          prc20: object.prc20 ?? '',
+          lpAmount: object.lpAmount ?? ''
+        };
+      }
+    };
+    
+    // @ts-ignore - Registry types are complex
+    const registry = new Registry([
+      ...defaultRegistryTypes,
+      ['/x.swap.types.MsgWithdrawLiquidity', MsgWithdrawLiquidity],
+    ]);
+    
+    console.log('✅ Custom registry created with MsgWithdrawLiquidity');
+    
+    let rpcEndpoint = '';
+    const rpcList = chain.rpc || [];
+    
+    for (const rpc of rpcList) {
+      if (rpc.tx_index === 'on') {
+        rpcEndpoint = rpc.address;
+        break;
+      }
+    }
+    
+    if (!rpcEndpoint && rpcList.length > 0) {
+      rpcEndpoint = rpcList[0].address;
+    }
+    
+    if (!rpcEndpoint) {
+      throw new Error('No RPC endpoint available for this chain');
+    }
+
+    const clientOptions: any = {
+      registry,
+      broadcastTimeoutMs: 30000,
+      broadcastPollIntervalMs: 3000,
+    };
+
+    const client = await SigningStargateClient.connectWithSigner(
+      rpcEndpoint, 
+      offlineSigner,
+      clientOptions
+    );
+    
+    console.log('✅ SigningStargateClient connected with custom registry');
+    
+    const accounts = await offlineSigner.getAccounts();
+    const signerAddress = accounts[0].address;
+    
+    console.log('👤 Signer address:', signerAddress);
+
+    const withdrawMsg = {
+      typeUrl: '/x.swap.types.MsgWithdrawLiquidity',
+      value: {
+        creator: signerAddress,
+        prc20: params.prc20Address,
+        lpAmount: params.lpAmount,
+      },
+    };
+
+    const fee = calculateFee(chain, gasLimit);
+
+    console.log('📡 Sending withdraw liquidity transaction...');
+
+    const result = await client.signAndBroadcast(
+      signerAddress,
+      [withdrawMsg],
+      fee,
+      memo
+    );
+
+    if (result.code === 0) {
+      console.log('✅ Liquidity withdrawn successfully! TxHash:', result.transactionHash);
+      return {
+        success: true,
+        txHash: result.transactionHash,
+      };
+    } else {
+      console.error('❌ Withdraw liquidity failed:', result.rawLog);
+      return {
+        success: false,
+        error: result.rawLog || 'Failed to withdraw liquidity',
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Withdraw liquidity error:', error);
+    return { success: false, error: error.message || 'Failed to withdraw liquidity' };
+  }
+}

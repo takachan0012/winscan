@@ -178,6 +178,10 @@ export default function EVMTransactionsPage() {
         }
       } catch (err: any) {
         console.error('Error fetching EVM transactions:', err);
+        // Keep showing cached data if available, only show error if no data at all
+        if (transactions.length === 0) {
+          setError(err instanceof Error ? err.message : 'Failed to load EVM transactions');
+        }
       } finally {
         setLoading(false);
         setIsRefreshing(false);
