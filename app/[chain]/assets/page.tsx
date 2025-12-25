@@ -11,7 +11,6 @@ import Image from 'next/image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 import { getChainRegistryLogoUrl } from '@/lib/chainRegistryLogo';
-import PRC20HoldersCount from '@/components/PRC20HoldersCount';
 
 interface DenomUnit {
   denom: string;
@@ -58,7 +57,13 @@ interface PRC20Token {
   price_change_percent?: number;
   verified?: boolean;
   liquidity_paxi?: number;
-  volume_7d_paxi?: number;
+  volume_24h?: number;
+  reserve_paxi?: number;
+  reserve_prc20?: number;
+  txs_count?: number;
+  buys?: number;
+  sells?: number;
+  is_pump?: boolean;
 }
 
 interface AssetsResponse {
@@ -626,10 +631,9 @@ export default function AssetsPage() {
       
       // Use smaller initial limit for faster first load
       const limit = pageKey ? 100 : 50;
-      let url = `/api/prc20-tokens?chain=${chainName}&limit=${limit}`;
-      if (pageKey) {
-        url += `&key=${encodeURIComponent(pageKey)}`;
-      }
+      // Use new endpoint that fetches from Paxi API (includes holders, volume, etc)
+      let url = `/api/prc20/tokens?chain=${chainName}`;
+      // Note: /api/prc20/tokens doesn't support pagination (returns all tokens)
 
       const response = await fetch(url);
       if (!response.ok) {
@@ -693,59 +697,11 @@ export default function AssetsPage() {
         console.error('Failed to fetch all pools:', error);
       }
       
-      // Fetch holders count and volume data in BATCH - PARALLEL OPTIMIZATION!
-      let holdersMap = new Map<string, number>();
-      let volumeMap = new Map<string, number>();
+      // Note: Holders and volume data already included in /api/prc20/tokens response from backend
+      // No need to batch fetch separately - backend already has Paxi API data!
       
-      try {
-        const contracts = data.tokens.map((t: PRC20Token) => t.contract_address);
-        console.log(`📦 Batch fetching holders & volume for ${contracts.length} PRC20 tokens...`);
-        
-        // Parallel fetch for holders and volume
-        const [holdersResponse, volumeResponse] = await Promise.all([
-          fetch('/api/prc20-holders-batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contracts }),
-            signal: AbortSignal.timeout(30000)
-          }),
-          fetch('https://ssl.winsnip.xyz/api/prc20-volume', {
-            signal: AbortSignal.timeout(10000)
-          }).catch(err => {
-            console.warn('Volume fetch failed:', err);
-            return null;
-          })
-        ]);
-        
-        // Process holders data
-        if (holdersResponse.ok) {
-          const holdersData = await holdersResponse.json();
-          holdersData.results?.forEach((result: any) => {
-            if (result.success) {
-              holdersMap.set(result.contract, result.count);
-            }
-          });
-          console.log(`✅ Batch holders fetch complete: ${holdersMap.size} results`);
-        }
-        
-        // Process volume data
-        if (volumeResponse && volumeResponse.ok) {
-          const volumeData = await volumeResponse.json();
-          const volumes = volumeData.volumes || volumeData;
-          if (Array.isArray(volumes)) {
-            volumes.forEach((item: any) => {
-              if (item.contract && item.volume_7d_paxi !== undefined) {
-                volumeMap.set(item.contract, item.volume_7d_paxi);
-              }
-            });
-            console.log(`✅ Batch volume fetch complete: ${volumeMap.size} results`);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to batch fetch data:', error);
-      }
-      
-      // Process tokens with price calculation and holders from batch
+      // Process tokens with price calculation
+      // Note: num_holders and volume_24h already in token data from backend!
       const tokensWithHolders = data.tokens.map((token: PRC20Token) => {
         const pool = poolsMap.get(token.contract_address);
         
@@ -774,19 +730,13 @@ export default function AssetsPage() {
           }
         }
         
-        // Get holders count from batch result
-        const holdersCount = holdersMap.get(token.contract_address) || 0;
-        
-        // Get volume from batch result
-        const volume7d = volumeMap.get(token.contract_address);
-        
+        // Use holders & volume directly from token data (already from backend Paxi API)
         return {
           ...token,
           price_usd: priceInPaxi,
           price_change_24h: undefined,
-          num_holders: holdersCount,
-          liquidity_paxi: liquidityInPaxi,
-          volume_7d_paxi: volume7d
+          liquidity_paxi: liquidityInPaxi
+          // num_holders and volume_24h already in token object from backend
         };
       });
       
@@ -1666,7 +1616,7 @@ export default function AssetsPage() {
                               {t('assets.supply')}
                             </th>
                             <th className="hidden xl:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                              Volume 7D
+                              Volume 24H
                             </th>
                             <th className="px-2 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.holders')}
@@ -1836,19 +1786,19 @@ export default function AssetsPage() {
                                   )}
                                 </td>
                                 
-                                {/* Volume 7D Column */}
+                                {/* Volume 24H Column */}
                                 <td className="hidden xl:table-cell px-6 py-4 text-right">
-                                  {token.volume_7d_paxi !== undefined && token.volume_7d_paxi > 0 ? (
+                                  {token.volume_24h !== undefined && token.volume_24h > 0 ? (
                                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
                                       <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                                       </svg>
                                       <div className="text-sm font-medium text-white">
-                                        {token.volume_7d_paxi < 0.01 
+                                        {token.volume_24h < 0.01 
                                           ? '<0.01'
-                                          : token.volume_7d_paxi < 1000
-                                          ? token.volume_7d_paxi.toFixed(2)
-                                          : token.volume_7d_paxi.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                          : token.volume_24h < 1000
+                                          ? token.volume_24h.toFixed(2)
+                                          : token.volume_24h.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                                       </div>
                                       <span className="text-xs text-gray-400">PAXI</span>
                                     </div>
@@ -1857,13 +1807,17 @@ export default function AssetsPage() {
                                   )}
                                 </td>
                                 
-                                {/* Holders Column - Lazy Loaded */}
+                                {/* Holders Column - Direct from Paxi API */}
                                 <td className="px-2 md:px-6 py-3 md:py-4 text-right">
-                                  <PRC20HoldersCount
-                                    contractAddress={token.contract_address}
-                                    chainName={chainName || 'paxi-mainnet'}
-                                    initialCount={token.num_holders}
-                                  />
+                                  <Link
+                                    href={`/${chainName}/assets/${encodeURIComponent(token.contract_address)}/holders`}
+                                    className="group/holders inline-flex items-center gap-1 px-2 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-lg transition-all hover:scale-105"
+                                  >
+                                    <span className="text-[10px] md:text-sm font-medium text-white group-hover/holders:text-blue-400 transition-colors whitespace-nowrap">
+                                      {token.num_holders ? token.num_holders.toLocaleString() : '0'}
+                                    </span>
+                                    <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3 text-gray-500 group-hover/holders:text-blue-400 transition-colors flex-shrink-0" />
+                                  </Link>
                                 </td>
                                 
                                 {/* Contract Column */}

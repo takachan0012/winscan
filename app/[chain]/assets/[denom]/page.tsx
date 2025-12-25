@@ -108,19 +108,7 @@ export default function AssetDetailPage() {
       setLoading(true);
       try {
         if (isPRC20) {
-          // Fetch verified status from backend
-          let isVerified = false;
-          try {
-            const verifyRes = await fetch(`https://ssl.winsnip.xyz/api/prc20/verify?address=${encodeURIComponent(denom)}`);
-            if (verifyRes.ok) {
-              const verifyData = await verifyRes.json();
-              isVerified = verifyData.verified || false;
-            }
-          } catch (e) {
-            console.error('Failed to check verification status:', e);
-          }
-          
-          // 🚀 OPTIMIZED: Single bundled API call instead of 5 separate requests
+          // 🚀 OPTIMIZED: Single bundled API call with all data including verified status
           const bundleRes = await fetch(`/api/prc20-detail-bundle?contract=${encodeURIComponent(denom)}`);
           
           if (!bundleRes.ok) {
@@ -134,6 +122,7 @@ export default function AssetDetailPage() {
           const marketingInfo = bundle.marketing_info;
           const numHolders = bundle.holders || 0;
           const liquidity = bundle.liquidity;
+          const isVerified = bundle.verified || false; // From Paxi API + custom list
           
           // Volume data
           let volume_7d_paxi = 0;

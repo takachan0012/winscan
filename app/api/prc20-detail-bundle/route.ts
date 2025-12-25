@@ -41,63 +41,95 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid contract address' }, { status: 400 });
     }
 
-    const lcdUrl = await getWorkingLCD();
-    
-    // Parallel fetch all data
-    const [tokenInfoRes, marketingInfoRes, holdersRes, volumeRes] = await Promise.all([
-      fetch(`${lcdUrl}/cosmwasm/wasm/v1/contract/${contract}/smart/eyJ0b2tlbl9pbmZvIjp7fX0=`, {
-        signal: AbortSignal.timeout(5000)
-      }).catch(() => null),
-      
-      fetch(`${lcdUrl}/cosmwasm/wasm/v1/contract/${contract}/smart/eyJtYXJrZXRpbmdfaW5mbyI6e319`, {
-        signal: AbortSignal.timeout(5000)
-      }).catch(() => null),
-      
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/prc20-holders?contract=${encodeURIComponent(contract)}`, {
-        signal: AbortSignal.timeout(5000)
-      }).catch(() => null),
-      
-      fetch('https://ssl.winsnip.xyz/api/prc20-volume', {
-        signal: AbortSignal.timeout(5000)
-      }).catch(() => null)
-    ]);
-
-    // Parse responses
-    const tokenInfo = tokenInfoRes?.ok ? (await tokenInfoRes.json()).data : null;
-    const marketingInfo = marketingInfoRes?.ok ? (await marketingInfoRes.json()).data : null;
-    const holdersData = holdersRes?.ok ? await holdersRes.json() : null;
-    const volumeData = volumeRes?.ok ? await volumeRes.json() : null;
-
-    // Find volume for this token
+    // 🚀 NEW: Fetch from Backend SSL (already has Paxi API data processed)
+    let tokenInfo = null;
+    let marketingInfo = null;
+    let holdersData = null;
     let volume = null;
-    if (volumeData?.volumes) {
-      volume = volumeData.volumes.find((v: any) => v.contract === contract) || null;
-    }
-
-    // Find pool/liquidity - using cached pool data or fetch
     let liquidity = null;
+    let verified = false;
+    
     try {
-      const poolsRes = await fetch('https://mainnet-lcd.paxinet.io/paxi/swap/all_pools?pagination.limit=500', {
-        signal: AbortSignal.timeout(5000)
-      });
+      // Fetch from backend SSL - has all data from Paxi API + fallbacks
+      const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
+      const backendRes = await fetch(
+        `${backendUrl}/api/prc20-tokens?chain=paxi-mainnet`,
+        { signal: AbortSignal.timeout(10000), cache: 'no-store' }
+      );
       
-      if (poolsRes.ok) {
-        const poolsData = await poolsRes.json();
-        const pool = poolsData.pools?.find((p: any) => 
-          p.prc20 === contract || 
-          p.prc20_address === contract || 
-          p.token === contract || 
-          p.contract_address === contract
-        );
+      if (backendRes.ok) {
+        const backendData = await backendRes.json();
+        const tokenData = backendData.tokens?.find((t: any) => t.contract_address === contract);
         
-        if (pool?.reserve_paxi) {
-          const paxiReserve = parseFloat(pool.reserve_paxi) / 1e6;
-          liquidity = (paxiReserve * 2).toFixed(2);
+        if (tokenData) {
+          // Extract data from backend response
+          tokenInfo = tokenData.token_info || null;
+          marketingInfo = tokenData.marketing_info || null;
+          holdersData = { count: tokenData.num_holders || 0 };
+          
+          // Verified status (already combined: official_verified + custom)
+          verified = tokenData.verified === true;
+          
+          // Volume data from backend
+          volume = {
+            volume_24h_paxi: tokenData.volume_24h || 0,
+            volume_24h_usd: 0,
+            volume_7d_paxi: tokenData.volume_24h || 0, // Use 24h as fallback
+            volume_7d_usd: 0
+          };
+          
+          // Liquidity from reserves
+          if (tokenData.reserve_paxi) {
+            const paxiReserve = parseFloat(tokenData.reserve_paxi) / 1e6;
+            liquidity = (paxiReserve * 2).toFixed(2);
+          }
         }
       }
     } catch (error) {
-      console.error('Failed to fetch liquidity:', error);
+      console.warn('Backend SSL failed, falling back to LCD:', error);
     }
+    
+    // Fallback to LCD if Paxi API failed
+    if (!tokenInfo || !marketingInfo) {
+      const lcdUrl = await getWorkingLCD();
+      
+      const [tokenInfoRes, marketingInfoRes] = await Promise.all([
+        fetch(`${lcdUrl}/cosmwasm/wasm/v1/contract/${contract}/smart/eyJ0b2tlbl9pbmZvIjp7fX0=`, {
+          signal: AbortSignal.timeout(5000)
+        }).catch(() => null),
+        
+        fetch(`${lcdUrl}/cosmwasm/wasm/v1/contract/${contract}/smart/eyJtYXJrZXRpbmdfaW5mbyI6e319`, {
+          signal: AbortSignal.timeout(5000)
+        }).catch(() => null)
+      ]);
+      
+      if (!tokenInfo && tokenInfoRes?.ok) {
+        tokenInfo = (await tokenInfoRes.json()).data;
+      }
+      if (!marketingInfo && marketingInfoRes?.ok) {
+        marketingInfo = (await marketingInfoRes.json()).data;
+      }
+      
+      // Fallback: Fetch holders from backend if Paxi API didn't return holders
+      if (!holdersData || holdersData.count === 0) {
+        try {
+          const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
+          const holdersRes = await fetch(
+            `${backendUrl}/api/prc20-holders?contract=${contract}`,
+            { signal: AbortSignal.timeout(8000) }
+          );
+          if (holdersRes.ok) {
+            const holdersJson = await holdersRes.json();
+            holdersData = { count: holdersJson.count || 0 };
+          }
+        } catch (error) {
+          console.warn('Failed to fetch holders from backend:', error);
+        }
+      }
+    }
+
+    // Note: Backend SSL already combines official_verified + custom verified list
+    // No need to check separately
 
     // Bundle response
     return NextResponse.json({
@@ -106,6 +138,7 @@ export async function GET(request: NextRequest) {
       marketing_info: marketingInfo,
       holders: holdersData?.count || 0,
       liquidity,
+      verified, // Include verified status
       volume: volume ? {
         volume_24h_paxi: volume.volume_24h_paxi || 0,
         volume_24h_usd: volume.volume_24h_usd || 0,

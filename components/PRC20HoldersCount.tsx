@@ -16,18 +16,22 @@ export default function PRC20HoldersCount({
   chainName,
   initialCount 
 }: PRC20HoldersCountProps) {
-  const [holdersCount, setHoldersCount] = useState<number | null>(initialCount || null);
-  const [loading, setLoading] = useState(!initialCount);
+  const [holdersCount, setHoldersCount] = useState<number | null>(initialCount !== undefined ? initialCount : null);
+  const [loading, setLoading] = useState(initialCount === undefined);
   const [isVisible, setIsVisible] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
   
-  // Load immediately (no lazy loading) for better UX
+  // Use initialCount directly if provided (from Paxi API data)
   useEffect(() => {
-    if (initialCount !== undefined) return;
-    setIsVisible(true); // Trigger fetch immediately
+    if (initialCount !== undefined) {
+      setHoldersCount(initialCount);
+      setLoading(false);
+      return;
+    }
+    setIsVisible(true); // Trigger fetch only if no initialCount
   }, [initialCount]);
   
-  // Fetch holders count with localStorage cache
+  // Fetch holders count with localStorage cache (only if no initialCount)
   useEffect(() => {
     if (!isVisible || initialCount !== undefined) return;
     
