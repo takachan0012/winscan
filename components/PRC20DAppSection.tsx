@@ -126,7 +126,8 @@ export default function PRC20DAppSection() {
 
       for (const url of sslEndpoints) {
         try {
-          const res = await fetch(`${url}/api/prc20-tokens?chain=paxi-mainnet`, {
+          // Use cache endpoint for instant data
+          const res = await fetch(`${url}/api/prc20-tokens/cache`, {
             signal: AbortSignal.timeout(5000)
           });
           if (res.ok) {
@@ -158,7 +159,8 @@ export default function PRC20DAppSection() {
         }
       }
 
-      const res = await fetch('/api/prc20-tokens?chain=paxi-mainnet');
+      // Fallback to local API cache
+      const res = await fetch('/api/prc20-tokens/cache');
       const data = await res.json();
       const native: Token = {
         address: 'upaxi',

@@ -207,13 +207,40 @@ export default function PRC20SwapPage() {
 
   const loadTokens = async () => {
     try {
-      // Load PRC20 tokens - add cache buster to get fresh data
-      const cacheBuster = Date.now();
-      const response = await fetch(`/api/prc20/tokens?chain=${selectedChain?.chain_name}&t=${cacheBuster}`);
-      const data = await response.json();
+      console.log('🔄 Loading tokens from SSL cache...');
       
-      console.log('📦 Loaded tokens from API:', data.tokens?.length);
-      console.log('📋 Token contracts:', data.tokens?.map((t: any) => t.address).join(', '));
+      // Try SSL endpoints with cache (instant)
+      const sslUrls = [
+        'https://ssl.winsnip.xyz/api/prc20-tokens/cache',
+        'https://ssl2.winsnip.xyz/api/prc20-tokens/cache',
+        '/api/prc20/tokens'
+      ];
+      
+      let data = null;
+      for (const url of sslUrls) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          
+          const response = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            data = await response.json();
+            console.log(`✅ Loaded from ${url}:`, data.tokens?.length, 'tokens');
+            break;
+          }
+        } catch (e) {
+          console.warn(`Failed to load from ${url}:`, e);
+          continue;
+        }
+      }
+      
+      if (!data || !data.tokens) {
+        throw new Error('Failed to load tokens from all endpoints');
+      }
+      
+      console.log('📦 Total tokens loaded:', data.tokens?.length);
       
       // Add native PAXI token
       const nativeToken: Token = {
@@ -224,63 +251,58 @@ export default function PRC20SwapPage() {
         balance: '0',
       };
       
-      // Map PRC20 tokens - decimals will be queried automatically when needed
+      // Map PRC20 tokens from cache
       const prc20Tokens = (data.tokens || []).map((token: any) => ({
-        address: token.address,
-        name: token.name,
-        symbol: token.symbol,
-        decimals: parseInt(token.decimals) || 18, // Initial value, will be corrected by poolPriceCalculator
-        logo: token.logoUrl,
+        address: token.contract_address || token.address,
+        name: token.token_info?.name || token.name || 'Unknown',
+        symbol: token.token_info?.symbol || token.symbol || 'UNK',
+        decimals: parseInt(token.token_info?.decimals || token.decimals) || 6,
+        logo: token.marketing_info?.logo?.url || token.logoUrl,
         balance: '0'
       }));
       
-      console.log('✅ Tokens loaded from backend');
+      console.log('✅ Mapped', prc20Tokens.length, 'PRC20 tokens');
       
       const allTokens = [nativeToken, ...prc20Tokens];
-      console.log('🪙 All tokens:', allTokens.map(t => `${t.symbol} (${t.decimals} decimals)`));
-      console.log('🔍 Total tokens loaded:', allTokens.length);
-      
-      // Check if specific token exists
-      const targetToken = allTokens.find(t => t.address === 'paxi1063t95vs3zhxgpw7gmzsepde2p85rm973ezury84scajahfsz22sja0j4x');
-      if (targetToken) {
-        console.log('✅ Target token FOUND:', targetToken);
-      } else {
-        console.warn('❌ Target token NOT FOUND in list!');
-        console.log('📋 Available addresses:', allTokens.map(t => t.address).slice(0, 10));
-      }
+      console.log('🪙 All tokens:', allTokens.length, 'total');
       
       setTokens(allTokens);
+      
+      // Auto-select token from URL query param (if not already set)
+      if (!initialTokenSet) {
+        const fromParam = searchParams.get('from');
+        
+        if (fromParam) {
+          console.log('🔍 Auto-selecting token from URL:', fromParam);
+          const selectedToken = allTokens.find(t => t.address.toLowerCase() === fromParam.toLowerCase());
+          
+          if (selectedToken) {
+            console.log('✅ Found token:', selectedToken.symbol);
+            setFromToken(selectedToken);
+            // If FROM is PRC20, TO = PAXI. If FROM is PAXI, leave TO empty for user to select
+            if (selectedToken.address !== 'upaxi') {
+              setToToken(nativeToken);
+              console.log('✅ Auto-selected pair:', selectedToken.symbol, '→ PAXI');
+            } else {
+              console.log('✅ FROM = PAXI, waiting for user to select TO token');
+            }
+            setInitialTokenSet(true);
+          } else {
+            console.warn('⚠️ Token not found:', fromParam);
+            // Default: PAXI as FROM
+            setFromToken(nativeToken);
+            setInitialTokenSet(true);
+          }
+        } else {
+          // No query param: default PAXI as FROM
+          setFromToken(nativeToken);
+          setInitialTokenSet(true);
+        }
+      }
       
       // Load market prices (no cache)
       console.log('🔄 Tokens loaded, now loading market prices...');
       loadMarketPrices(allTokens);
-      
-      // Check URL query param untuk auto-select token
-      const fromParam = searchParams.get('from');
-      
-      if (fromParam && !initialTokenSet) {
-        console.log('🔍 Looking for token with address:', fromParam);
-        // Cari token dari query param
-        const selectedToken = allTokens.find(t => t.address === fromParam);
-        
-        if (selectedToken && selectedToken.address !== 'upaxi') {
-          // PRC20 token dari URL
-          console.log('✅ Found token:', selectedToken.symbol, 'decimals:', selectedToken.decimals);
-          setFromToken(selectedToken);
-          setToToken(nativeToken); // PAXI otomatis
-          setInitialTokenSet(true);
-          console.log('✅ Auto-selected:', selectedToken.symbol, '→ PAXI');
-        } else {
-          console.log('⚠️ Token not found or is PAXI, using default');
-          // Default: PAXI → pilih token
-          setFromToken(nativeToken);
-          setInitialTokenSet(true);
-        }
-      } else if (!fromToken && !initialTokenSet) {
-        // Default: PAXI → pilih token
-        setFromToken(nativeToken);
-        setInitialTokenSet(true);
-      }
       
       // Balances will be loaded by useEffect when tokens are selected
     } catch (error) {

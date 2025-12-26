@@ -631,73 +631,99 @@ export default function AssetsPage() {
       
       // 🚀 ULTRA FAST: Parallel fetch from SSL1 & SSL2 (race condition - fastest wins)
       const timestamp = Date.now();
-      const ssl1Url = `https://ssl.winsnip.xyz/api/prc20-tokens?chain=${chainName}&t=${timestamp}`;
-      const ssl2Url = `https://ssl2.winsnip.xyz/api/prc20-tokens?chain=${chainName}&t=${timestamp}`;
+      // Use cache endpoint for instant response
+      const ssl1Url = `https://ssl.winsnip.xyz/api/prc20-tokens/cache?t=${timestamp}`;
+      const ssl2Url = `https://ssl2.winsnip.xyz/api/prc20-tokens/cache?t=${timestamp}`;
       
-      // Fetch from both servers simultaneously
-      const [ssl1Result, ssl2Result] = await Promise.allSettled([
-        fetch(ssl1Url).then(r => r.ok ? r.json() : Promise.reject('SSL1 failed')),
-        fetch(ssl2Url).then(r => r.ok ? r.json() : Promise.reject('SSL2 failed'))
-      ]);
-      
-      // Use first successful response
-      let data;
-      if (ssl1Result.status === 'fulfilled') {
-        data = ssl1Result.value;
-        console.log('✅ Using SSL1 response');
-      } else if (ssl2Result.status === 'fulfilled') {
-        data = ssl2Result.value;
-        console.log('✅ Using SSL2 response');
-      } else {
-        throw new Error('Both SSL1 and SSL2 failed');
-      }
-      
-      console.log(`✅ Backend SSL: ${data.tokens?.length || 0} tokens loaded`);
-      console.log('✅ Verified tokens:', data.tokens?.filter((t: any) => t.verified).map((t: any) => t.token_info?.symbol || 'Unknown').join(', '));
-      console.log('Sample token:', data.tokens?.[0] ? {
-        symbol: data.tokens[0].token_info?.symbol,
-        holders: data.tokens[0].num_holders,
-        volume: data.tokens[0].volume_24h,
-        price_change: data.tokens[0].price_change_24h,
-        verified: data.tokens[0].verified,
-        reserve: data.tokens[0].reserve_paxi
-      } : 'none');
-      
-      // Backend sudah menyediakan semua data lengkap dari Paxi API + LCD pool
-      // Reserve values dari backend dalam upaxi (1e6), convert ke PAXI untuk UI
-      const enrichedTokens = (data.tokens || []).map((token: any) => {
-        // Backend reserve_paxi dalam upaxi, convert ke PAXI
-        const reserveInPaxi = token.reserve_paxi ? token.reserve_paxi / 1e6 : 0;
-        const liquidityInPaxi = reserveInPaxi * 2; // Total liquidity = both pool sides
-        
-        return {
-          ...token, // Preserve ALL backend data including num_holders, volume_24h, price_change_24h
-          liquidity_paxi: liquidityInPaxi, // Calculated liquidity in PAXI
-          price_usd: token.price_usd || token.price_paxi || 0
-        };
-      });
-      
-      setPrc20Tokens(enrichedTokens);
-      
-      // Debug: Check first few tokens
-      console.log(`✅ ${enrichedTokens.length} tokens set to state`);
-      if (enrichedTokens.length > 0) {
-        console.table(enrichedTokens.slice(0, 3).map((t: any) => ({
-          symbol: t.token_info?.symbol,
-          holders: t.num_holders,
-          volume: t.volume_24h,
-          verified: t.verified ? '✓' : '✗'
-        })));
-      }
-      
-      // Cache for instant reload
+      // Try SSL1 first
       try {
-        sessionStorage.setItem(cacheKey, JSON.stringify({
-          data: { tokens: enrichedTokens },
-          timestamp: Date.now()
-        }));
-      } catch (e) {
-        console.warn('Cache write error:', e);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(ssl1Url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const tokens = data.tokens || [];
+          
+          setPrc20Tokens(tokens);
+          setPrc20NextKey(null); // Cache returns all tokens
+          
+          // Cache the data
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({ 
+              data: { tokens, next_key: null }, 
+              timestamp: Date.now() 
+            }));
+          } catch (e) {
+            console.warn('PRC20 cache write error:', e);
+          }
+          
+          console.log(`✅ Loaded ${tokens.length} PRC20 tokens from SSL1 cache`);
+          return;
+        }
+      } catch (error) {
+        console.warn('SSL1 cache failed, trying SSL2...', error);
+      }
+      
+      // Try SSL2 as fallback
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(ssl2Url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const tokens = data.tokens || [];
+          
+          setPrc20Tokens(tokens);
+          setPrc20NextKey(null);
+          
+          // Cache the data
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({ 
+              data: { tokens, next_key: null }, 
+              timestamp: Date.now() 
+            }));
+          } catch (e) {
+            console.warn('PRC20 cache write error:', e);
+          }
+          
+          console.log(`✅ Loaded ${tokens.length} PRC20 tokens from SSL2 cache`);
+          return;
+        }
+      } catch (error) {
+        console.warn('SSL2 cache failed, using local fallback...', error);
+      }
+      
+      // Local fallback
+      try {
+        const response = await fetch(`/api/prc20-tokens/cache`);
+        if (response.ok) {
+          const data = await response.json();
+          const tokens = data.tokens || [];
+          
+          console.log(`✅ Local cache loaded: ${tokens.length} tokens`);
+          setPrc20Tokens(tokens);
+          setPrc20NextKey(null);
+          
+          // Cache
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({ 
+              data: { tokens, next_key: null }, 
+              timestamp: Date.now() 
+            }));
+          } catch (e) {
+            console.warn('Cache write error:', e);
+          }
+        } else {
+          console.error('Local cache failed');
+        }
+      } catch (error) {
+        console.error('All endpoints failed:', error);
       }
       
       setPrc20NextKey(null);

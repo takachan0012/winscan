@@ -25,9 +25,8 @@ export async function GET(request: NextRequest) {
 
     // Fetch real PRC20 tokens from backend SSL API directly
     const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
-    const backendApiUrl = refresh 
-      ? `${backendUrl}/api/prc20-tokens?chain=${chainName}&refresh=true`
-      : `${backendUrl}/api/prc20-tokens?chain=${chainName}`;
+    // Use cache endpoint for instant response (refresh param not needed as backend auto-updates every 5 min)
+    const backendApiUrl = `${backendUrl}/api/prc20-tokens/cache`;
       
     const response = await fetch(backendApiUrl, {
       headers: {

@@ -249,8 +249,8 @@ export default function AccountsPage() {
     setPrc20Loading(true);
     
     try {
-      // Get all PRC20 tokens
-      const tokensRes = await fetch('/api/prc20-tokens?chain=paxi-mainnet');
+      // Get all PRC20 tokens from cache (instant)
+      const tokensRes = await fetch('/api/prc20-tokens/cache');
       if (!tokensRes.ok) {
         console.error('[PRC20] Failed to fetch tokens list');
         setPrc20Loading(false);

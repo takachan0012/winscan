@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
     try {
       const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
       const backendRes = await fetch(
-        `${backendUrl}/api/prc20-tokens?chain=paxi-mainnet`,
-        { signal: AbortSignal.timeout(10000), cache: 'no-store' }
+        `${backendUrl}/api/prc20-tokens/cache`,
+        { signal: AbortSignal.timeout(5000), cache: 'no-store' }
       );
       
       if (backendRes.ok) {

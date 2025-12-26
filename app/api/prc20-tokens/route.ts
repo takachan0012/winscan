@@ -206,11 +206,11 @@ export async function GET(request: NextRequest) {
     // Try backend API with caching first
     for (const backendUrl of backendUrls) {
       try {
-        const refreshParam = forceRefresh ? '&refresh=true' : '';
+        // Use cache endpoint for instant response (auto-updates every 5 min)
         const response = await fetch(
-          `${backendUrl}/api/prc20-tokens?chain=${chain}${refreshParam}`,
+          `${backendUrl}/api/prc20-tokens/cache`,
           {
-            signal: AbortSignal.timeout(15000), // Increased timeout for large responses
+            signal: AbortSignal.timeout(5000), // Reduced timeout - cache is instant
             headers: { 'Accept': 'application/json' }
           }
         );

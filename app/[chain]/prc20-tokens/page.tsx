@@ -81,10 +81,9 @@ export default function PRC20TokensPage() {
         setLoading(true);
       }
 
-      let url = `/api/prc20-tokens?chain=${chain}&limit=50`;
-      if (pageKey) {
-        url += `&key=${encodeURIComponent(pageKey)}`;
-      }
+      // Use cache endpoint for instant response
+      let url = `/api/prc20-tokens/cache`;
+      // Note: Cache returns all tokens, pagination handled client-side
 
       const response = await fetch(url);
       
@@ -95,36 +94,21 @@ export default function PRC20TokensPage() {
       const data = await response.json();
       const newTokens = data.tokens || [];
 
-      if (pageKey) {
-        const allTokens = [...tokens, ...newTokens];
-        setTokens(allTokens);
-        setDisplayTokens(allTokens);
-      } else {
-        setTokens(newTokens);
-        
-        // Progressive reveal: show first 5, then rest gradually
-        setDisplayTokens(newTokens.slice(0, 5));
-        
-        if (newTokens.length > 5) {
-          for (let i = 5; i < newTokens.length; i += 3) {
-            setTimeout(() => {
-              setDisplayTokens(newTokens.slice(0, Math.min(i + 3, newTokens.length)));
-            }, (i - 5) * 50);
-          }
-        }
-        
-        // Cache the data
-        const cacheKey = `prc20_tokens_${chain}`;
-        localStorage.setItem(cacheKey, JSON.stringify({
-          data: {
-            tokens: newTokens,
-            next_key: data.pagination.next_key
-          },
-          timestamp: Date.now()
-        }));
-      }
+      // Cache returns all tokens - no pagination needed
+      setTokens(newTokens);
+      setDisplayTokens(newTokens); // Show all instantly from cache
+      setNextKey(null); // No pagination
+      
+      // Cache the data
+      const cacheKey = `prc20_tokens_${chain}`;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: {
+          tokens: newTokens,
+          next_key: null
+        },
+        timestamp: Date.now()
+      }));
 
-      setNextKey(data.pagination.next_key || null);
       setIsInitialLoad(false);
     } catch (err: any) {
       if (!silent) {
