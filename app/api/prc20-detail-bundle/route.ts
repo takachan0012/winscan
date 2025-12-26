@@ -41,16 +41,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid contract address' }, { status: 400 });
     }
 
-    // 🚀 NEW: Fetch from Backend SSL (already has Paxi API data processed)
+    // 🚀 Fetch from Backend SSL - semua data sudah lengkap!
     let tokenInfo = null;
     let marketingInfo = null;
-    let holdersData = null;
+    let holdersCount = 0;
     let volume = null;
     let liquidity = null;
     let verified = false;
+    let priceChange24h = 0;
+    let reservePaxi = 0;
+    let reservePrc20 = 0;
+    let pricePaxi = 0;
     
     try {
-      // Fetch from backend SSL - has all data from Paxi API + fallbacks
       const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
       const backendRes = await fetch(
         `${backendUrl}/api/prc20-tokens?chain=paxi-mainnet`,
@@ -62,26 +65,32 @@ export async function GET(request: NextRequest) {
         const tokenData = backendData.tokens?.find((t: any) => t.contract_address === contract);
         
         if (tokenData) {
-          // Extract data from backend response
+          // Token & Marketing Info
           tokenInfo = tokenData.token_info || null;
           marketingInfo = tokenData.marketing_info || null;
-          holdersData = { count: tokenData.num_holders || 0 };
           
-          // Verified status (already combined: official_verified + custom)
+          // Data from Paxi API (via backend)
+          holdersCount = tokenData.num_holders || 0;
           verified = tokenData.verified === true;
+          priceChange24h = tokenData.price_change_24h || 0;
           
-          // Volume data from backend
+          // Volume data
           volume = {
             volume_24h_paxi: tokenData.volume_24h || 0,
             volume_24h_usd: 0,
-            volume_7d_paxi: tokenData.volume_24h || 0, // Use 24h as fallback
+            volume_7d_paxi: tokenData.volume_24h || 0, // Use 24h as proxy
             volume_7d_usd: 0
           };
           
-          // Liquidity from reserves
-          if (tokenData.reserve_paxi) {
-            const paxiReserve = parseFloat(tokenData.reserve_paxi) / 1e6;
-            liquidity = (paxiReserve * 2).toFixed(2);
+          // Reserve & Price from LCD pool (via backend)
+          reservePaxi = tokenData.reserve_paxi || 0;
+          reservePrc20 = tokenData.reserve_prc20 || 0;
+          pricePaxi = tokenData.price_paxi || 0;
+          
+          // Calculate liquidity
+          if (reservePaxi > 0) {
+            const paxiReserveInPaxi = reservePaxi / 1e6;
+            liquidity = (paxiReserveInPaxi * 2).toFixed(2);
           }
         }
       }
@@ -89,7 +98,7 @@ export async function GET(request: NextRequest) {
       console.warn('Backend SSL failed, falling back to LCD:', error);
     }
     
-    // Fallback to LCD if Paxi API failed
+    // Fallback to LCD if backend SSL failed
     if (!tokenInfo || !marketingInfo) {
       const lcdUrl = await getWorkingLCD();
       
@@ -110,8 +119,8 @@ export async function GET(request: NextRequest) {
         marketingInfo = (await marketingInfoRes.json()).data;
       }
       
-      // Fallback: Fetch holders from backend if Paxi API didn't return holders
-      if (!holdersData || holdersData.count === 0) {
+      // Fallback: Fetch holders from backend
+      if (holdersCount === 0) {
         try {
           const backendUrl = process.env.BACKEND_API_URL || 'https://ssl.winsnip.xyz';
           const holdersRes = await fetch(
@@ -120,7 +129,7 @@ export async function GET(request: NextRequest) {
           );
           if (holdersRes.ok) {
             const holdersJson = await holdersRes.json();
-            holdersData = { count: holdersJson.count || 0 };
+            holdersCount = holdersJson.count || 0;
           }
         } catch (error) {
           console.warn('Failed to fetch holders from backend:', error);
@@ -128,17 +137,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Note: Backend SSL already combines official_verified + custom verified list
-    // No need to check separately
-
-    // Bundle response
+    // Bundle response - semua data lengkap dari backend SSL
     return NextResponse.json({
       contract,
       token_info: tokenInfo,
       marketing_info: marketingInfo,
-      holders: holdersData?.count || 0,
+      holders: holdersCount,
       liquidity,
-      verified, // Include verified status
+      verified,
+      price_change_24h: priceChange24h,
+      reserve_paxi: reservePaxi,
+      reserve_prc20: reservePrc20,
+      price_paxi: pricePaxi,
       volume: volume ? {
         volume_24h_paxi: volume.volume_24h_paxi || 0,
         volume_24h_usd: volume.volume_24h_usd || 0,

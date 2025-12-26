@@ -117,12 +117,16 @@ export default function AssetDetailPage() {
           
           const bundle = await bundleRes.json();
           
-          // Extract data from bundle
+          // Extract ALL data from bundle (backend SSL sudah lengkap!)
           const tokenInfo = bundle.token_info;
           const marketingInfo = bundle.marketing_info;
           const numHolders = bundle.holders || 0;
           const liquidity = bundle.liquidity;
-          const isVerified = bundle.verified || false; // From Paxi API + custom list
+          const isVerified = bundle.verified || false;
+          const priceChange24h = bundle.price_change_24h || 0;
+          const reservePaxi = bundle.reserve_paxi || 0;
+          const reservePrc20 = bundle.reserve_prc20 || 0;
+          const pricePaxi = bundle.price_paxi || 0;
           
           // Volume data
           let volume_7d_paxi = 0;
@@ -135,6 +139,15 @@ export default function AssetDetailPage() {
             volume_24h_paxi = bundle.volume.volume_24h_paxi || 0;
             volume_24h_usd = bundle.volume.volume_24h_usd || 0;
           }
+          
+          console.log('📦 PRC20 Detail Bundle:', {
+            symbol: tokenInfo?.symbol,
+            holders: numHolders,
+            volume_24h: volume_24h_paxi,
+            price_change: priceChange24h,
+            price_paxi: pricePaxi,
+            verified: isVerified
+          });
           
           // Set logo URL
           let logoUrl = '';

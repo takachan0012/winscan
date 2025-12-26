@@ -155,7 +155,7 @@ export default function AssetsPage() {
   const priceUpdateInProgress = useRef(false);
   const initialPriceLoadDone = useRef(false);
   const [priceChangesLoading, setPriceChangesLoading] = useState(false);
-  const [displayedTokensCount, setDisplayedTokensCount] = useState(20); // Progressive rendering
+  const [displayedTokensCount, setDisplayedTokensCount] = useState(50); // Start with 50 for fast render
   const [isFromCache, setIsFromCache] = useState(false); // Track if data is from cache
 
   // Cleanup old cache on mount
@@ -381,19 +381,19 @@ export default function AssetsPage() {
     fetchAssets();
   }, [chainName]);
 
-  // Progressive rendering untuk PRC20 tokens
+  // Progressive rendering untuk PRC20 tokens - ULTRA FAST
   useEffect(() => {
     if (prc20Tokens.length > 0 && displayedTokensCount < prc20Tokens.length) {
       const timer = setTimeout(() => {
-        setDisplayedTokensCount(prev => Math.min(prev + 20, prc20Tokens.length));
-      }, 100);
+        setDisplayedTokensCount(prev => Math.min(prev + 150, prc20Tokens.length)); // +150 per batch
+      }, 5); // 5ms ultra fast
       return () => clearTimeout(timer);
     }
   }, [prc20Tokens.length, displayedTokensCount]);
 
   // Reset displayed count when tokens change
   useEffect(() => {
-    setDisplayedTokensCount(20);
+    setDisplayedTokensCount(150); // Start with 150 for instant verified tokens
   }, [prc20Tokens.length]);
 
   // Fetch PRC20 tokens for Paxi chain - LOAD IN BACKGROUND IMMEDIATELY
@@ -629,141 +629,78 @@ export default function AssetsPage() {
         setPrc20Loading(true);
       }
       
-      // Use smaller initial limit for faster first load
-      const limit = pageKey ? 100 : 50;
-      // Use new endpoint that fetches from Paxi API (includes holders, volume, etc)
-      let url = `/api/prc20/tokens?chain=${chainName}`;
-      // Note: /api/prc20/tokens doesn't support pagination (returns all tokens)
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to fetch PRC20 tokens');
-      }
-
-      const data = await response.json();
+      // 🚀 ULTRA FAST: Parallel fetch from SSL1 & SSL2 (race condition - fastest wins)
+      const timestamp = Date.now();
+      const ssl1Url = `https://ssl.winsnip.xyz/api/prc20-tokens?chain=${chainName}&t=${timestamp}`;
+      const ssl2Url = `https://ssl2.winsnip.xyz/api/prc20-tokens?chain=${chainName}&t=${timestamp}`;
       
-      console.log(`📊 PRC20 API Response: ${data.tokens?.length || 0} tokens received`);
-      console.log(`📊 Total field: ${data.total}`);
+      // Fetch from both servers simultaneously
+      const [ssl1Result, ssl2Result] = await Promise.allSettled([
+        fetch(ssl1Url).then(r => r.ok ? r.json() : Promise.reject('SSL1 failed')),
+        fetch(ssl2Url).then(r => r.ok ? r.json() : Promise.reject('SSL2 failed'))
+      ]);
       
-      // Fetch all pools in one request - WITH CACHING
-      let poolsMap = new Map();
-      try {
-        // Check pools cache first
-        const poolsCached = sessionStorage.getItem(poolsCacheKey);
-        let pools: any[] = [];
-        
-        if (poolsCached) {
-          const { data: cachedPools, timestamp } = JSON.parse(poolsCached);
-          if (Date.now() - timestamp < cacheTimeout) {
-            console.log('✅ Using cached pool data');
-            pools = cachedPools;
-          }
-        }
-        
-        // Fetch fresh pool data if cache miss or expired
-        if (pools.length === 0) {
-          console.log('📡 Fetching fresh pool data...');
-          const poolsResponse = await fetch(
-            'https://mainnet-lcd.paxinet.io/paxi/swap/all_pools',
-            { signal: AbortSignal.timeout(5000) }
-          );
-          
-          if (poolsResponse.ok) {
-            const poolsData = await poolsResponse.json();
-            
-            // Check different possible response structures
-            pools = poolsData.pools || poolsData.result?.pools || poolsData;
-            
-            // Cache the pools data
-            if (Array.isArray(pools) && pools.length > 0) {
-              sessionStorage.setItem(poolsCacheKey, JSON.stringify({
-                data: pools,
-                timestamp: Date.now()
-              }));
-              console.log('✅ Pool data cached');
-            }
-          }
-        }
-        
-        if (Array.isArray(pools)) {
-          pools.forEach((pool: any) => {
-            const prc20Address = pool.prc20 || pool.prc20_address || pool.token || pool.contract_address;
-            if (prc20Address) {
-              poolsMap.set(prc20Address, pool);
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch all pools:', error);
+      // Use first successful response
+      let data;
+      if (ssl1Result.status === 'fulfilled') {
+        data = ssl1Result.value;
+        console.log('✅ Using SSL1 response');
+      } else if (ssl2Result.status === 'fulfilled') {
+        data = ssl2Result.value;
+        console.log('✅ Using SSL2 response');
+      } else {
+        throw new Error('Both SSL1 and SSL2 failed');
       }
       
-      // Note: Holders and volume data already included in /api/prc20/tokens response from backend
-      // No need to batch fetch separately - backend already has Paxi API data!
+      console.log(`✅ Backend SSL: ${data.tokens?.length || 0} tokens loaded`);
+      console.log('✅ Verified tokens:', data.tokens?.filter((t: any) => t.verified).map((t: any) => t.token_info?.symbol || 'Unknown').join(', '));
+      console.log('Sample token:', data.tokens?.[0] ? {
+        symbol: data.tokens[0].token_info?.symbol,
+        holders: data.tokens[0].num_holders,
+        volume: data.tokens[0].volume_24h,
+        price_change: data.tokens[0].price_change_24h,
+        verified: data.tokens[0].verified,
+        reserve: data.tokens[0].reserve_paxi
+      } : 'none');
       
-      // Process tokens with price calculation
-      // Note: num_holders and volume_24h already in token data from backend!
-      const tokensWithHolders = data.tokens.map((token: PRC20Token) => {
-        const pool = poolsMap.get(token.contract_address);
+      // Backend sudah menyediakan semua data lengkap dari Paxi API + LCD pool
+      // Reserve values dari backend dalam upaxi (1e6), convert ke PAXI untuk UI
+      const enrichedTokens = (data.tokens || []).map((token: any) => {
+        // Backend reserve_paxi dalam upaxi, convert ke PAXI
+        const reserveInPaxi = token.reserve_paxi ? token.reserve_paxi / 1e6 : 0;
+        const liquidityInPaxi = reserveInPaxi * 2; // Total liquidity = both pool sides
         
-        let priceInPaxi: number | undefined = undefined;
-        
-        // Calculate price from pool
-        let liquidityInPaxi: number | undefined = undefined;
-        
-        if (pool) {
-          try {
-            const paxiReserveRaw = pool.reserve_paxi;
-            const tokenReserveRaw = pool.reserve_prc20;
-            
-            if (paxiReserveRaw && tokenReserveRaw) {
-              const paxiReserve = parseFloat(paxiReserveRaw) / 1e6;
-              const tokenDecimals = token.token_info?.decimals || 6;
-              const tokenReserve = parseFloat(tokenReserveRaw) / Math.pow(10, tokenDecimals);
-              
-              if (tokenReserve > 0 && paxiReserve > 0) {
-                priceInPaxi = paxiReserve / tokenReserve;
-                liquidityInPaxi = paxiReserve; // Store PAXI reserve as liquidity metric
-              }
-            }
-          } catch (error) {
-            console.error(`Failed to calculate price for ${token.token_info?.symbol}:`, error);
-          }
-        }
-        
-        // Use holders & volume directly from token data (already from backend Paxi API)
         return {
-          ...token,
-          price_usd: priceInPaxi,
-          price_change_24h: undefined,
-          liquidity_paxi: liquidityInPaxi
-          // num_holders and volume_24h already in token object from backend
+          ...token, // Preserve ALL backend data including num_holders, volume_24h, price_change_24h
+          liquidity_paxi: liquidityInPaxi, // Calculated liquidity in PAXI
+          price_usd: token.price_usd || token.price_paxi || 0
         };
       });
       
-      // Update state with all data combined
-      if (pageKey) {
-        setPrc20Tokens(prev => [...prev, ...tokensWithHolders]);
-        console.log(`📊 Added ${tokensWithHolders.length} more tokens. Total now: ${prc20Tokens.length + tokensWithHolders.length}`);
-      } else {
-        setPrc20Tokens(tokensWithHolders);
-        console.log(`📊 Set ${tokensWithHolders.length} PRC20 tokens to state`);
-        
-        // Cache the result with volume data
-        try {
-          sessionStorage.setItem(cacheKey, JSON.stringify({
-            data: {
-              tokens: tokensWithHolders,
-              next_key: data.pagination.next_key
-            },
-            timestamp: Date.now()
-          }));
-          console.log(`✅ Cached ${tokensWithHolders.length} PRC20 tokens`);
-        } catch (e) {
-          console.warn('PRC20 cache write error:', e);
-        }
+      setPrc20Tokens(enrichedTokens);
+      
+      // Debug: Check first few tokens
+      console.log(`✅ ${enrichedTokens.length} tokens set to state`);
+      if (enrichedTokens.length > 0) {
+        console.table(enrichedTokens.slice(0, 3).map((t: any) => ({
+          symbol: t.token_info?.symbol,
+          holders: t.num_holders,
+          volume: t.volume_24h,
+          verified: t.verified ? '✓' : '✗'
+        })));
       }
       
-      setPrc20NextKey(data.pagination.next_key || null);
+      // Cache for instant reload
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          data: { tokens: enrichedTokens },
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.warn('Cache write error:', e);
+      }
+      
+      setPrc20NextKey(null);
     } catch (error) {
       console.error('Error fetching PRC20 tokens:', error);
     } finally {
@@ -890,6 +827,10 @@ export default function AssetsPage() {
       );
     })
     .sort((a, b) => {
+      // PRIORITY 1: Verified tokens always first
+      if (a.verified && !b.verified) return -1;
+      if (!a.verified && b.verified) return 1;
+      
       // 🔥 Apply sorting based on sortType
       if (sortType === 'gainers') {
         // Sort by 24h price change (highest first)
@@ -910,11 +851,7 @@ export default function AssetsPage() {
         if (aMarketCap !== bMarketCap) return bMarketCap - aMarketCap;
       }
       
-      // Default sorting: Verified tokens first
-      if (a.verified && !b.verified) return -1;
-      if (!a.verified && b.verified) return 1;
-      
-      // Then sort by symbol/name
+      // Then sort by symbol/name (verified already sorted above)
       const aName = (a.token_info?.symbol || a.token_info?.name || '').toLowerCase();
       const bName = (b.token_info?.symbol || b.token_info?.name || '').toLowerCase();
       return aName.localeCompare(bName);
@@ -1662,7 +1599,7 @@ export default function AssetsPage() {
                                     href={`/${chainName}/assets/${encodeURIComponent(token.contract_address)}`}
                                     className="flex items-center gap-2 md:gap-3"
                                   >
-                                    {/* Token Logo */}
+                                    {/* Token Logo - Optimized with priority for first items */}
                                     <div className="relative w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-gray-700 flex-shrink-0 overflow-hidden">
                                       {logoUrl ? (
                                         <Image
@@ -1670,8 +1607,10 @@ export default function AssetsPage() {
                                           alt={tokenInfo?.symbol || 'token'}
                                           width={40}
                                           height={40}
-                                          loading="lazy"
+                                          priority={index < 10}
+                                          loading={index < 10 ? undefined : "lazy"}
                                           className="object-cover w-full h-full"
+                                          unoptimized={logoUrl.includes('ipfs') || logoUrl.includes('pinata')}
                                           onError={(e) => {
                                             e.currentTarget.style.display = 'none';
                                           }}
@@ -1697,7 +1636,7 @@ export default function AssetsPage() {
                                             Verified
                                           </span>
                                         )}
-                                        {token.liquidity_paxi !== undefined && token.liquidity_paxi < 100 && (
+                                        {!token.verified && token.liquidity_paxi !== undefined && token.liquidity_paxi < 100 && (
                                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-red-500/10 to-orange-500/10 text-red-400 border border-red-500/30 flex-shrink-0" title={`Low Liquidity: ${token.liquidity_paxi.toFixed(2)} PAXI`}>
                                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
