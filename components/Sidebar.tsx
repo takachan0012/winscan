@@ -22,7 +22,8 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  Send
+  Send,
+  Cloud
 } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ChainData } from '@/types/chain';
@@ -114,6 +115,9 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
           { name: 'Endpoint Checker', translationKey: 'menu.rpcChecker', path: `${chainPath}/endpoint-checker`, icon: <Activity className="w-4 h-4" /> },
           { name: 'State Sync', translationKey: 'menu.statesync', path: `${chainPath}/statesync`, icon: <RefreshCw className="w-4 h-4" /> },
           { name: 'Parameters', translationKey: 'menu.parameters', path: `${chainPath}/parameters`, icon: <Settings className="w-4 h-4" /> },
+          ...(selectedChain?.chain_id?.includes('lumera') ? [
+            { name: 'Cascade Storage', translationKey: 'menu.cascade', path: `${chainPath}/cascade`, icon: <Cloud className="w-4 h-4" /> }
+          ] : [])
         ]
       }
     );

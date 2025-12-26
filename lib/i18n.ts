@@ -64,6 +64,7 @@ type TranslationKeys = {
   'menu.parameters': string;
   'menu.tools': string;
   'menu.rpcChecker': string;
+  'menu.cascade': string;
   'menu.evm': string;
   'menu.evm.blocks': string;
   'menu.evm.transactions': string;
@@ -133,6 +134,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.parameters': 'Parameters',
     'menu.tools': 'Tools',
     'menu.rpcChecker': 'Endpoint Checker',
+    'menu.cascade': 'Cascade Storage',
     'menu.evm': 'EVM',
     'menu.evm.blocks': 'EVM Blocks',
     'menu.evm.transactions': 'EVM Transactions',
@@ -201,6 +203,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.parameters': 'Parameter',
     'menu.tools': 'Alat',
     'menu.rpcChecker': 'Cek Endpoint',
+    'menu.cascade': 'Penyimpanan Cascade',
     'menu.evm': 'EVM',
     'menu.evm.blocks': 'Blok EVM',
     'menu.evm.transactions': 'Transaksi EVM',
@@ -269,6 +272,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.parameters': '参数',
     'menu.tools': '工具',
     'menu.rpcChecker': '端点检查器',
+    'menu.cascade': '级联存储',
     'menu.evm': 'EVM',
     'menu.evm.blocks': 'EVM区块',
     'menu.evm.transactions': 'EVM交易',
@@ -341,6 +345,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.parameters': 'パラメータ',
     'menu.tools': 'ツール',
     'menu.rpcChecker': 'エンドポイントチェッカー',
+    'menu.cascade': 'カスケードストレージ',
     'common.height': '高さ',
     'common.hash': 'ハッシュ',
     'common.time': '時刻',
@@ -409,6 +414,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.parameters': 'पैरामीटर',
     'menu.tools': 'उपकरण',
     'menu.rpcChecker': 'एंडपॉइंट चेकर',
+    'menu.cascade': 'कैस्केड स्टोरेज',
     'common.height': 'ऊंचाई',
     'common.hash': 'हैश',
     'common.time': 'समय',
@@ -477,6 +483,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.parameters': 'Параметры',
     'menu.tools': 'Инструменты',
     'menu.rpcChecker': 'Проверка эндпоинтов',
+    'menu.cascade': 'Каскадное хранилище',
     'common.height': 'Высота',
     'common.hash': 'Хеш',
     'common.time': 'Время',
@@ -545,6 +552,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.parameters': 'Tham số',
     'menu.tools': 'Công cụ',
     'menu.rpcChecker': 'Kiểm tra Endpoint',
+    'menu.cascade': 'Lưu trữ Cascade',
     'common.height': 'Chiều cao',
     'common.hash': 'Hash',
     'common.time': 'Thời gian',
