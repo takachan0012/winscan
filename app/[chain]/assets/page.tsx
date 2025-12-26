@@ -1581,6 +1581,9 @@ export default function AssetsPage() {
                             <th className="hidden xl:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               Volume 24H
                             </th>
+                            <th className="hidden xl:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              Liquidity
+                            </th>
                             <th className="px-2 md:px-6 py-3 md:py-4 text-right text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider">
                               {t('assets.holders')}
                             </th>
@@ -1764,6 +1767,27 @@ export default function AssetsPage() {
                                           : token.volume_24h < 1000
                                           ? token.volume_24h.toFixed(2)
                                           : token.volume_24h.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                      </div>
+                                      <span className="text-xs text-gray-400">PAXI</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-gray-500">-</span>
+                                  )}
+                                </td>
+                                
+                                {/* Liquidity Column */}
+                                <td className="hidden xl:table-cell px-6 py-4 text-right">
+                                  {token.reserve_paxi !== undefined && token.reserve_paxi > 0 ? (
+                                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                      <svg className="w-3 h-3 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                      </svg>
+                                      <div className="text-sm font-medium text-white">
+                                        {((token.reserve_paxi / 1e6) * 2) < 1 
+                                          ? ((token.reserve_paxi / 1e6) * 2).toFixed(2)
+                                          : ((token.reserve_paxi / 1e6) * 2) < 1000
+                                          ? ((token.reserve_paxi / 1e6) * 2).toFixed(1)
+                                          : ((token.reserve_paxi / 1e6) * 2).toLocaleString('en-US', { maximumFractionDigits: 0 })}
                                       </div>
                                       <span className="text-xs text-gray-400">PAXI</span>
                                     </div>
