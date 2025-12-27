@@ -126,30 +126,30 @@ export default function PRC20PriceChart({
 
   if (loading) {
     return (
-      <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div className="h-6 bg-gray-700 rounded w-32 animate-pulse"></div>
-          <div className="flex gap-2">
+          <div className="flex gap-1 md:gap-2">
             {timeframes.map((tf) => (
-              <div key={tf.value} className="w-12 h-8 bg-gray-700 rounded animate-pulse"></div>
+              <div key={tf.value} className="flex-1 md:flex-none w-full md:w-12 h-8 bg-gray-700 rounded animate-pulse"></div>
             ))}
           </div>
         </div>
-        <div className="h-40 bg-gray-800 rounded animate-pulse"></div>
+        <div className="h-40 md:h-48 bg-gray-800 rounded animate-pulse"></div>
       </div>
     );
   }
 
   if (priceHistory.length < 2) {
     return (
-      <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-400" />
-            {symbol} Price Chart
+          <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+            <span className="truncate">{symbol} Price Chart</span>
           </h3>
         </div>
-        <div className="h-40 flex items-center justify-center text-gray-500">
+        <div className="h-40 md:h-48 flex items-center justify-center text-gray-500 text-sm">
           <p>Insufficient price history data</p>
         </div>
       </div>
@@ -159,35 +159,38 @@ export default function PRC20PriceChart({
   const isPositive = priceChange && priceChange.change_percent >= 0;
 
   return (
-    <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+    <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-blue-400" />
-            {symbol} Price Chart
-          </h3>
-          <div className="flex items-baseline gap-3">
-            <span className="text-2xl font-bold text-white">{formatPrice(currentPrice)} PAXI</span>
-            {priceChange && priceChange.change_percent !== 0 && (
-              <div className={`flex items-center gap-1 text-sm font-semibold ${
-                isPositive ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                {isPositive ? '+' : ''}{priceChange.change_percent.toFixed(2)}%
-                <span className="text-gray-500">({selectedTimeframe})</span>
-              </div>
-            )}
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Title and Price */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-blue-400 flex-shrink-0" />
+              <span className="truncate">{symbol} Price Chart</span>
+            </h3>
+            <div className="flex flex-wrap items-baseline gap-2 md:gap-3">
+              <span className="text-xl md:text-2xl font-bold text-white">{formatPrice(currentPrice)} PAXI</span>
+              {priceChange && priceChange.change_percent !== 0 && (
+                <div className={`flex items-center gap-1 text-xs md:text-sm font-semibold ${
+                  isPositive ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {isPositive ? <TrendingUp className="w-3 h-3 md:w-4 md:h-4" /> : <TrendingDown className="w-3 h-3 md:w-4 md:h-4" />}
+                  {isPositive ? '+' : ''}{priceChange.change_percent.toFixed(2)}%
+                  <span className="text-gray-500">({selectedTimeframe})</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Timeframe Selector */}
-        <div className="flex gap-2 bg-[#141414] rounded-lg p-1">
+        {/* Timeframe Selector - Full width on mobile */}
+        <div className="flex gap-1 md:gap-2 bg-[#141414] rounded-lg p-1 w-full md:w-auto md:self-end">
           {timeframes.map((tf) => (
             <button
               key={tf.value}
               onClick={() => setSelectedTimeframe(tf.value)}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+              className={`flex-1 md:flex-none px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition-all ${
                 selectedTimeframe === tf.value
                   ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -200,7 +203,7 @@ export default function PRC20PriceChart({
       </div>
 
       {/* Chart */}
-      <div className="h-40">
+      <div className="h-40 md:h-48 -mx-2 md:mx-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}

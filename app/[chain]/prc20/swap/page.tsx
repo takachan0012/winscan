@@ -1107,32 +1107,32 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
           {/* Page Header */}
           <div className="mb-10">
             <div className="max-w-lg mx-auto">
-              <div className="relative bg-gradient-to-b from-[#1a1a1a] to-[#151515] rounded-2xl p-8 border border-gray-800/50 shadow-2xl shadow-black/50">
+              <div className="relative bg-gradient-to-b from-[#1a1a1a] to-[#151515] rounded-xl sm:rounded-2xl p-4 sm:p-8 border border-gray-800/50 shadow-2xl shadow-black/50">
                 {/* Subtle top accent */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent rounded-full"></div>
                 
                 <div className="text-center">
-                  <h1 className="text-xl md:text-2xl font-bold text-white mb-2 tracking-tight">
+                  <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-1 sm:mb-2 tracking-tight">
                     PRC20 Token Swap
                   </h1>
-                  <p className="text-gray-400 text-xs mb-4">Swap between PRC20 tokens instantly</p>
+                  <p className="text-gray-400 text-[10px] sm:text-xs mb-3 sm:mb-4">Swap between PRC20 tokens instantly</p>
                   
                   {/* Show wallet address only when connected */}
                   {walletAddress && (
-                    <div className="inline-flex items-center gap-3">
-                      <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs font-mono text-green-400 font-medium">
-                          {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
+                    <div className="inline-flex items-center gap-1.5">
+                      <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-[10px] sm:text-xs font-mono text-green-400 font-medium">
+                          {walletAddress.slice(0, 6)}...{walletAddress.slice(-3)}
                         </span>
                       </div>
                       <button
                         onClick={handleRefreshBalances}
                         disabled={refreshing}
-                        className="p-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/30 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                        className="p-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/30 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                         title="Refresh balances"
                       >
-                        <RefreshCw className={`w-4 h-4 text-blue-400 group-hover:text-blue-300 ${refreshing ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-3 h-3 text-blue-400 group-hover:text-blue-300 ${refreshing ? 'animate-spin' : ''}`} />
                       </button>
                     </div>
                   )}
@@ -1140,12 +1140,13 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                   {!walletAddress && (
                     <button
                       onClick={connectWallet}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:scale-[1.02]"
+                      className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] sm:text-xs font-semibold rounded-md sm:rounded-lg transition-all duration-200 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      Connect Wallet
+                      <span className="hidden xs:inline sm:inline">Connect Wallet</span>
+                      <span className="inline xs:hidden sm:hidden">Connect</span>
                     </button>
                   )}
                 </div>
@@ -1155,11 +1156,11 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
 
           {/* Swap Container */}
           <div className="max-w-lg mx-auto">
-            {/* Tabs */}
-            <div className="flex gap-2 mb-4">
+            {/* Tabs - Responsive Grid */}
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
               <button
                 onClick={() => setActiveTab('swap')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
                   activeTab === 'swap'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -1169,7 +1170,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
               </button>
               <button
                 onClick={() => setActiveTab('liquidity')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
                   activeTab === 'liquidity'
                     ? 'bg-cyan-500 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -1179,7 +1180,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
               </button>
               <button
                 onClick={() => setActiveTab('transfer')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
                   activeTab === 'transfer'
                     ? 'bg-green-500 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -1189,7 +1190,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
               </button>
               <button
                 onClick={() => setActiveTab('burn')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
                   activeTab === 'burn'
                     ? 'bg-red-500 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -1199,7 +1200,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
               </button>
               <button
                 onClick={() => setActiveTab('info')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
                   activeTab === 'info'
                     ? 'bg-purple-500 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
