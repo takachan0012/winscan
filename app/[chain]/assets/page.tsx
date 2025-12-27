@@ -588,36 +588,6 @@ export default function AssetsPage() {
   }, [chainName, initialPriceLoadDone.current]);
 
   const fetchPRC20Tokens = async (pageKey?: string) => {
-    const cacheKey = `prc20_tokens_${chainName}`;
-    const poolsCacheKey = `prc20_pools_${chainName}`;
-    const cacheTimeout = 900000; // 15 minutes cache for better navigation
-    
-    // Stale-while-revalidate for PRC20 tokens
-    if (!pageKey) {
-      try {
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          
-          // Always show cached data immediately
-          setPrc20Tokens(data.tokens || []);
-          setPrc20NextKey(data.next_key || null);
-          setPrc20Loading(false);
-          
-          // If fresh, don't refresh
-          if (Date.now() - timestamp < cacheTimeout) {
-            console.log('✅ Using fresh PRC20 cache, skip refresh');
-            return;
-          }
-          
-          // Stale but usable, continue to refresh in background
-          console.log('📡 Using stale PRC20 cache, refreshing in background...');
-        }
-      } catch (e) {
-        console.warn('PRC20 cache read error:', e);
-      }
-    }
-    
     // Prevent duplicate calls
     if (prc20Loading && !pageKey) {
       console.log('⚠️ PRC20 already loading, skipping duplicate call');
@@ -650,16 +620,6 @@ export default function AssetsPage() {
           setPrc20Tokens(tokens);
           setPrc20NextKey(null); // Cache returns all tokens
           
-          // Cache the data
-          try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({ 
-              data: { tokens, next_key: null }, 
-              timestamp: Date.now() 
-            }));
-          } catch (e) {
-            console.warn('PRC20 cache write error:', e);
-          }
-          
           console.log(`✅ Loaded ${tokens.length} PRC20 tokens from SSL1 cache`);
           return;
         }
@@ -682,16 +642,6 @@ export default function AssetsPage() {
           setPrc20Tokens(tokens);
           setPrc20NextKey(null);
           
-          // Cache the data
-          try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({ 
-              data: { tokens, next_key: null }, 
-              timestamp: Date.now() 
-            }));
-          } catch (e) {
-            console.warn('PRC20 cache write error:', e);
-          }
-          
           console.log(`✅ Loaded ${tokens.length} PRC20 tokens from SSL2 cache`);
           return;
         }
@@ -709,16 +659,6 @@ export default function AssetsPage() {
           console.log(`✅ Local cache loaded: ${tokens.length} tokens`);
           setPrc20Tokens(tokens);
           setPrc20NextKey(null);
-          
-          // Cache
-          try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({ 
-              data: { tokens, next_key: null }, 
-              timestamp: Date.now() 
-            }));
-          } catch (e) {
-            console.warn('Cache write error:', e);
-          }
         } else {
           console.error('Local cache failed');
         }
@@ -839,7 +779,10 @@ export default function AssetsPage() {
 
   // Filter PRC20 tokens based on search query and sort by verified status
   console.log(`🔍 Total PRC20 tokens in state: ${prc20Tokens.length}`);
-  const filteredPRC20Tokens = prc20Tokens
+  // Add index to each token to track original order (for "new tokens" sort)
+  const tokensWithIndex = prc20Tokens.map((token, index) => ({ ...token, _originalIndex: index }));
+  
+  const filteredPRC20Tokens = tokensWithIndex
     .filter(token => {
       if (!searchQuery.trim()) return true;
       
@@ -853,28 +796,25 @@ export default function AssetsPage() {
       );
     })
     .sort((a, b) => {
-      // PRIORITY 1: Verified tokens always first
-      if (a.verified && !b.verified) return -1;
-      if (!a.verified && b.verified) return 1;
-      
       // 🔥 Apply sorting based on sortType
       if (sortType === 'gainers') {
-        // Sort by 24h price change (highest first)
+        // Pure sort by 24h price change (highest first) - no verified priority
         const aChange = a.price_change_24h ?? -Infinity;
         const bChange = b.price_change_24h ?? -Infinity;
-        if (aChange !== bChange) return bChange - aChange;
+        return bChange - aChange;
       } else if (sortType === 'new') {
-        // Sort by holder count (lowest = newer tokens)
-        const aHolders = a.num_holders ?? 0;
-        const bHolders = b.num_holders ?? 0;
-        if (aHolders !== bHolders) return aHolders - bHolders;
+        // Pure chronological order (newest first) - no verified priority
+        // Token #274 is newer than token #1
+        return (b._originalIndex ?? 0) - (a._originalIndex ?? 0);
       } else if (sortType === 'marketcap') {
-        // Calculate market cap = price * supply
-        const aSupply = parseFloat(a.token_info?.total_supply || '0') / Math.pow(10, a.token_info?.decimals || 6);
-        const bSupply = parseFloat(b.token_info?.total_supply || '0') / Math.pow(10, b.token_info?.decimals || 6);
-        const aMarketCap = (a.price_paxi || 0) * aSupply;
-        const bMarketCap = (b.price_paxi || 0) * bSupply;
-        if (aMarketCap !== bMarketCap) return bMarketCap - aMarketCap;
+        // Pure sort by liquidity (highest first) - no verified priority
+        const aLiquidity = a.liquidity_paxi ?? 0;
+        const bLiquidity = b.liquidity_paxi ?? 0;
+        return bLiquidity - aLiquidity;
+      } else {
+        // Default "All" tab: verified first, then sort by name
+        if (a.verified && !b.verified) return -1;
+        if (!a.verified && b.verified) return 1;
       }
       
       // Then sort by symbol/name (verified already sorted above)

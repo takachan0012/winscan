@@ -1047,13 +1047,75 @@ export default function TransactionDetailPage() {
                                 </div>
                               )}
 
+                              {/* CosmWasm Execute Contract */}
+                              {(msgType === 'MsgExecuteContract' || msgType.includes('ExecuteContract')) && msgValue.contract && msgValue.sender && (
+                                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                                      <span className="text-cyan-400 text-xl">⚙️</span>
+                                    </div>
+                                    <div>
+                                      <p className="text-cyan-400 font-semibold">Execute Contract</p>
+                                      <p className="text-gray-400 text-xs">CosmWasm smart contract interaction</p>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-gray-400 min-w-[80px]">Sender:</span>
+                                      <Link 
+                                        href={`/${chainPath}/accounts/${msgValue.sender}`}
+                                        className="text-cyan-400 hover:text-cyan-300 font-mono break-all"
+                                      >
+                                        {msgValue.sender}
+                                      </Link>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-gray-400 min-w-[80px]">Contract:</span>
+                                      <Link 
+                                        href={`/${chainPath}/prc20/${msgValue.contract}`}
+                                        className="text-cyan-400 hover:text-cyan-300 font-mono break-all"
+                                        title="View PRC20 Token Details"
+                                      >
+                                        {msgValue.contract}
+                                      </Link>
+                                    </div>
+                                    {msgValue.msg && (
+                                      <div className="flex items-start gap-2 pt-2 border-t border-cyan-500/30">
+                                        <span className="text-gray-400 min-w-[80px]">Message:</span>
+                                        <div className="flex-1">
+                                          <pre className="bg-black/50 p-2 rounded text-xs text-cyan-300 overflow-x-auto">
+                                            {typeof msgValue.msg === 'string' 
+                                              ? msgValue.msg 
+                                              : JSON.stringify(msgValue.msg, null, 2)}
+                                          </pre>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {msgValue.funds && Array.isArray(msgValue.funds) && msgValue.funds.length > 0 && (
+                                      <div className="flex items-start gap-2 pt-2 border-t border-cyan-500/30">
+                                        <span className="text-gray-400 min-w-[80px]">Funds:</span>
+                                        <div className="space-y-1">
+                                          {msgValue.funds.map((fund: any, i: number) => (
+                                            <p key={i} className="text-cyan-400 font-semibold">
+                                              {(parseInt(fund.amount) / 1000000).toLocaleString(undefined, { maximumFractionDigits: 6 })} {fund.denom}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Generic fallback for other message types */}
                               {msgType !== 'MsgDelegate' && 
                                msgType !== 'MsgUndelegate' && 
                                msgType !== 'MsgBeginRedelegate' && 
                                msgType !== 'MsgSend' && 
                                msgType !== 'MsgTransfer' && 
-                               msgType !== 'MsgVote' && (
+                               msgType !== 'MsgVote' && 
+                               msgType !== 'MsgExecuteContract' && 
+                               !msgType.includes('ExecuteContract') && (
                                 <>
                                   {msgValue.from_address && (
                                     <div>

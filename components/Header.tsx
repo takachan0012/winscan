@@ -96,7 +96,14 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
     } 
     // Check if it's a Cosmos address
     else if (selectedChain.bech32_prefix && query.startsWith(selectedChain.bech32_prefix)) {
-      router.push(`/${chainPath}/accounts/${query}`);
+      // Check if it's a PRC20 contract on Paxi chain (paxi1...)
+      if (chainName === 'paxi-mainnet' && query.startsWith('paxi1') && query.length > 50) {
+        // It's a PRC20 contract address
+        router.push(`/${chainPath}/prc20/${query}`);
+      } else {
+        // Regular account
+        router.push(`/${chainPath}/accounts/${query}`);
+      }
     }
     else if (selectedChain.addr_prefix && query.startsWith(selectedChain.addr_prefix)) {
       router.push(`/${chainPath}/accounts/${query}`);

@@ -109,7 +109,8 @@ export default function NetworkPage() {
   useEffect(() => {
     if (!selectedChain) return;
     
-    const chainIdentifier = (selectedChain.chain_id || selectedChain.chain_name).trim();
+    // Use chain_name for API calls (backend expects chain_name, not chain_id)
+    const chainIdentifier = selectedChain.chain_name.trim();
     const networkCacheKey = `network_v2_${selectedChain.chain_name}`;
     const locationsCacheKey = `network_locations_v2_${selectedChain.chain_name}`;
     const validatorCacheKey = `validators_${chainIdentifier}`;
@@ -240,7 +241,7 @@ export default function NetworkPage() {
       }
       
       // Process validator locations
-      if (locationsData?.locations && locationsData.locations.length > 0) {
+      if (locationsData?.success && locationsData.locations && locationsData.locations.length > 0) {
         setValidatorLocations(locationsData.locations);
         setLoadingLocations(false);
         
@@ -251,8 +252,12 @@ export default function NetworkPage() {
             timestamp: Date.now() 
           }));
         } catch (e) {}
+        console.log('[Network] ✅ Loaded', locationsData.locations.length, 'validator locations for', chainIdentifier);
       } else {
+        // No locations data - chain might not be supported
+        setValidatorLocations([]);
         setLoadingLocations(false);
+        console.warn('[Network] ⚠️ No validator locations for', chainIdentifier, '- Response:', locationsData);
       }
       
       // Process validators
@@ -620,12 +625,17 @@ export default function NetworkPage() {
               />
             </>
           ) : (
-            <div className="bg-[#1e2838] border border-gray-700/30 rounded-lg p-16 text-center">
-              <div className="relative w-20 h-20 mx-auto mb-6">
-                <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
-                <div className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-16 text-center">
+              <div className="mb-6">
+                <Map className="w-20 h-20 mx-auto text-gray-600 mb-4" />
               </div>
-              <p className="text-gray-400 text-lg font-medium">No network data available</p>
+              <h3 className="text-white text-xl font-bold mb-2">Validator Network Not Available</h3>
+              <p className="text-gray-400 mb-1">
+                Network topology data is not available for <span className="text-cyan-400 font-semibold">{selectedChain?.chain_name}</span>
+              </p>
+              <p className="text-gray-500 text-sm">
+                This chain may not have peer discovery enabled or validator location data has not been indexed yet.
+              </p>
             </div>
           )}
         </main>
