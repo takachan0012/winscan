@@ -11,6 +11,8 @@ import { ChainData } from '@/types/chain';
 import { ArrowDownUp, Settings, Info, Zap, AlertCircle, RefreshCw, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { calculateFee } from '@/lib/keplr';
 import { getPoolPrice, calculateSwapOutput } from '@/lib/poolPriceCalculator';
+import AddLiquiditySection from '@/components/AddLiquiditySection';
+import RemoveLiquiditySection from '@/components/RemoveLiquiditySection';
 
 interface Token {
   address: string;
@@ -41,19 +43,21 @@ export default function PRC20SwapPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [swapPercentage, setSwapPercentage] = useState(0);
   const [memo, setMemo] = useState('WinScan Swap');
-  const [activeTab, setActiveTab] = useState<'swap' | 'burn' | 'transfer' | 'info'>('swap');
+  const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'burn' | 'transfer' | 'info'>('swap');
+  const [liquidityMode, setLiquidityMode] = useState<'add' | 'remove'>('add');
   const [refreshing, setRefreshing] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [verifyContractAddress, setVerifyContractAddress] = useState('');
-  const [verifyAction, setVerifyAction] = useState<'add' | 'remove'>('add');
-  const [verifying, setVerifying] = useState(false);
+  // Admin panel hidden
+  // const [isAdmin, setIsAdmin] = useState(false);
+  // const [showAdminPanel, setShowAdminPanel] = useState(false);
+  // const [verifyContractAddress, setVerifyContractAddress] = useState('');
+  // const [verifyAction, setVerifyAction] = useState<'add' | 'remove'>('add');
+  // const [verifying, setVerifying] = useState(false);
 
   // Handle tab from URL query params
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'burn' || tab === 'transfer' || tab === 'info') {
-      setActiveTab(tab);
+    if (tab === 'burn' || tab === 'transfer' || tab === 'info' || tab === 'liquidity') {
+      setActiveTab(tab as any);
     }
   }, [searchParams]);
 
@@ -172,27 +176,27 @@ export default function PRC20SwapPage() {
         setWalletAddress(key.bech32Address);
         console.log('✅ Connected wallet:', key.bech32Address);
         
-        // Check if wallet is admin (only on Paxi chain) - fetch from backend
-        if (selectedChain.chain_id === 'paxi-mainnet') {
-          try {
-            const verifyRes = await fetch(`https://ssl.winsnip.xyz/api/prc20/verify/list`);
-            if (verifyRes.ok) {
-              const data = await verifyRes.json();
-              const admins = data.admins || [];
-              if (admins.includes(key.bech32Address)) {
-                setIsAdmin(true);
-                console.log('👑 Admin wallet detected!');
-              } else {
-                setIsAdmin(false);
-              }
-            }
-          } catch (e) {
-            console.error('Failed to check admin status');
-            setIsAdmin(false);
-          }
-        } else {
-          setIsAdmin(false);
-        }
+        // Admin check disabled
+        // if (selectedChain.chain_id === 'paxi-mainnet') {
+        //   try {
+        //     const verifyRes = await fetch(`https://ssl.winsnip.xyz/api/prc20/verify/list`);
+        //     if (verifyRes.ok) {
+        //       const data = await verifyRes.json();
+        //       const admins = data.admins || [];
+        //       if (admins.includes(key.bech32Address)) {
+        //         setIsAdmin(true);
+        //         console.log('👑 Admin wallet detected!');
+        //       } else {
+        //         setIsAdmin(false);
+        //       }
+        //     }
+        //   } catch (e) {
+        //     console.error('Failed to check admin status');
+        //     setIsAdmin(false);
+        //   }
+        // } else {
+        //   setIsAdmin(false);
+        // }
         
         // Immediately load balances after connection
         if (tokens.length > 0) {
@@ -570,6 +574,8 @@ export default function PRC20SwapPage() {
     
   }, [fromAmount, fromToken, toToken, marketPrices]);
 
+  // Admin verify contract function - disabled
+  /*
   const handleVerifyContract = async () => {
     if (!verifyContractAddress.trim()) {
       setTxResult({
@@ -644,6 +650,7 @@ export default function PRC20SwapPage() {
       setVerifying(false);
     }
   };
+  */
 
   const handleSwap = async () => {
     if (!fromToken || !toToken || !fromAmount) {
@@ -1161,6 +1168,16 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                 Swap
               </button>
               <button
+                onClick={() => setActiveTab('liquidity')}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'liquidity'
+                    ? 'bg-cyan-500 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                Liquidity
+              </button>
+              <button
                 onClick={() => setActiveTab('transfer')}
                 className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeTab === 'transfer'
@@ -1192,7 +1209,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
               </button>
             </div>
 
-            {/* Admin Panel - Only show for admin on Paxi chain */}
+            {/* Admin Panel - Disabled
             {isAdmin && selectedChain?.chain_id === 'paxi-mainnet' && (
               <div className="mb-4 bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 border border-yellow-500/30 rounded-lg p-4">
                 <button
@@ -1282,7 +1299,7 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                   </div>
                 )}
               </div>
-            )}
+            ) */}
 
             {/* Price Chart - Show after tabs, before swap content */}
             {activeTab === 'swap' && (
@@ -1943,6 +1960,118 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
               </>
             )}
 
+            {/* Liquidity Tab */}
+            {activeTab === 'liquidity' && selectedChain && (
+              <>
+                {!walletAddress ? (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 text-center">
+                    <p className="text-gray-400 mb-4">Connect your wallet to manage liquidity</p>
+                    <button
+                      onClick={connectWallet}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    >
+                      Connect Wallet
+                    </button>
+                  </div>
+                ) : !fromToken || fromToken.address === 'upaxi' ? (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 text-center">
+                    <p className="text-gray-400">Select a PRC20 token from the swap tab first</p>
+                  </div>
+                ) : (
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                    <h2 className="text-lg font-semibold text-white mb-4">Manage Liquidity</h2>
+                    
+                    {/* Sub-tabs for Add/Remove */}
+                    <div className="flex gap-2 mb-6">
+                      <button
+                        onClick={() => setLiquidityMode('add')}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          liquidityMode === 'add'
+                            ? 'bg-cyan-500 text-white'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                        }`}
+                      >
+                        Add Liquidity
+                      </button>
+                      <button
+                        onClick={() => setLiquidityMode('remove')}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          liquidityMode === 'remove'
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                        }`}
+                      >
+                        Remove Liquidity
+                      </button>
+                    </div>
+
+                    {/* Token Info */}
+                    <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          {fromToken.logo ? (
+                            <Image src={fromToken.logo} alt={fromToken.symbol} width={40} height={40} className="w-10 h-10 rounded-full" unoptimized />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold">
+                              {fromToken.symbol.substring(0, 2)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="text-white font-semibold">{fromToken.name}</div>
+                            <div className="text-gray-400 text-sm">{fromToken.symbol} / PAXI Pool</div>
+                          </div>
+                        </div>
+                        {fromToken.balance && (
+                          <div className="text-right">
+                            <div className="text-xs text-gray-400">Available Balance</div>
+                            <div className="text-white font-semibold">
+                              {formatBalance(fromToken.balance, fromToken.decimals)} {fromToken.symbol}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Render Add or Remove component based on mode */}
+                    {liquidityMode === 'add' ? (
+                      <AddLiquiditySection
+                        chainData={selectedChain}
+                        paxiToken={{
+                          address: 'upaxi',
+                          name: 'Paxi',
+                          symbol: 'PAXI',
+                          decimals: 6,
+                          balance: toToken?.address === 'upaxi' ? toToken.balance : undefined
+                        }}
+                        prc20Token={fromToken}
+                        onSuccess={() => {
+                          loadBalances();
+                        }}
+                        onResult={(result) => setTxResult(result)}
+                      />
+                    ) : (
+                      <RemoveLiquiditySection
+                        chainData={selectedChain}
+                        paxiToken={{
+                          address: 'upaxi',
+                          name: 'Paxi',
+                          symbol: 'PAXI',
+                          decimals: 6,
+                          balance: toToken?.address === 'upaxi' ? toToken.balance : undefined
+                        }}
+                        prc20Token={fromToken}
+                        walletAddress={walletAddress}
+                        onSuccess={() => {
+                          loadBalances();
+                        }}
+                        onResult={(result) => setTxResult(result)}
+                      />
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Info Tab */}
             {activeTab === 'info' && selectedChain && (
               <>
@@ -1994,8 +2123,14 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                   
                   {/* Success Message */}
                   <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-white">Swap Successful!</h3>
-                    <p className="text-gray-400">Your swap has been broadcast to the network</p>
+                    <h3 className="text-2xl font-bold text-white">
+                      {activeTab === 'liquidity' ? 'Liquidity Transaction Successful!' : 'Swap Successful!'}
+                    </h3>
+                    <p className="text-gray-400">
+                      {activeTab === 'liquidity' 
+                        ? 'Your liquidity transaction has been broadcast to the network' 
+                        : 'Your swap has been broadcast to the network'}
+                    </p>
                     <div className="flex items-center justify-center gap-2 text-sm text-blue-400 mt-2">
                       <RefreshCw className="w-3 h-3 animate-spin" />
                       <span>Refreshing balances...</span>
@@ -2058,7 +2193,9 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                   
                   {/* Error Message */}
                   <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-white">Swap Failed</h3>
+                    <h3 className="text-2xl font-bold text-white">
+                      {activeTab === 'liquidity' ? 'Liquidity Transaction Failed' : 'Swap Failed'}
+                    </h3>
                     <p className="text-gray-400 text-sm">{txResult.error || 'Transaction failed. Please try again.'}</p>
                   </div>
                   
