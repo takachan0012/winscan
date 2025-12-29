@@ -83,6 +83,15 @@ export function calculateFee(chain: ChainData, gasLimit: string): { amount: Arra
   const denom = chain.assets?.[0]?.base || 'uatom';
   const exponent = parseInt(String(chain.assets?.[0]?.exponent || '6'));
   
+  // CRITICAL: Lumen chain requires gasless transactions (zero fee)
+  // Error: "gasless tx must have zero fee: invalid request" if fee is not zero
+  if (chain.chain_id === 'lumen' || chain.chain_name === 'lumen-mainnet') {
+    return {
+      amount: [{ denom, amount: '0' }],
+      gas: gasLimit,
+    };
+  }
+  
   let feeAmount: string;
   
   // Priority 1: Use gas_price if specified
