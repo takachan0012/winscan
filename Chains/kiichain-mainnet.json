@@ -1,0 +1,76 @@
+{
+  "chain_name": "kiichain-mainnet",
+  "chain_id": "kiichain_1783-1",
+  "pretty_name": "KiiChain",
+  "network_type": "mainnet",
+  "bech32_prefix": "kii",
+  "slip44": 60,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "akii",
+        "fixed_min_gas_price": 600000000,
+        "low_gas_price": 600000000,
+        "average_gas_price": 750000000,
+        "high_gas_price": 1000000000
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "akii"
+      }
+    ]
+  },
+  "rpc": [
+    {
+      "address": "https://rpc.kiivalidator.com",
+      "provider": "Kiichain"
+    }
+  ],
+  "api": [
+    {
+      "address": "https://lcd.kiivalidator.com",
+      "provider": "Kiichain"
+    }
+  ],
+  "grpc": [
+    {
+      "address": "grpc.kiivalidator.com",
+      "provider": "Kiichain"
+    }
+  ],
+  "evm_rpc": [
+    {
+      "address": "https://json-rpc.kiivalidator.com",
+      "provider": "Kiichain"
+    }
+  ],
+  "sdk_version": "0.53",
+  "coin_type": "60",
+  "min_tx_fee": "600000000",
+  "addr_prefix": "kii",
+  "assets": [
+    {
+      "base": "akii",
+      "symbol": "KII",
+      "display": "KII",
+      "exponent": "18",
+      "coingecko_id": "unknown",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/kiichain/images/kii.png"
+    }
+  ],
+  "theme_color": "#00D4FF",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/kiichain/images/kii.png",
+  "explorers": [
+    {
+      "name": "KiiChain Explorer",
+      "url": "https://explorer.kiichain.io",
+      "account_page": "https://explorer.kiichain.io/address/${accountAddress}"
+    }
+  ],
+  "keywords": ["RWA", "stablecoins", "EVM"],
+  "features": ["evm", "cosmwasm"],
+  "updated": "2025-12-29"
+}
