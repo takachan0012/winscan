@@ -50,9 +50,14 @@
     {
       "base": "ulmn",
       "symbol": "LMN",
+      "display": "LMN",
       "exponent": "6",
       "coingecko_id": "unknown",
       "logo": "https://file.winsnip.xyz/file/uploads/lumen.png"
     }
-  ]
+  ],
+  "theme_color": "#812cd6",
+  "logo": "https://file.winsnip.xyz/file/uploads/lumen.png",
+  "explorers": [],
+  "updated": "2025-12-29"
 }
