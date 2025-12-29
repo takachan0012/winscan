@@ -25,19 +25,11 @@
   },
   "rpc": [
     {
-      "address": "https://lumen.blocksync.me/rpc",
-      "provider": "BlockSync"
-    },
-    {
       "address": "https://rpc-lumen.winnode.xyz",
       "provider": "WinNode"
     }
   ],
   "api": [
-    {
-      "address": "https://lumen.blocksync.me/api",
-      "provider": "BlockSync"
-    },
     {
       "address": "https://api-lumen.winnode.xyz",
       "provider": "WinNode"

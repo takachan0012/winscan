@@ -5,8 +5,11 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { ChainData } from '@/types/chain';
-import { Upload, MapPin, File, Download, CheckCircle, Clock, XCircle, X, Server, HardDrive, Activity } from 'lucide-react';
+import { Upload, MapPin, File, Download, CheckCircle, Clock, XCircle, X, Server, HardDrive, Activity, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { useCascadeUpload, CascadeFile as CascadeFileType } from '@/hooks/useCascadeUpload';
+import { fetchUserFiles, fetchSupernodes, downloadCascadeFile } from '@/lib/cascadeApi';
+import { fetchUserCascadeTransactions } from '@/lib/cascadeTxParser';
 
 // Dynamic import map to avoid SSR issues
 const ValidatorWorldMap = dynamic(() => import('@/components/ValidatorWorldMap'), { 
@@ -66,12 +69,14 @@ interface ValidatorData {
 interface CascadeFile {
   id: string;
   name: string;
+  size: number;
+  type: string;
   public: boolean;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status: 'pending' | 'uploading' | 'completed' | 'failed';
   tx_id: string;
+  action_id: string;
   price: number;
   fee: number;
-  size: number;
   last_modified: string;
 }
 
@@ -87,11 +92,67 @@ export default function CascadePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedNode, setSelectedNode] = useState<SuperNode | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [loadingSupernodes, setLoadingSupernodes] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string>('');
 
   // Only show for Lumera chains
   const isLumeraChain = chainName?.includes('lumera');
+
+  // Get RPC URL from selected chain
+  const rpcUrl = selectedChain?.rpc?.[0]?.address || '';
+  const chainId = selectedChain?.chain_id || '';
+
+  // Use cascade upload hook
+  const { uploading, uploadProgress, error: uploadError, uploadFile } = useCascadeUpload(
+    chainId,
+    rpcUrl
+  );
+
+  // Detect Keplr wallet address
+  useEffect(() => {
+    async function detectWallet() {
+      if (typeof window !== 'undefined' && window.keplr && chainId) {
+        try {
+          await window.keplr.enable(chainId);
+          const offlineSigner = window.keplr.getOfflineSigner(chainId);
+          const accounts = await offlineSigner.getAccounts();
+          if (accounts.length > 0) {
+            setWalletAddress(accounts[0].address);
+          }
+        } catch (error) {
+          console.error('Error detecting wallet:', error);
+        }
+      }
+    }
+    detectWallet();
+  }, [chainId]);
+
+  // Fetch user files from blockchain when wallet is connected
+  useEffect(() => {
+    async function loadUserFiles() {
+      if (!isLumeraChain || !selectedChain || !walletAddress) return;
+      
+      setLoadingFiles(true);
+      try {
+        const apiUrl = selectedChain.api?.[0]?.address || '';
+        
+        // Fetch from blockchain transactions
+        const txFiles = await fetchUserCascadeTransactions(apiUrl, walletAddress);
+        
+        // Optionally fetch from backend API for additional data
+        // const backendFiles = await fetchUserFiles(selectedChain.chain_name, walletAddress);
+        
+        setMyFiles(txFiles);
+      } catch (error) {
+        console.error('Error loading user files:', error);
+      } finally {
+        setLoadingFiles(false);
+      }
+    }
+
+    loadUserFiles();
+  }, [isLumeraChain, selectedChain, walletAddress]);
 
   const handleSelectChain = (chain: ChainData) => {
     setSelectedChain(chain);
@@ -132,37 +193,18 @@ export default function CascadePage() {
     if (isLumeraChain && selectedChain) {
       setLoadingSupernodes(true);
       
-      // Fetch supernodes from backend cascade API
-      fetch(`https://ssl.winsnip.xyz/api/cascade/supernodes?chain=${selectedChain.chain_name}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.supernodes) {
-            const supernodesData: SuperNode[] = data.supernodes.map((node: any) => ({
-              address: node.address,
-              supernode_account: node.supernode_account,
-              version: node.version,
-              moniker: node.moniker,
-              location: node.location,
-              status: node.status,
-              storage_total: node.storage_total,
-              storage_used: node.storage_used,
-              bandwidth: node.bandwidth,
-              uptime: node.uptime
-            }));
-
-            setSupernodes(supernodesData);
-
-            // Create validator locations for map (only include online nodes with valid coordinates)
-            const locationMap = new Map<string, ValidatorLocation>();
-            supernodesData.forEach(node => {
-              // Skip offline nodes or nodes with unknown location (lat: 0, lng: 0) or "Unknown" country
-              if (node.status !== 'online' || node.location.country === 'Unknown' || (node.location.lat === 0 && node.location.lng === 0)) {
-                return;
-              }
-
-              const key = `${node.location.city}-${node.location.country}`;
-              if (locationMap.has(key)) {
-                const existing = locationMap.get(key)!;
+      fetchSupernodes(selectedChain.chain_name)
+        .then(nodes => {
+          setSupernodes(nodes);
+          
+          // Convert to map markers
+          const locationMap = new Map<string, ValidatorLocation>();
+          nodes.forEach(node => {
+            if (node.location.country !== 'Unknown' && node.status === 'online') {
+              const key = `${node.location.lat},${node.location.lng}`;
+              const existing = locationMap.get(key);
+              
+              if (existing) {
                 existing.count++;
                 existing.monikers?.push(node.moniker);
               } else {
@@ -174,10 +216,10 @@ export default function CascadePage() {
                   monikers: [node.moniker]
                 });
               }
-            });
+            }
+          });
 
-            setValidatorLocations(Array.from(locationMap.values()));
-          }
+          setValidatorLocations(Array.from(locationMap.values()));
           setLoadingSupernodes(false);
         })
         .catch(error => {
@@ -212,27 +254,54 @@ export default function CascadePage() {
   };
 
   const handleFiles = async (files: File[]) => {
-    setUploading(true);
-    // TODO: Implement actual upload to cascade network
-    console.log('Uploading files:', files);
-    
-    // Mock upload
-    setTimeout(() => {
-      const newFiles = files.map((file, i) => ({
-        id: String(myFiles.length + i + 1),
-        name: file.name,
-        public: false,
-        status: 'pending' as const,
-        tx_id: '--',
-        price: 0,
-        fee: 0,
-        size: file.size,
-        last_modified: new Date().toISOString()
-      }));
+    if (files.length === 0) return;
+
+    // Upload first file (can be extended for multiple files)
+    const file = files[0];
+    const result = await uploadFile(file, false);
+
+    if (result.success && result.actionId) {
+      alert('File uploaded successfully!');
       
-      setMyFiles([...myFiles, ...newFiles]);
-      setUploading(false);
-    }, 2000);
+      // Re-fetch user files from blockchain to refresh the list
+      if (selectedChain && walletAddress) {
+        setLoadingFiles(true);
+        try {
+          const apiUrl = selectedChain.api?.[0]?.address || '';
+          const txFiles = await fetchUserCascadeTransactions(apiUrl, walletAddress);
+          setMyFiles(txFiles);
+        } catch (error) {
+          console.error('Error refreshing file list:', error);
+          // Fallback: add file manually if fetch fails
+          const newFile: CascadeFile = {
+            id: result.actionId,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            public: false,
+            status: 'completed',
+            tx_id: result.txHash || '--',
+            action_id: result.actionId,
+            price: 0,
+            fee: Math.ceil(file.size / 1024) * 100,
+            last_modified: new Date().toISOString(),
+          };
+          setMyFiles([newFile, ...myFiles]);
+        } finally {
+          setLoadingFiles(false);
+        }
+      }
+    } else if (result.error) {
+      alert(`Upload failed: ${result.error}`);
+    }
+  };
+
+  const handleDownload = async (file: CascadeFile) => {
+    try {
+      await downloadCascadeFile(file.action_id, file.name);
+    } catch (error: any) {
+      alert(`Download failed: ${error.message}`);
+    }
   };
 
   if (!isLumeraChain) {
@@ -266,13 +335,42 @@ export default function CascadePage() {
         <main className="flex-1 overflow-y-auto pt-8 pb-8">
           {/* Title Section */}
           <div className="mx-6 mb-4">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <MapPin className="w-6 h-6 text-blue-400" />
-              Cascade Storage Network
-            </h1>
-            <p className="text-sm text-gray-400 mt-1">
-              {supernodes.filter(n => n.status === 'online').length} active supernodes
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  <MapPin className="w-6 h-6 text-blue-400" />
+                  Cascade Storage Network
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">
+                  {supernodes.filter(n => n.status === 'online').length} active supernodes
+                </p>
+              </div>
+              {walletAddress ? (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-xs text-green-400 font-medium">
+                      {walletAddress.slice(0, 12)}...{walletAddress.slice(-8)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (window.keplr && chainId) {
+                      window.keplr.enable(chainId).then(() => {
+                        window.location.reload();
+                      });
+                    } else {
+                      alert('Please install Keplr wallet extension');
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Connect Wallet
+                </button>
+              )}
+            </div>
           </div>
 
           {/* World Map Section */}
@@ -406,22 +504,43 @@ export default function CascadePage() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <Upload className="w-8 h-8 mx-auto mb-2 text-gray-500" />
-              <p className="text-sm mb-1 text-gray-300">
-                {uploading ? 'Uploading...' : 'Drag & drop files here'}
-              </p>
-              <p className="text-xs text-gray-500 mb-2">or</p>
-              <label className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 rounded-lg cursor-pointer transition-all">
-                <File className="w-3.5 h-3.5" />
-                Browse Files
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  multiple 
-                  onChange={handleFileInput}
-                  disabled={uploading}
-                />
-              </label>
+              {uploading ? (
+                <div className="space-y-3">
+                  <Loader2 className="w-8 h-8 mx-auto text-blue-500 animate-spin" />
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-300">Uploading to Cascade Network...</p>
+                    <div className="w-full bg-gray-800 rounded-full h-2 max-w-xs mx-auto">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500">{uploadProgress}%</p>
+                  </div>
+                  {uploadError && (
+                    <p className="text-xs text-red-400">{uploadError}</p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-gray-500" />
+                  <p className="text-sm mb-1 text-gray-300">
+                    Drag & drop files here
+                  </p>
+                  <p className="text-xs text-gray-500 mb-2">or</p>
+                  <label className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 rounded-lg cursor-pointer transition-all">
+                    <File className="w-3.5 h-3.5" />
+                    Browse Files
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      multiple 
+                      onChange={handleFileInput}
+                      disabled={uploading}
+                    />
+                  </label>
+                </>
+              )}
             </div>
           </div>
 
@@ -430,6 +549,11 @@ export default function CascadePage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">My Files</h2>
               <div className="flex items-center gap-2">
+                {!walletAddress && (
+                  <span className="text-xs text-yellow-500 mr-2">
+                    Connect wallet to view files
+                  </span>
+                )}
                 <span className="text-sm text-gray-400">Types:</span>
                 <select className="bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-1 text-sm">
                   <option>All</option>
@@ -439,9 +563,22 @@ export default function CascadePage() {
               </div>
             </div>
 
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
+            {loadingFiles ? (
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-12 text-center">
+                <Loader2 className="w-8 h-8 mx-auto text-blue-500 animate-spin mb-3" />
+                <p className="text-sm text-gray-400">Loading your files...</p>
+              </div>
+            ) : myFiles.length === 0 ? (
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-12 text-center">
+                <File className="w-12 h-12 mx-auto text-gray-600 mb-3" />
+                <p className="text-sm text-gray-400">
+                  {walletAddress ? 'No files uploaded yet' : 'Connect wallet to view your files'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
                   <thead className="bg-[#0f0f0f] border-b border-gray-800">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">
@@ -476,12 +613,12 @@ export default function CascadePage() {
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                             file.status === 'completed' ? 'bg-green-500/10 text-green-400' :
-                            file.status === 'in_progress' ? 'bg-blue-500/10 text-blue-400' :
+                            file.status === 'uploading' ? 'bg-blue-500/10 text-blue-400' :
                             file.status === 'failed' ? 'bg-red-500/10 text-red-400' :
                             'bg-gray-500/10 text-gray-400'
                           }`}>
                             {file.status === 'completed' && <CheckCircle className="w-3 h-3" />}
-                            {file.status === 'in_progress' && <Clock className="w-3 h-3" />}
+                            {file.status === 'uploading' && <Clock className="w-3 h-3" />}
                             {file.status === 'failed' && <XCircle className="w-3 h-3" />}
                             {file.status === 'pending' && <Clock className="w-3 h-3" />}
                             {file.status.replace('_', ' ')}
@@ -497,7 +634,11 @@ export default function CascadePage() {
                           {new Date(file.last_modified).toLocaleString()}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 rounded-lg text-xs font-medium transition-all">
+                          <button 
+                            onClick={() => handleDownload(file)}
+                            disabled={!file.action_id || file.status !== 'completed'}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all"
+                          >
                             <Download className="w-3 h-3" />
                             Download
                           </button>
@@ -508,6 +649,7 @@ export default function CascadePage() {
                 </table>
               </div>
             </div>
+            )}
           </div>
         </main>
       </div>

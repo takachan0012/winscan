@@ -801,6 +801,7 @@ declare global {
       getOfflineSigner: (chainId: string) => any;
       getOfflineSignerAuto: (chainId: string) => Promise<any>;
       getOfflineSignerOnlyAmino: (chainId: string) => Promise<any>;
+      signAmino: (chainId: string, signer: string, signDoc: any, signOptions?: any) => Promise<any>;
     };
     leap?: {
       enable: (chainId: string) => Promise<void>;
